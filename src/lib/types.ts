@@ -66,6 +66,37 @@ export interface TechnicalIndicators {
 }
 
 // Sentiment types
+export type SentimentScope = 'stock' | 'sector' | 'market';
+
+export interface StockSentiment {
+  // Individual stock sentiment
+  code: string;
+  name: string;
+  price: number;
+  changePercent: number;
+  // Technical strength score (0-100)
+  technicalScore: number;
+  // Volume analysis
+  volumeRatio: number;       // today vs 5-day avg
+  volumeTrend: '放量' | '缩量' | '平量';
+  // Momentum
+  momentumScore: number;     // -100 to 100
+  // Support/Resistance
+  supportLevel: number;
+  resistanceLevel: number;
+  // Overall stock heat
+  heatScore: number;         // 0-100
+  timestamp: number;
+}
+
+export interface SectorSentiment {
+  name: string;
+  flow: number;              // net flow in 亿
+  changePercent: number;
+  leaderStock: string;
+  heatScore: number;
+}
+
 export interface MarketSentiment {
   upCount: number;
   downCount: number;

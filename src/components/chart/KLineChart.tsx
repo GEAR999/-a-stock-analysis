@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import * as echarts from 'echarts';
 import { useAppState } from '@/hooks/useAppState';
 import { calculateMA, calculateMACD, calculateKDJ, calculateRSI, calculateBOLL, analyzeChanlun, analyzeWaves } from '@/lib/analysis';
@@ -37,6 +37,8 @@ export function KLineChart() {
   }, [selectedStock, klinePeriod, setKlineData]);
 
   // Build chart
+  const [showLegend, setShowLegend] = useState(false);
+
   const buildChart = useCallback(() => {
     if (!chartRef.current || klineData.length === 0) return;
 
@@ -197,19 +199,68 @@ export function KLineChart() {
       });
     }
 
-    // Wave labels
-    if (waveData) {
+    // Wave labels and connecting lines
+    if (waveData && waveData.waves.length > 0) {
+      // Draw connecting lines between wave pivots
+      const wavePoints: Array<{ index: number; price: number; label: string; type: string }> = [];
+      waveData.waves.forEach(w => {
+        const startPrice = klineData[w.start]?.[w.label === '1' || w.label === '3' || w.label === '5' || w.label === 'B' ? 'low' : 'high'] || 0;
+        const endPrice = klineData[w.end]?.[w.label === '2' || w.label === '4' || w.label === 'A' || w.label === 'C' ? 'low' : 'high'] || 0;
+        wavePoints.push({ index: w.start, price: startPrice, label: '', type: w.type });
+        wavePoints.push({ index: w.end, price: endPrice, label: w.label, type: w.type });
+      });
+
+      // Draw wave path line
+      if (wavePoints.length >= 2) {
+        const waveLineData: Array<[string, number] | null> = [];
+        const allDates = dates;
+        for (let i = 0; i < allDates.length; i++) waveLineData.push(null);
+        wavePoints.forEach((wp, idx) => {
+          if (wp.index >= 0 && wp.index < allDates.length) {
+            waveLineData[wp.index] = [allDates[wp.index], wp.price];
+          }
+          // Fill gaps between consecutive wave points
+          if (idx > 0) {
+            const prevWp = wavePoints[idx - 1];
+            const startIdx = Math.min(prevWp.index, wp.index);
+            const endIdx = Math.max(prevWp.index, wp.index);
+            for (let j = startIdx; j <= endIdx; j++) {
+              if (j >= 0 && j < allDates.length && waveLineData[j] === null) {
+                const ratio = (j - prevWp.index) / (wp.index - prevWp.index || 1);
+                const interpPrice = prevWp.price + (wp.price - prevWp.price) * ratio;
+                waveLineData[j] = [allDates[j], interpPrice];
+              }
+            }
+          }
+        });
+
+        series.push({
+          type: 'line',
+          data: waveLineData,
+          xAxisIndex: 0,
+          yAxisIndex: 0,
+          lineStyle: { width: 1.5, color: '#a855f7', type: 'dashed' },
+          symbol: 'none',
+          z: 6,
+          connectNulls: true,
+        } as Record<string, unknown>);
+      }
+
+      // Draw wave labels
       waveData.waves.forEach(w => {
         const midIndex = Math.floor((w.start + w.end) / 2);
         const midPrice = klineData[midIndex]?.high || 0;
+        const isUp = w.label === '1' || w.label === '3' || w.label === '5';
         series.push({
           type: 'scatter',
-          data: [[dates[midIndex], midPrice]],
+          data: [[dates[midIndex], midPrice * (isUp ? 1.005 : 0.995)]],
           xAxisIndex: 0,
           yAxisIndex: 0,
-          symbol: 'none',
+          symbol: 'circle',
+          symbolSize: 18,
+          itemStyle: { color: w.type === 'impulse' ? 'rgba(168,85,247,0.2)' : 'rgba(245,158,11,0.2)', borderColor: w.type === 'impulse' ? '#a855f7' : '#f59e0b', borderWidth: 1 },
           z: 10,
-          label: { show: true, formatter: w.label, color: w.type === 'impulse' ? '#f59e0b' : '#a855f7', fontSize: 11, fontWeight: 'bold' },
+          label: { show: true, formatter: w.label, color: w.type === 'impulse' ? '#a855f7' : '#f59e0b', fontSize: 11, fontWeight: 'bold' },
         } as Record<string, unknown>);
       });
     }
@@ -294,7 +345,7 @@ export function KLineChart() {
   }
 
   return (
-    <div className="flex-1 flex flex-col min-h-0">
+    <div className="flex-1 flex flex-col min-h-0 relative">
       {/* Period selector */}
       <div className="flex items-center gap-1 px-3 py-2 border-b border-[#1e293b]">
         {PERIODS.map(p => (
@@ -315,11 +366,104 @@ export function KLineChart() {
             const colors: Record<number, string> = { 5: '#f59e0b', 10: '#3b82f6', 20: '#a855f7', 60: '#22c55e', 120: '#ef4444', 250: '#94a3b8' };
             return <span key={p} style={{ color: colors[p] }}>MA{p}</span>;
           })}
+          <button
+            onClick={() => setShowLegend(!showLegend)}
+            className={`px-1.5 py-0.5 rounded text-[10px] transition-colors ${showLegend ? 'bg-[#3b82f6] text-white' : 'text-[#94a3b8] hover:text-[#e2e8f0] hover:bg-[#1e293b]'}`}
+          >
+            图例
+          </button>
         </div>
       </div>
 
+      {/* Legend overlay */}
+      {showLegend && (
+        <div className="absolute top-12 right-3 z-20 bg-[#111827] border border-[#1e293b] rounded p-3 text-xs shadow-lg max-w-xs">
+          <div className="text-[#94a3b8] font-medium mb-2 text-[10px] uppercase tracking-wider">标注图例说明</div>
+          <div className="space-y-2">
+            {analysisSettings.chanlun && (
+              <div>
+                <div className="text-[#f59e0b] font-medium mb-1">缠论分析</div>
+                <div className="space-y-0.5 text-[10px] pl-2">
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-0.5 bg-[#ef4444] inline-block" />
+                    <span className="text-[#e2e8f0]">红色线 = 上升笔（低点→高点）</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-0.5 bg-[#22c55e] inline-block" />
+                    <span className="text-[#e2e8f0]">绿色线 = 下降笔（高点→低点）</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-2 bg-[#3b82f6]/20 border border-[#3b82f6] inline-block" />
+                    <span className="text-[#e2e8f0]">蓝色区域 = 中枢（三笔重叠区间）</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[#ef4444]">▲</span>
+                    <span className="text-[#e2e8f0]">红色三角+B = 买点（B1一买/B2二买/B3三买）</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[#22c55e]">▼</span>
+                    <span className="text-[#e2e8f0]">绿色三角+S = 卖点（S1一卖/S2二卖/S3三卖）</span>
+                  </div>
+                </div>
+              </div>
+            )}
+            {analysisSettings.wave && (
+              <div>
+                <div className="text-[#a855f7] font-medium mb-1">波浪理论</div>
+                <div className="space-y-0.5 text-[10px] pl-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[#a855f7] font-bold">1-5</span>
+                    <span className="text-[#e2e8f0]">推动浪（5浪结构，1/3/5顺势，2/4回调）</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[#f59e0b] font-bold">A-C</span>
+                    <span className="text-[#e2e8f0]">调整浪（3浪结构，A/C顺势，B反弹）</span>
+                  </div>
+                  <div className="text-[#94a3b8] text-[9px] mt-0.5">浪型标注在每段波动的中点位置</div>
+                </div>
+              </div>
+            )}
+            {analysisSettings.boll && (
+              <div>
+                <div className="text-[#3b82f6] font-medium mb-1">布林带 (BOLL)</div>
+                <div className="space-y-0.5 text-[10px] pl-2">
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-0.5 bg-[#3b82f6] inline-block" style={{ borderStyle: 'dashed' }} />
+                    <span className="text-[#e2e8f0]">上轨/中轨/下轨 = 价格波动通道</span>
+                  </div>
+                </div>
+              </div>
+            )}
+            {analysisSettings.ma && (
+              <div>
+                <div className="text-[#f59e0b] font-medium mb-1">均线系统 (MA)</div>
+                <div className="space-y-0.5 text-[10px] pl-2">
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-0.5 bg-[#f59e0b] inline-block" />
+                    <span className="text-[#e2e8f0]">MA5/MA10 = 短期趋势</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-0.5 bg-[#3b82f6] inline-block" />
+                    <span className="text-[#e2e8f0]">MA20/MA60 = 中期趋势</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-0.5 bg-[#94a3b8] inline-block" />
+                    <span className="text-[#e2e8f0]">MA120/MA250 = 长期趋势（半年线/年线）</span>
+                  </div>
+                </div>
+              </div>
+            )}
+            {!analysisSettings.chanlun && !analysisSettings.wave && !analysisSettings.boll && !analysisSettings.ma && (
+              <div className="text-[#94a3b8] text-[10px]">暂无开启的分析指标，请在右侧面板开启</div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Chart */}
-      <div ref={chartRef} className="flex-1 min-h-0" />
+      <div className="flex-1 min-h-0 relative">
+        <div ref={chartRef} className="absolute inset-0" />
+      </div>
     </div>
   );
 }

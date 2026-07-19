@@ -28,7 +28,7 @@ src/
 │   ├── layout/
 │   │   ├── Sidebar.tsx        # 左侧栏 (搜索+自选+情绪)
 │   │   └── RightPanel.tsx     # 右侧栏 (分析+建议)
-│   ├── sentiment/SentimentPanel.tsx  # 市场情绪面板
+│   ├── sentiment/SentimentPanel.tsx  # 市场情绪面板 (个股/板块/大盘三视图)
 │   ├── sidebar/
 │   │   ├── StockSearch.tsx    # 股票搜索组件
 │   │   └── WatchList.tsx      # 自选股列表 (拖拽排序)
@@ -46,7 +46,8 @@ src/
 - `GET /api/stock?action=search&keyword={code}` - 搜索股票
 - `GET /api/stock?action=quote&code={code}` - 实时行情
 - `GET /api/stock?action=kline&code={code}&period={period}&limit={n}` - K线数据
-- `GET /api/stock?action=sentiment` - 市场情绪
+- `GET /api/stock?action=sentiment` - 大盘市场情绪
+- `GET /api/stock?action=stock_sentiment&code={code}` - 个股情绪分析（技术强度/量能/动量/支撑压力）
 
 K线周期: daily/weekly/monthly/60min/30min/15min/5min
 
@@ -62,3 +63,6 @@ K线周期: daily/weekly/monthly/60min/30min/15min/5min
 - 数据通过后端API代理获取 (避免CORS)
 - 状态管理使用 React Context
 - 分析引擎纯前端计算
+- K线图支持图例说明（点击"图例"按钮查看各标注含义）
+- 情绪面板支持个股/板块/大盘三维度切换
+- 波浪理论使用自适应枢轴点检测，支持推动浪(1-5)和调整浪(A-C)标注

@@ -230,13 +230,13 @@ export function analyzeChanlun(data: KLineData[]): ChanlunResult {
 
 // Simplified Wave Analysis
 export function analyzeWaves(data: KLineData[]): WaveResult {
-  if (data.length < 20) {
+  if (data.length < 10) {
     return { waves: [] };
   }
 
-  // Find significant pivots
+  // Find significant pivots with adaptive lookback
   const pivots: Array<{ index: number; price: number; type: 'high' | 'low' }> = [];
-  const lookback = 5;
+  const lookback = Math.max(3, Math.min(8, Math.floor(data.length / 15)));
 
   for (let i = lookback; i < data.length - lookback; i++) {
     const window = data.slice(i - lookback, i + lookback + 1);
@@ -251,7 +251,7 @@ export function analyzeWaves(data: KLineData[]): WaveResult {
     }
   }
 
-  // Remove consecutive same-type pivots
+  // Remove consecutive same-type pivots, keeping the more extreme one
   const filtered: typeof pivots = [];
   for (const p of pivots) {
     if (filtered.length === 0 || filtered[filtered.length - 1].type !== p.type) {
@@ -266,34 +266,73 @@ export function analyzeWaves(data: KLineData[]): WaveResult {
     }
   }
 
-  // Label waves
   const waves: WaveResult['waves'] = [];
   const impulseLabels = ['1', '2', '3', '4', '5'];
   const correctiveLabels = ['A', 'B', 'C'];
 
-  if (filtered.length >= 6) {
-    // Check for impulse pattern (5 waves)
-    const last6 = filtered.slice(-6);
-    const isUpImpulse = last6[0].type === 'low' && last6.every((p, i) =>
-      i === 0 || (i % 2 === 1 ? p.price > last6[i - 1].price : p.price < last6[i - 1].price)
-    );
+  if (filtered.length < 4) {
+    return { waves: [] };
+  }
 
-    if (isUpImpulse) {
-      for (let i = 0; i < 5 && i < last6.length - 1; i++) {
-        waves.push({
-          start: last6[i].index,
-          end: last6[i + 1].index,
-          label: impulseLabels[i],
-          type: 'impulse',
-        });
+  // Try to find impulse wave pattern (5 waves) in the last N pivots
+  // Look for the best 6-pivot sequence that forms an impulse pattern
+  let bestImpulse: typeof filtered = [];
+  let bestImpulseScore = 0;
+
+  for (let start = Math.max(0, filtered.length - 10); start <= filtered.length - 6; start++) {
+    const seq = filtered.slice(start, start + 6);
+    if (seq.length < 6) continue;
+
+    // Check upward impulse: low-high-low-high-low-high with increasing highs
+    let upScore = 0;
+    if (seq[0].type === 'low') {
+      for (let i = 1; i < seq.length; i++) {
+        if (i % 2 === 1 && seq[i].price > seq[i - 1].price) upScore += 2;
+        else if (i % 2 === 0 && seq[i].price < seq[i - 1].price) upScore += 1;
       }
-    } else {
-      // Corrective pattern (3 waves)
-      const last4 = filtered.slice(-4);
-      for (let i = 0; i < 3 && i < last4.length - 1; i++) {
+      // Bonus for wave 3 being the longest (most common pattern)
+      const w1Len = Math.abs(seq[1].price - seq[0].price);
+      const w3Len = Math.abs(seq[3].price - seq[2].price);
+      if (w3Len > w1Len) upScore += 2;
+    }
+
+    // Check downward impulse: high-low-high-low-high-low
+    let downScore = 0;
+    if (seq[0].type === 'high') {
+      for (let i = 1; i < seq.length; i++) {
+        if (i % 2 === 1 && seq[i].price < seq[i - 1].price) downScore += 2;
+        else if (i % 2 === 0 && seq[i].price > seq[i - 1].price) downScore += 1;
+      }
+      const w1Len = Math.abs(seq[1].price - seq[0].price);
+      const w3Len = Math.abs(seq[3].price - seq[2].price);
+      if (w3Len > w1Len) downScore += 2;
+    }
+
+    const score = Math.max(upScore, downScore);
+    if (score > bestImpulseScore) {
+      bestImpulseScore = score;
+      bestImpulse = seq;
+    }
+  }
+
+  // If we found a decent impulse pattern, label it
+  if (bestImpulseScore >= 4 && bestImpulse.length >= 6) {
+    for (let i = 0; i < 5 && i < bestImpulse.length - 1; i++) {
+      waves.push({
+        start: bestImpulse[i].index,
+        end: bestImpulse[i + 1].index,
+        label: impulseLabels[i],
+        type: 'impulse',
+      });
+    }
+  } else {
+    // Fall back to labeling the last few segments as corrective waves
+    const lastN = filtered.slice(-4);
+    if (lastN.length >= 4) {
+      for (let i = 0; i < 3 && i < lastN.length - 1; i++) {
         waves.push({
-          start: last4[i].index,
-          end: last4[i + 1].index,
+          start: lastN[i].index,
+          end: lastN[i + 1].index,
           label: correctiveLabels[i],
           type: 'corrective',
         });
@@ -416,4 +455,111 @@ export function generateAdvice(
   ];
 
   return { overall, score, details, risk };
+}
+
+// Calculate individual stock sentiment
+export function calculateStockSentiment(
+  data: KLineData[],
+  quote: { code: string; name: string; price: number; changePercent: number }
+): {
+  code: string;
+  name: string;
+  price: number;
+  changePercent: number;
+  technicalScore: number;
+  volumeRatio: number;
+  volumeTrend: '放量' | '缩量' | '平量';
+  momentumScore: number;
+  supportLevel: number;
+  resistanceLevel: number;
+  heatScore: number;
+  timestamp: number;
+} {
+  if (data.length < 5) {
+    return {
+      code: quote.code,
+      name: quote.name,
+      price: quote.price,
+      changePercent: quote.changePercent,
+      technicalScore: 50,
+      volumeRatio: 1,
+      volumeTrend: '平量',
+      momentumScore: 0,
+      supportLevel: quote.price * 0.95,
+      resistanceLevel: quote.price * 1.05,
+      heatScore: 50,
+      timestamp: Date.now(),
+    };
+  }
+
+  const last = data[data.length - 1];
+  const recent = data.slice(-5);
+
+  // Volume analysis: compare today's volume with 5-day average
+  const avgVol5d = data.slice(-6, -1).reduce((sum, d) => sum + d.volume, 0) / Math.min(5, data.length - 1);
+  const volumeRatio = avgVol5d > 0 ? last.volume / avgVol5d : 1;
+  let volumeTrend: '放量' | '缩量' | '平量';
+  if (volumeRatio > 1.3) volumeTrend = '放量';
+  else if (volumeRatio < 0.7) volumeTrend = '缩量';
+  else volumeTrend = '平量';
+
+  // Technical score based on multiple factors
+  let techScore = 50;
+
+  // Price position relative to MAs
+  const ma5 = recent.reduce((s, d) => s + d.close, 0) / recent.length;
+  const ma20 = data.slice(-20).reduce((s, d) => s + d.close, 0) / Math.min(20, data.length);
+  if (last.close > ma5) techScore += 10;
+  if (last.close > ma20) techScore += 10;
+  if (ma5 > ma20) techScore += 10; // Golden cross
+
+  // Momentum: rate of change over recent periods
+  const roc5 = data.length >= 6 ? ((last.close - data[data.length - 6].close) / data[data.length - 6].close) * 100 : 0;
+  const momentumScore = Math.max(-100, Math.min(100, Math.round(roc5 * 10)));
+
+  // Adjust tech score based on momentum
+  if (momentumScore > 20) techScore += 15;
+  else if (momentumScore > 0) techScore += 5;
+  else if (momentumScore < -20) techScore -= 15;
+  else if (momentumScore < 0) techScore -= 5;
+
+  // Volume-price coordination
+  if (last.close > data[data.length - 2].close && volumeRatio > 1.2) {
+    techScore += 10; // Price up with volume = bullish
+  }
+  if (last.close < data[data.length - 2].close && volumeRatio > 1.5) {
+    techScore -= 10; // Price down with heavy volume = bearish
+  }
+
+  techScore = Math.max(0, Math.min(100, techScore));
+
+  // Support and resistance levels (simple: recent lows/highs)
+  const recentLows = data.slice(-20).map(d => d.low);
+  const recentHighs = data.slice(-20).map(d => d.high);
+  const supportLevel = Math.min(...recentLows);
+  const resistanceLevel = Math.max(...recentHighs);
+
+  // Heat score: combination of volume activity, price volatility, and momentum strength
+  const volatility = (Math.max(...recentHighs) - Math.min(...recentLows)) / last.close * 100;
+  const heatScore = Math.max(0, Math.min(100, Math.round(
+    volumeRatio * 25 +
+    Math.abs(momentumScore) * 0.3 +
+    volatility * 3 +
+    (Math.abs(quote.changePercent) > 3 ? 20 : 0)
+  )));
+
+  return {
+    code: quote.code,
+    name: quote.name,
+    price: quote.price,
+    changePercent: quote.changePercent,
+    technicalScore: techScore,
+    volumeRatio: Math.round(volumeRatio * 100) / 100,
+    volumeTrend,
+    momentumScore,
+    supportLevel: Math.round(supportLevel * 100) / 100,
+    resistanceLevel: Math.round(resistanceLevel * 100) / 100,
+    heatScore,
+    timestamp: Date.now(),
+  };
 }

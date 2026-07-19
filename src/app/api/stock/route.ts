@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { searchStocks, getQuote, getKLineData, getMarketSentiment } from '@/lib/api/stock';
+import { calculateStockSentiment } from '@/lib/analysis';
 import type { KLinePeriod } from '@/lib/types';
 
 export async function GET(request: NextRequest) {
@@ -32,6 +33,16 @@ export async function GET(request: NextRequest) {
         const sentiment = await getMarketSentiment();
         if (!sentiment) return NextResponse.json({ error: 'Sentiment data unavailable' }, { status: 500 });
         return NextResponse.json({ success: true, data: sentiment });
+      }
+      case 'stock_sentiment': {
+        if (!code) return NextResponse.json({ error: 'Missing code' }, { status: 400 });
+        const [quote, klineData] = await Promise.all([
+          getQuote(code),
+          getKLineData(code, 'daily', 60),
+        ]);
+        if (!quote) return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
+        const stockSentiment = calculateStockSentiment(klineData, quote);
+        return NextResponse.json({ success: true, data: stockSentiment });
       }
       default:
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
