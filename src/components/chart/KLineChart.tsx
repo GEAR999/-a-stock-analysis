@@ -149,11 +149,14 @@ export function KLineChart() {
     if (chanlunData) {
       // Draw strokes
       chanlunData.strokes.forEach(stroke => {
+        if (stroke.start < 0 || stroke.end < 0 || stroke.start >= klineData.length || stroke.end >= klineData.length) return;
         const startPrice = stroke.direction === 'up' ? klineData[stroke.start].low : klineData[stroke.start].high;
         const endPrice = stroke.direction === 'up' ? klineData[stroke.end].high : klineData[stroke.end].low;
+        const beforeLen = Math.max(0, stroke.start);
+        const betweenLen = Math.max(0, stroke.end - stroke.start - 1);
         series.push({
           type: 'line',
-          data: new Array(stroke.start).fill(null).concat([startPrice], new Array(stroke.end - stroke.start - 1).fill(null), [endPrice]),
+          data: new Array(beforeLen).fill(null).concat([startPrice], new Array(betweenLen).fill(null), [endPrice]),
           xAxisIndex: 0,
           yAxisIndex: 0,
           lineStyle: { width: 1.5, color: stroke.direction === 'up' ? '#ef4444' : '#22c55e' },
