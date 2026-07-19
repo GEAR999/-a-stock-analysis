@@ -89,6 +89,102 @@ export async function getQuote(code: string): Promise<StockQuote | null> {
   }
 }
 
+// Sector types
+export interface SectorInfo {
+  name: string;
+  code: string;
+  changePercent: number;
+  turnover: number;
+  leadingStock: string;
+  leadingStockChange: number;
+}
+
+// Get sector list from East Money
+export async function getSectorList(): Promise<SectorInfo[]> {
+  try {
+    const url = 'https://push2.eastmoney.com/api/qt/clist/get';
+    const params = new URLSearchParams({
+      pn: '1',
+      pz: '100',
+      po: '1',
+      np: '1',
+      ut: 'bd1d9ddb04089700cf9c27f6f7426281',
+      fltt: '2',
+      invt: '2',
+      fid: 'f3',
+      fs: 'm:90+t:2',
+      fields: 'f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f12,f13,f14,f15,f16,f17,f18,f20,f21,f23,f24,f25,f26,f22,f33,f11,f62,f128,f136,f115,f152,f124,f107,f104,f105,f140,f141,f207,f208,f209,f222',
+    });
+
+    const response = await fetch(`${url}?${params}`, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0',
+        'Referer': 'https://quote.eastmoney.com/',
+      },
+    });
+    const data = await response.json();
+
+    if (!data?.data?.diff) return [];
+
+    return data.data.diff.map((item: Record<string, unknown>) => ({
+      name: item.f14 as string,
+      code: item.f12 as string,
+      changePercent: item.f3 as number,
+      turnover: item.f8 as number,
+      leadingStock: item.f128 as string || '',
+      leadingStockChange: item.f136 as number || 0,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+// Get sector stocks (constituents)
+export async function getSectorStocks(sectorName: string): Promise<StockQuote[]> {
+  try {
+    const url = 'https://push2.eastmoney.com/api/qt/clist/get';
+    const params = new URLSearchParams({
+      pn: '1',
+      pz: '50',
+      po: '1',
+      np: '1',
+      ut: 'bd1d9ddb04089700cf9c27f6f7426281',
+      fltt: '2',
+      invt: '2',
+      fid: 'f3',
+      fs: `b:${sectorName}`,
+      fields: 'f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f12,f13,f14,f15,f16,f17,f18,f20,f21,f23,f24,f25,f26,f22,f33,f11,f62,f128,f136,f115,f152',
+    });
+
+    const response = await fetch(`${url}?${params}`, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0',
+        'Referer': 'https://quote.eastmoney.com/',
+      },
+    });
+    const data = await response.json();
+
+    if (!data?.data?.diff) return [];
+
+    return data.data.diff.map((item: Record<string, unknown>) => ({
+      code: item.f12 as string,
+      name: item.f14 as string,
+      price: item.f2 as number,
+      change: item.f4 as number,
+      changePercent: item.f3 as number,
+      open: item.f17 as number,
+      high: item.f15 as number,
+      low: item.f16 as number,
+      preClose: item.f18 as number,
+      volume: item.f5 as number,
+      amount: item.f6 as number,
+      timestamp: Date.now(),
+    }));
+  } catch {
+    return [];
+  }
+}
+
 // Get K-line data
 export async function getKLineData(
   code: string,

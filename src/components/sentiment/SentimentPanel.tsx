@@ -95,15 +95,61 @@ export function SentimentPanel({ stockCode, stockName, sectorName }: SentimentPa
     return () => clearTimeout(timer);
   }, [searchKeyword, followCurrentStock]);
 
-  // 加载情绪数据
+  // 加载情绪数据 - 从API获取实时数据
   useEffect(() => {
-    setLoading(true);
-    const result = fetchComprehensiveSentiment(
-      viewMode === "sector" ? selectedSector : undefined,
-      viewMode === "stock" ? selectedStockCode : undefined
-    );
-    setData(result);
-    setLoading(false);
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        let url = '/api/stock?action=';
+        if (viewMode === 'market') {
+          url += 'comprehensive_sentiment';
+        } else if (viewMode === 'sector') {
+          url += `sector_sentiment&sector=${encodeURIComponent(selectedSector)}`;
+        } else {
+          url += `stock_sentiment&code=${selectedStockCode}`;
+        }
+        
+        const response = await fetch(url);
+        const json = await response.json();
+        
+        if (json.success && json.data) {
+          // For market view, the API returns comprehensive sentiment
+          if (viewMode === 'market') {
+            setData(json.data);
+          } else if (viewMode === 'sector') {
+            // Transform sector data to ComprehensiveSentiment format
+            const sectorResult = json.data as { score: number; level: string; details: Array<{ name: string; score: number; weight: number; value: string; description: string; calculation: string; impact: string }> };
+            setData({
+              market: { score: 50, level: '中性' as const, details: [] },
+              sector: { score: sectorResult.score, level: sectorResult.level as '爆热' | '热门' | '温和' | '冷门', details: sectorResult.details },
+              stock: { score: 50, tags: [], details: [] },
+              overallScore: sectorResult.score,
+              suggestion: '根据板块热度调整配置',
+              riskLevel: '中' as const,
+              composite: { score: sectorResult.score, level: sectorResult.level, description: '板块情绪分析' },
+            });
+          } else if (viewMode === 'stock') {
+            // Transform stock data to ComprehensiveSentiment format
+            const stockResult = json.data as { score: number; tags: string[]; details: Array<{ name: string; score: number; weight: number; value: string; description: string; calculation: string; impact: string }> };
+            setData({
+              market: { score: 50, level: '中性' as const, details: [] },
+              sector: { score: 50, level: '温和' as const, details: [] },
+              stock: { score: stockResult.score, tags: stockResult.tags, details: stockResult.details },
+              overallScore: stockResult.score,
+              suggestion: '根据个股情绪调整仓位',
+              riskLevel: '中' as const,
+              composite: { score: stockResult.score, level: '中性', description: '个股情绪分析' },
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch sentiment:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchData();
   }, [viewMode, selectedSector, selectedStockCode]);
 
   // 选择股票
