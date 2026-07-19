@@ -2,7 +2,6 @@
 
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import type { StockInfo, StockQuote, WatchlistItem, AnalysisSettings, ChatMessage, KLineData, KLinePeriod } from '@/lib/types';
-import { searchStocks, getQuote } from '@/lib/api/stock';
 
 interface AppState {
   // Stock
@@ -89,6 +88,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('stock-chat-messages', JSON.stringify(chatMessages));
   }, [chatMessages]);
 
+  const searchStocksAction = useCallback(async (keyword: string) => {
+    if (!keyword.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/stock?action=search&keyword=${encodeURIComponent(keyword)}`);
+      const json = await res.json();
+      if (json.success) setSearchResults(json.data);
+      else setSearchResults([]);
+    } catch {
+      setSearchResults([]);
+    }
+  }, []);
+
+  const refreshQuote = useCallback(async () => {
+    if (!selectedStock) return;
+    try {
+      const res = await fetch(`/api/stock?action=quote&code=${selectedStock.code}`);
+      const json = await res.json();
+      if (json.success) setCurrentQuote(json.data);
+    } catch {
+      // ignore
+    }
+  }, [selectedStock]);
+
   // Auto refresh quote
   useEffect(() => {
     if (!isMonitoring || !selectedStock) return;
@@ -96,22 +121,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       refreshQuote();
     }, 5000);
     return () => clearInterval(interval);
-  }, [isMonitoring, selectedStock]);
+  }, [isMonitoring, selectedStock, refreshQuote]);
 
-  const searchStocksAction = useCallback(async (keyword: string) => {
-    if (!keyword.trim()) {
-      setSearchResults([]);
+  // Fetch initial quote when stock changes
+  useEffect(() => {
+    if (!selectedStock) {
+      setCurrentQuote(null);
       return;
     }
-    const results = await searchStocks(keyword);
-    setSearchResults(results);
-  }, []);
-
-  const refreshQuote = useCallback(async () => {
-    if (!selectedStock) return;
-    const quote = await getQuote(selectedStock.code);
-    if (quote) setCurrentQuote(quote);
-  }, [selectedStock]);
+    refreshQuote();
+  }, [selectedStock, refreshQuote]);
 
   const addToWatchlist = useCallback((stock: StockInfo) => {
     setWatchlist(prev => {
