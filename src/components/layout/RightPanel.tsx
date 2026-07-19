@@ -11,6 +11,7 @@ import { AdvicePanel } from '@/components/analysis/AdvicePanel';
 import { MacroEconomyPanel } from '@/components/macro/MacroEconomyPanel';
 import { IndustryMappingPanel } from '@/components/industry/IndustryMappingPanel';
 import { SentimentPanel } from '@/components/sentiment/SentimentPanel';
+import OverseasMapping from '@/components/analysis/OverseasMapping';
 
 // 手风琴面板组件
 function AccordionSection({ 
@@ -174,6 +175,15 @@ export function RightPanel() {
           summary={selectedStock ? '查看关联标的' : ''}
         >
           <IndustryMappingPanel stockCode={selectedStock?.code} />
+        </AccordionSection>
+
+        {/* 3.5 海外映射 - 手风琴模式 */}
+        <AccordionSection 
+          title="海外映射" 
+          icon="🌐"
+          summary={selectedStock ? '联动分析' : ''}
+        >
+          <OverseasMapping stockCode={selectedStock?.code || ''} stockName={selectedStock?.name || ''} />
         </AccordionSection>
 
         {/* 4. 情绪分析 - 手风琴模式 */}
