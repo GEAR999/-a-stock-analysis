@@ -64,7 +64,7 @@ export function RightPanel() {
   const [activeAnalysisTab, setActiveAnalysisTab] = useState<'summary' | 'chanlun' | 'wave' | 'technical'>('summary');
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">
+    <div className="w-[400px] shrink-0 h-full flex flex-col overflow-hidden border-l border-[#1e293b] bg-[#0a0e17]">
       {/* 固定顶部：当前股票信息 */}
       <div className="px-3 py-2 bg-[#111827] border-b border-gray-800 flex-shrink-0">
         <div className="flex items-center justify-between">
