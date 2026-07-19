@@ -37,6 +37,7 @@ export type KLinePeriod = 'daily' | 'weekly' | 'monthly' | '60min' | '30min' | '
 export interface AnalysisSettings {
   chanlun: boolean;
   wave: boolean;
+  technical: boolean;
   macd: boolean;
   kdj: boolean;
   rsi: boolean;

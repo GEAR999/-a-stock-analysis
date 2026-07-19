@@ -43,6 +43,7 @@ interface AppState {
 const defaultAnalysisSettings: AnalysisSettings = {
   chanlun: true,
   wave: false,
+  technical: true,
   macd: true,
   kdj: false,
   rsi: false,

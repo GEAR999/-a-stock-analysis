@@ -1,27 +1,35 @@
 'use client';
 
+import { useAppState } from '@/hooks/useAppState';
 import { AnalysisPanel } from '@/components/analysis/AnalysisPanel';
+import { ChanlunCard } from '@/components/analysis/ChanlunCard';
+import { WaveCard } from '@/components/analysis/WaveCard';
+import { TechnicalCard } from '@/components/analysis/TechnicalCard';
+import { ComprehensiveAnalysis } from '@/components/analysis/ComprehensiveAnalysis';
 import { AdvicePanel } from '@/components/analysis/AdvicePanel';
-import { TrendOutlook } from '@/components/analysis/TrendOutlook';
 
 export function RightPanel() {
+  const { analysisSettings } = useAppState();
+
   return (
-    <div className="w-[300px] shrink-0 bg-[#0d1117] border-l border-[#1e293b] flex flex-col h-full overflow-hidden">
-      <div className="flex-1 overflow-y-auto">
-        {/* Analysis Engine */}
-        <AnalysisPanel />
+    <div className="h-full flex flex-col gap-3 overflow-y-auto p-3">
+      {/* 1. 分析理论开关 */}
+      <AnalysisPanel />
 
-        {/* Trend Outlook */}
-        <TrendOutlook />
+      {/* 2. 缠论分析卡片 */}
+      <ChanlunCard visible={analysisSettings.chanlun} />
 
-        {/* Advice */}
-        <div className="border-t border-[#1e293b]">
-          <div className="px-3 py-2 text-xs font-medium text-[#94a3b8] uppercase tracking-wider border-b border-[#1e293b]">
-            综合建议
-          </div>
-          <AdvicePanel />
-        </div>
-      </div>
+      {/* 3. 波浪理论分析卡片 */}
+      <WaveCard visible={analysisSettings.wave} />
+
+      {/* 4. 技术指标分析卡片 */}
+      <TechnicalCard visible={analysisSettings.technical} />
+
+      {/* 5. 综合分析卡片（始终显示） */}
+      <ComprehensiveAnalysis settings={analysisSettings} />
+
+      {/* 6. 综合建议 */}
+      <AdvicePanel />
     </div>
   );
 }
