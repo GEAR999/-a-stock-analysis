@@ -1,5 +1,7 @@
 'use client';
 
+import { useState } from 'react';
+import { useAppState } from '@/hooks/useAppState';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Info } from 'lucide-react';
 
@@ -22,50 +24,44 @@ interface TheoryConclusion {
 
 function getTheoryConclusions(settings: AnalysisSettings): TheoryConclusion[] {
   const conclusions: TheoryConclusion[] = [];
-  
   if (settings.chanlun) {
-    conclusions.push({
-      name: '缠论',
-      direction: '上升',
-      confidence: '中',
-      color: 'purple',
-    });
+    conclusions.push({ name: '缠论', direction: '上升', confidence: '中', color: 'purple' });
   }
-  
   if (settings.wave) {
-    conclusions.push({
-      name: '波浪理论',
-      direction: '上升',
-      confidence: '高',
-      color: 'blue',
-    });
+    conclusions.push({ name: '波浪理论', direction: '上升', confidence: '高', color: 'blue' });
   }
-  
   if (settings.technical) {
-    conclusions.push({
-      name: '技术指标',
-      direction: '上升',
-      confidence: '高',
-      color: 'emerald',
-    });
+    conclusions.push({ name: '技术指标', direction: '上升', confidence: '高', color: 'emerald' });
   }
-  
   return conclusions;
 }
 
+// 根据风险等级计算建议仓位
+function getPositionAdvice(riskLevel: string): { min: number; max: number; label: string; color: string } {
+  switch (riskLevel) {
+    case '低': return { min: 60, max: 80, label: '建议仓位 60-80%', color: 'text-green-400' };
+    case '中': return { min: 30, max: 50, label: '建议仓位 30-50%', color: 'text-yellow-400' };
+    case '高': return { min: 0, max: 20, label: '建议仓位 0-20%', color: 'text-orange-400' };
+    case '极高': return { min: 0, max: 0, label: '建议空仓观望', color: 'text-red-400' };
+    default: return { min: 0, max: 0, label: '无分析数据', color: 'text-gray-400' };
+  }
+}
+
 export function ComprehensiveAnalysis({ settings }: ComprehensiveAnalysisProps) {
+  const { selectedStock, currentQuote } = useAppState();
+  const [showPositionAdvice, setShowPositionAdvice] = useState(true);
   const conclusions = getTheoryConclusions(settings);
   const enabledCount = conclusions.length;
-  
+
   // 计算共振和分歧
   const upCount = conclusions.filter(c => c.direction === '上升').length;
   const downCount = conclusions.filter(c => c.direction === '下降').length;
   const neutralCount = conclusions.filter(c => c.direction === '震荡').length;
-  
+
   // 判断综合方向
   let overallDirection: '看多' | '看空' | '中性';
   let overallColor: string;
-  
+
   if (upCount > downCount && upCount > neutralCount) {
     overallDirection = '看多';
     overallColor = 'text-red-400 bg-red-500/10 border-red-500/30';
@@ -76,19 +72,27 @@ export function ComprehensiveAnalysis({ settings }: ComprehensiveAnalysisProps) 
     overallDirection = '中性';
     overallColor = 'text-yellow-400 bg-yellow-500/10 border-yellow-500/30';
   }
-  
+
   // 判断共振情况
   const hasResonance = upCount === enabledCount || downCount === enabledCount;
   const hasDivergence = upCount > 0 && downCount > 0;
-  
+
   // 风险等级
-  const riskLevel = enabledCount === 0 ? '无' :
+  const riskLevel: string = enabledCount === 0 ? '无' :
     hasDivergence ? '中' :
     overallDirection === '看空' ? '高' : '低';
-  
+
   const riskColor = riskLevel === '高' ? 'text-red-400' :
     riskLevel === '中' ? 'text-yellow-400' :
     riskLevel === '低' ? 'text-green-400' : 'text-gray-400';
+
+  const positionAdvice = getPositionAdvice(riskLevel);
+
+  // 当前股票行情
+  const quote = currentQuote;
+  const priceChange = quote ? quote.change : 0;
+  const priceChangePercent = quote ? quote.changePercent : 0;
+  const isUp = priceChange >= 0;
 
   if (enabledCount === 0) {
     return (
@@ -129,6 +133,38 @@ export function ComprehensiveAnalysis({ settings }: ComprehensiveAnalysisProps) 
       </div>
 
       <div className="p-3 space-y-3">
+        {/* 当前股票信息 */}
+        {selectedStock && (
+          <div className="p-2 rounded bg-[#1a1a2e] border border-gray-800">
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-white">{selectedStock.name}</span>
+                <span className="text-[10px] text-gray-500">{selectedStock.code}</span>
+              </div>
+              {quote && (
+                <div className="text-right">
+                  <span className={`text-sm font-mono font-bold ${isUp ? 'text-red-400' : 'text-green-400'}`}>
+                    {quote.price?.toFixed(2) || '--'}
+                  </span>
+                </div>
+              )}
+            </div>
+            {quote && (
+              <div className="flex items-center gap-3 text-[10px]">
+                <span className={isUp ? 'text-red-400' : 'text-green-400'}>
+                  {isUp ? '+' : ''}{priceChange?.toFixed(2) || '0.00'}
+                </span>
+                <span className={isUp ? 'text-red-400' : 'text-green-400'}>
+                  {isUp ? '+' : ''}{priceChangePercent?.toFixed(2) || '0.00'}%
+                </span>
+                <span className="text-gray-500">
+                  开 {quote.open?.toFixed(2) || '--'} | 高 {quote.high?.toFixed(2) || '--'} | 低 {quote.low?.toFixed(2) || '--'}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* 综合走势定性 */}
         <div className={`p-2 rounded border ${overallColor}`}>
           <div className="flex items-center justify-between">
@@ -141,6 +177,68 @@ export function ComprehensiveAnalysis({ settings }: ComprehensiveAnalysisProps) 
             {enabledCount}个理论中，{upCount}个看多，{downCount}个看空，{neutralCount}个中性
           </p>
         </div>
+
+        {/* 仓位建议 */}
+        {showPositionAdvice && (
+          <div className="p-2 rounded bg-[#1a1a2e] border border-gray-800">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-400">仓位建议</span>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="w-3 h-3 text-gray-600 cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="max-w-[250px] bg-[#0f0f1a] border-gray-700">
+                      <p className="text-xs text-gray-300">基于综合风险等级给出仓位建议</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-gray-500">风险等级</span>
+                <span className={`text-xs font-bold ${riskColor}`}>{riskLevel}</span>
+              </div>
+            </div>
+            <div className={`text-sm font-medium ${positionAdvice.color} mb-1`}>
+              {positionAdvice.label}
+            </div>
+            {/* 仓位可视化 */}
+            <div className="relative h-3 bg-[#0a0e17] rounded-full overflow-hidden">
+              <div
+                className="absolute h-full rounded-full transition-all duration-500"
+                style={{
+                  left: `${positionAdvice.min}%`,
+                  width: `${positionAdvice.max - positionAdvice.min}%`,
+                  background: riskLevel === '低' ? 'linear-gradient(90deg, #22c55e40, #22c55e80)' :
+                    riskLevel === '中' ? 'linear-gradient(90deg, #eab30840, #eab30880)' :
+                    riskLevel === '高' ? 'linear-gradient(90deg, #f9731640, #f9731680)' :
+                    'linear-gradient(90deg, #ef444440, #ef444480)',
+                }}
+              />
+              {/* 刻度 */}
+              {[0, 25, 50, 75, 100].map((tick) => (
+                <div
+                  key={tick}
+                  className="absolute top-0 h-full w-px bg-gray-700/50"
+                  style={{ left: `${tick}%` }}
+                />
+              ))}
+            </div>
+            <div className="flex justify-between text-[8px] text-gray-600 mt-0.5">
+              <span>空仓 0%</span>
+              <span>半仓 50%</span>
+              <span>满仓 100%</span>
+            </div>
+            {/* 风险说明 */}
+            <div className="mt-2 text-[10px] text-gray-500">
+              {riskLevel === '低' && '多理论共振看多，市场情绪良好，可适当提高仓位'}
+              {riskLevel === '中' && '理论存在分歧，建议控制仓位，分批操作'}
+              {riskLevel === '高' && '看空信号明显，建议轻仓或空仓，等待反转信号'}
+              {riskLevel === '极高' && '多重风险叠加，建议空仓观望，保护本金'}
+            </div>
+          </div>
+        )}
 
         {/* 各理论结论 */}
         <div className="space-y-1">
@@ -187,7 +285,7 @@ export function ComprehensiveAnalysis({ settings }: ComprehensiveAnalysisProps) 
               </p>
             </div>
           )}
-          
+
           {hasDivergence && (
             <div className="p-2 rounded bg-yellow-500/5 border border-yellow-500/20">
               <div className="flex items-center gap-2 mb-1">
@@ -198,46 +296,16 @@ export function ComprehensiveAnalysis({ settings }: ComprehensiveAnalysisProps) 
                       <Info className="w-3 h-3 text-yellow-400/60 cursor-help" />
                     </TooltipTrigger>
                     <TooltipContent side="right" className="max-w-[250px] bg-[#0f0f1a] border-yellow-500/30">
-                      <p className="text-xs text-gray-300">不同理论得出矛盾结论，建议谨慎操作，等待方向明确</p>
+                      <p className="text-xs text-gray-300">不同理论得出不同结论，需要综合判断，降低仓位</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               </div>
               <p className="text-xs text-gray-400">
-                理论间存在分歧，建议降低仓位或观望，等待更多信号确认
+                {upCount}个看多 vs {downCount}个看空，建议谨慎操作
               </p>
             </div>
           )}
-        </div>
-
-        {/* 综合操作建议 */}
-        <div className="p-2 rounded bg-amber-500/5 border border-amber-500/20">
-          <span className="text-xs text-gray-400">综合操作建议</span>
-          <p className="text-xs text-amber-200 mt-1">
-            {hasResonance && overallDirection === '看多' && '多理论共振看多，建议持股待涨，可适当加仓'}
-            {hasResonance && overallDirection === '看空' && '多理论共振看空，建议减仓或离场观望'}
-            {hasResonance && overallDirection === '中性' && '多理论共振看震荡，建议高抛低吸，控制仓位'}
-            {hasDivergence && '理论间存在分歧，建议降低仓位，等待方向明确后再操作'}
-            {!hasResonance && !hasDivergence && enabledCount === 1 && '仅一个理论开启，建议结合其他理论综合判断'}
-          </p>
-        </div>
-
-        {/* 综合风险等级 */}
-        <div className="flex items-center justify-between p-2 rounded bg-[#1a1a2e]">
-          <span className="text-xs text-gray-400">综合风险等级</span>
-          <span className={`text-sm font-bold ${riskColor}`}>
-            {riskLevel === '无' ? '-' : riskLevel}
-          </span>
-        </div>
-
-        {/* 关键观察点 */}
-        <div className="space-y-1">
-          <span className="text-xs text-gray-400">关键观察点</span>
-          <div className="text-xs text-gray-300 space-y-1">
-            <p>• 关注MACD是否持续金叉，确认上升趋势</p>
-            <p>• 观察成交量是否配合，放量突破有效性更高</p>
-            <p>• 注意前高1280压力位，突破后回踩确认是关键</p>
-          </div>
         </div>
       </div>
     </div>
