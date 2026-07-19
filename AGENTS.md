@@ -35,7 +35,10 @@ src/
 │   ├── layout/
 │   │   ├── Sidebar.tsx        # 左侧栏 (搜索+自选+情绪)
 │   │   └── RightPanel.tsx     # 右侧栏 (分析+建议)
-│   ├── sentiment/SentimentPanel.tsx  # 市场情绪面板 (大盘/板块/个股三维度切换)
+│   ├── sentiment/SentimentPanel.tsx  # 市场情绪面板 (大盘/板块/个股三维度切换+板块选择+个股搜索)
+│   ├── backtest/
+│   │   ├── types.ts           # 回测类型定义
+│   │   └── BacktestPanel.tsx  # 模拟回测面板 (交易记录+持仓+资金曲线+收益统计+仓位管理)
 │   ├── sidebar/
 │   │   ├── StockSearch.tsx    # 股票搜索组件
 │   │   └── WatchList.tsx      # 自选股列表 (拖拽排序)

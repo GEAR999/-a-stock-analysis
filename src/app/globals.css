@@ -176,3 +176,45 @@ body {
   font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-variant-numeric: tabular-nums;
 }
+
+/* Overflow handling */
+.text-wrap-safe {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  hyphens: auto;
+}
+
+.text-truncate-safe {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+/* Card content overflow */
+.card-content {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.card-content > * {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Prevent horizontal overflow */
+.no-overflow-x {
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
+/* Responsive path cards - stack vertically on narrow screens */
+@media (max-width: 400px) {
+  .path-cards {
+    flex-direction: column !important;
+  }
+  .path-cards > * {
+    width: 100% !important;
+  }
+}
