@@ -35,7 +35,9 @@ src/
 │   ├── layout/
 │   │   ├── Sidebar.tsx        # 左侧栏 (搜索+自选+情绪)
 │   │   └── RightPanel.tsx     # 右侧栏 (分析+建议)
-│   ├── sentiment/SentimentPanel.tsx  # 市场情绪面板 (大盘/板块/个股三维度切换+板块选择+个股搜索)
+│   ├── sentiment/SentimentPanel.tsx  # 市场情绪面板 (大盘/板块/个股三维度+跟随开关+全市场板块)
+│   ├── macro/MacroEconomyPanel.tsx   # 宏观经济分析面板 (中国/美国/欧洲/日本/韩国+经济指标+综合评估)
+│   ├── industry/IndustryMappingPanel.tsx # 产业链映射分析 (美股/日韩产业链映射)
 │   ├── backtest/
 │   │   ├── types.ts           # 回测类型定义
 │   │   └── BacktestPanel.tsx  # 模拟回测面板 (交易记录+持仓+资金曲线+收益统计+仓位管理)

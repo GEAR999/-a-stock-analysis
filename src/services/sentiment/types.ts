@@ -81,4 +81,9 @@ export interface ComprehensiveSentiment {
   overallScore: number;
   suggestion: string;
   riskLevel: '低' | '中' | '高' | '极高';
+  composite: {
+    score: number;
+    level: string;
+    description: string;
+  };
 }

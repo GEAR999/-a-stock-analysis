@@ -94,6 +94,26 @@ export function calculateComprehensiveSentiment(
   const suggestion = generateSuggestion(overallScore, market, sector, stock);
   const riskLevel = evaluateRiskLevel(overallScore, market, stock);
   
+  // 生成综合评级
+  let compositeLevel: string;
+  let compositeDescription: string;
+  if (overallScore >= 80) {
+    compositeLevel = '极度乐观';
+    compositeDescription = '市场情绪极度乐观，大盘、板块、个股全面看涨';
+  } else if (overallScore >= 60) {
+    compositeLevel = '偏暖';
+    compositeDescription = '市场情绪偏暖，多数维度看涨';
+  } else if (overallScore >= 40) {
+    compositeLevel = '中性';
+    compositeDescription = '市场情绪中性，方向不明';
+  } else if (overallScore >= 20) {
+    compositeLevel = '偏冷';
+    compositeDescription = '市场情绪偏冷，多数维度看跌';
+  } else {
+    compositeLevel = '极度悲观';
+    compositeDescription = '市场情绪极度悲观，大盘、板块、个股全面看跌';
+  }
+  
   return {
     market,
     sector,
@@ -101,6 +121,11 @@ export function calculateComprehensiveSentiment(
     overallScore,
     suggestion,
     riskLevel,
+    composite: {
+      score: overallScore,
+      level: compositeLevel,
+      description: compositeDescription,
+    },
   };
 }
 
