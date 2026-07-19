@@ -21,8 +21,10 @@ src/
 │   ├── SentimentTooltip.tsx   # 情绪指标Tooltip组件 (hover显示计算过程)
 │   ├── ai/AIAssistant.tsx     # AI对话助手 (分析/调试模式)
 │   ├── analysis/
-│   │   ├── AnalysisPanel.tsx  # 分析引擎开关面板
-│   │   └── AdvicePanel.tsx    # 综合建议面板
+│   │   ├── AnalysisPanel.tsx  # 分析引擎开关面板 (带Tooltip说明)
+│   │   ├── AnalysisTooltip.tsx # 分析结果Tooltip组件 (缠论/波浪/技术指标)
+│   │   ├── AdvicePanel.tsx    # 综合建议面板
+│   │   └── TrendOutlook.tsx   # 走势研判与展望 (多路径推演+应对策略)
 │   ├── chart/
 │   │   ├── KLineChart.tsx     # ECharts K线图 (主图+副图+图例)
 │   │   └── QuoteHeader.tsx    # 行情信息头
@@ -65,6 +67,18 @@ K线周期: daily/weekly/monthly/60min/30min/15min/5min
 - 板块情绪：5个指标加权（板块涨跌比/主力资金流向/换手率/龙头强度/持续性）
 - 个股情绪：7个指标加权（量比/换手分位/大单净流入/分时强度/封板涨幅/龙虎榜/融资变化）+ 自动标签
 - 每个指标都有Tooltip，hover显示计算过程和解释
+
+## 分析引擎
+- 缠论分析：自动识别笔、线段、中枢，标注买卖点（一二三类买卖点）
+- 波浪理论：自动识别推动浪（5浪）和调整浪（3浪），标注浪型
+- 技术分析：MACD、KDJ、RSI、布林带（BOLL）、均线系统（MA5/10/20/60/120/250）
+- 每个指标/理论都可单独开关，带Tooltip说明（hover显示结论/依据/可信度/解释）
+- 分析结果叠加显示在K线图上
+- 走势研判与展望：
+  - 当前走势定性（基于均线/MACD/缠论中枢综合判断）
+  - 多路径推演（乐观/中性/悲观，含概率环形图、触发条件、目标位、时间窗口）
+  - 应对策略（针对每种路径的操作建议）
+  - 风险提示（主要风险、止损条件、黑天鹅预警）
 
 ## 开发命令
 - `pnpm dev` - 启动开发服务
