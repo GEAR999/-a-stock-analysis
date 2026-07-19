@@ -12,6 +12,7 @@ import { MacroEconomyPanel } from '@/components/macro/MacroEconomyPanel';
 import { IndustryMappingPanel } from '@/components/industry/IndustryMappingPanel';
 import { SentimentPanel } from '@/components/sentiment/SentimentPanel';
 import OverseasMapping from '@/components/analysis/OverseasMapping';
+import { BacktestPanel } from '@/components/backtest/BacktestPanel';
 
 // 手风琴面板组件
 function AccordionSection({ 
@@ -202,6 +203,15 @@ export function RightPanel() {
           icon="💡"
         >
           <AdvicePanel />
+        </AccordionSection>
+
+        {/* 6. 模拟回测 - 手风琴模式 */}
+        <AccordionSection 
+          title="模拟回测" 
+          icon="💰"
+          summary="多账户管理"
+        >
+          <BacktestPanel />
         </AccordionSection>
       </div>
     </div>

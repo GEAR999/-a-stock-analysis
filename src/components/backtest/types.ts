@@ -9,7 +9,8 @@ export interface Trade {
   quantity: number;
   amount: number;
   reason: string;
-  pnl?: number; // 卖出时的盈亏
+  pnl?: number;
+  isAuto?: boolean; // 是否自动操作
 }
 
 // 持仓
@@ -22,31 +23,46 @@ export interface Position {
   marketValue: number;
   pnl: number;
   pnlPercent: number;
-  positionPercent: number; // 占总资产比例
+  positionPercent: number;
 }
 
 // 账户信息
 export interface Account {
+  id: string;
+  name: string;
+  initialCapital: number;
+  currentCapital: number;
+  positions: Position[];
+  trades: Trade[];
+  trackingList: string[];
+  stockLimits: Record<string, number>;
+  createdAt: number;
+  updatedAt: number;
+}
+
+// 账户摘要（用于列表展示）
+export interface AccountSummary {
+  id: string;
+  name: string;
   initialCapital: number;
   totalAssets: number;
-  availableCash: number;
-  marketValue: number;
   totalPnl: number;
   totalPnlPercent: number;
-  positionPercent: number;
+  positionCount: number;
+  trackingCount: number;
 }
 
 // 策略评估指标
 export interface StrategyMetrics {
-  totalReturn: number; // 累计收益率
-  annualReturn: number; // 年化收益率
-  maxDrawdown: number; // 最大回撤
-  sharpeRatio: number; // 夏普比率
-  winRate: number; // 胜率
-  profitLossRatio: number; // 盈亏比
-  totalTrades: number; // 交易次数
-  profitableTrades: number; // 盈利交易数
-  losingTrades: number; // 亏损交易数
+  totalReturn: number;
+  annualReturn: number;
+  maxDrawdown: number;
+  sharpeRatio: number;
+  winRate: number;
+  profitLossRatio: number;
+  totalTrades: number;
+  profitableTrades: number;
+  losingTrades: number;
 }
 
 // 资金曲线数据点
@@ -61,18 +77,25 @@ export interface EquityPoint {
 export interface PositionAdvice {
   stockCode: string;
   stockName: string;
-  currentPosition: number; // 当前仓位百分比
-  suggestedPosition: number; // 建议仓位百分比
+  currentPosition: number;
+  suggestedPosition: number;
   action: "加仓" | "减仓" | "持有" | "建仓" | "清仓";
   riskLevel: "低" | "中" | "高" | "极高";
   reason: string;
 }
 
-// 回测配置
-export interface BacktestConfig {
-  initialCapital: number;
-  startDate: string;
-  endDate: string;
-  commission: number; // 手续费率
-  slippage: number; // 滑点
+// Toast通知
+export interface ToastMessage {
+  id: string;
+  type: "success" | "error" | "warning" | "info";
+  message: string;
+}
+
+// 买入信号
+export interface BuySignal {
+  stockCode: string;
+  stockName: string;
+  price: number;
+  amount: number;
+  reason: string;
 }
