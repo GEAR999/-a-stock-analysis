@@ -46,8 +46,8 @@ export function Sidebar() {
       </div>
 
       {/* Sentiment */}
-      <div className="border-t border-[#1e293b] max-h-[300px] overflow-y-auto">
-        <SentimentPanel />
+      <div className="border-t border-[#1e293b] max-h-[400px] overflow-y-auto">
+        <SentimentPanel stockCode="600519" stockName="贵州茅台" sectorName="白酒" />
       </div>
     </div>
   );

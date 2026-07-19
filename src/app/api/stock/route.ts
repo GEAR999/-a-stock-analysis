@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { searchStocks, getQuote, getKLineData, getMarketSentiment } from '@/lib/api/stock';
 import { calculateStockSentiment } from '@/lib/analysis';
+import { fetchComprehensiveSentiment } from '@/services/sentiment/sentiment-panel';
 import type { KLinePeriod } from '@/lib/types';
 
 export async function GET(request: NextRequest) {
@@ -43,6 +44,11 @@ export async function GET(request: NextRequest) {
         if (!quote) return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
         const stockSentiment = calculateStockSentiment(klineData, quote);
         return NextResponse.json({ success: true, data: stockSentiment });
+      }
+      case 'comprehensive_sentiment': {
+        const sector = searchParams.get('sector') || undefined;
+        const comprehensive = fetchComprehensiveSentiment(sector, code || undefined);
+        return NextResponse.json({ success: true, data: comprehensive });
       }
       default:
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
