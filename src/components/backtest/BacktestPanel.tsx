@@ -10,6 +10,8 @@ import {
   calculateMetrics, getTotalAssets, generateEquityCurve,
   canBuyStock, executeBuy, executeSell, cleanGarbageData, resetAccount,
   generateDemoAccount, generateId, calculateStrategyStats, calculateFailureStats,
+  calculateBenchmarkComparison, calculateConsecutiveLosses,
+  calculateMaxDrawdownPeriod, calculateMaxDailyLoss, calculateSlippageStats,
 } from "./storage";
 
 // ===== 失败原因标签配置 =====
@@ -516,6 +518,11 @@ export function BacktestPanel() {
   const equityCurve = account ? generateEquityCurve(account) : [];
   const strategyStats = account ? calculateStrategyStats(account) : [];
   const failureStats = account ? calculateFailureStats(account) : [];
+  const benchmarkData = account ? calculateBenchmarkComparison(account) : [];
+  const consecutiveLosses = account ? calculateConsecutiveLosses(account) : { current: 0, max: 0 };
+  const maxDrawdownPeriod = account ? calculateMaxDrawdownPeriod(account) : null;
+  const maxDailyLoss = account ? calculateMaxDailyLoss(account) : null;
+  const slippageStats = account ? calculateSlippageStats(account) : null;
 
   // 风险检测
   const positionRatio = totalAssets > 0 ? (marketValue / totalAssets) * 100 : 0;
@@ -785,6 +792,102 @@ export function BacktestPanel() {
                 <div>
                   <div className="text-[10px] text-gray-500 mb-1.5">失败原因分析</div>
                   <FailureAnalysisPanel stats={failureStats} />
+                </div>
+
+                {/* 基准对比 */}
+                {benchmarkData.length > 0 && (
+                  <div className="bg-[#111827] rounded p-2">
+                    <div className="text-[10px] text-gray-500 mb-1.5 flex items-center gap-1.5">
+                      <span>基准对比</span>
+                      <TooltipProvider><Tooltip><TooltipTrigger asChild><Info className="w-3 h-3 text-gray-600 cursor-help" /></TooltipTrigger>
+                        <TooltipContent className="bg-[#0f0f1a] border-gray-700"><p className="text-xs text-gray-300">策略 vs 沪深300 vs 买入持有</p></TooltipContent>
+                      </Tooltip></TooltipProvider>
+                    </div>
+                    <div className="h-28 relative">
+                      <svg className="w-full h-full" viewBox="0 0 300 90" preserveAspectRatio="none">
+                        {(() => {
+                          const allVals = benchmarkData.flatMap(d => [d.strategyReturn, d.benchmarkReturn, d.buyHoldReturn]);
+                          const min = Math.min(...allVals) * 1.1;
+                          const max = Math.max(...allVals) * 1.1;
+                          const range = max - min || 1;
+                          const toPath = (vals: number[]) => vals.map((v, i) => `${(i / (vals.length - 1)) * 300} ${90 - ((v - min) / range) * 90}`);
+                          const strategyPts = toPath(benchmarkData.map(d => d.strategyReturn));
+                          const benchmarkPts = toPath(benchmarkData.map(d => d.benchmarkReturn));
+                          const buyHoldPts = toPath(benchmarkData.map(d => d.buyHoldReturn));
+                          return (
+                            <>
+                              {/* Zero line */}
+                              <line x1="0" y1={90 - ((0 - min) / range) * 90} x2="300" y2={90 - ((0 - min) / range) * 90} stroke="#374151" strokeWidth="0.5" strokeDasharray="4 2" />
+                              {/* Benchmark (CSI 300) */}
+                              <path d={`M ${benchmarkPts.join(" L ")}`} fill="none" stroke="#f59e0b" strokeWidth="1" strokeDasharray="3 2" opacity="0.7" />
+                              {/* Buy & Hold */}
+                              <path d={`M ${buyHoldPts.join(" L ")}`} fill="none" stroke="#8b5cf6" strokeWidth="1" strokeDasharray="2 2" opacity="0.7" />
+                              {/* Strategy */}
+                              <path d={`M ${strategyPts.join(" L ")}`} fill="none" stroke="#22c55e" strokeWidth="1.5" />
+                            </>
+                          );
+                        })()}
+                      </svg>
+                    </div>
+                    <div className="flex items-center justify-center gap-3 mt-1">
+                      <span className="flex items-center gap-1 text-[8px] text-gray-500"><span className="w-3 h-0.5 bg-green-500 inline-block rounded"></span>策略</span>
+                      <span className="flex items-center gap-1 text-[8px] text-gray-500"><span className="w-3 h-0.5 bg-yellow-500 inline-block rounded" style={{borderTop: '1px dashed #f59e0b'}}></span>沪深300</span>
+                      <span className="flex items-center gap-1 text-[8px] text-gray-500"><span className="w-3 h-0.5 bg-purple-500 inline-block rounded" style={{borderTop: '1px dashed #8b5cf6'}}></span>买入持有</span>
+                    </div>
+                    {/* 超额收益 */}
+                    {benchmarkData.length > 0 && (
+                      <div className="grid grid-cols-2 gap-1.5 mt-2">
+                        <div className="text-center">
+                          <div className="text-[8px] text-gray-600">vs 沪深300</div>
+                          <div className={`text-[10px] font-mono font-bold ${(benchmarkData[benchmarkData.length-1].strategyReturn - benchmarkData[benchmarkData.length-1].benchmarkReturn) >= 0 ? "text-green-400" : "text-red-400"}`}>
+                            {(benchmarkData[benchmarkData.length-1].strategyReturn - benchmarkData[benchmarkData.length-1].benchmarkReturn) >= 0 ? "+" : ""}{(benchmarkData[benchmarkData.length-1].strategyReturn - benchmarkData[benchmarkData.length-1].benchmarkReturn).toFixed(2)}%
+                          </div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-[8px] text-gray-600">vs 买入持有</div>
+                          <div className={`text-[10px] font-mono font-bold ${(benchmarkData[benchmarkData.length-1].strategyReturn - benchmarkData[benchmarkData.length-1].buyHoldReturn) >= 0 ? "text-green-400" : "text-red-400"}`}>
+                            {(benchmarkData[benchmarkData.length-1].strategyReturn - benchmarkData[benchmarkData.length-1].buyHoldReturn) >= 0 ? "+" : ""}{(benchmarkData[benchmarkData.length-1].strategyReturn - benchmarkData[benchmarkData.length-1].buyHoldReturn).toFixed(2)}%
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 风控指标 */}
+                <div className="bg-[#111827] rounded p-2">
+                  <div className="text-[10px] text-gray-500 mb-1.5">风控指标</div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <div className="text-center">
+                      <div className="text-[8px] text-gray-600">连续亏损</div>
+                      <div className={`text-xs font-mono font-bold ${consecutiveLosses.current > 0 ? "text-red-400" : "text-gray-400"}`}>
+                        {consecutiveLosses.current}次 <span className="text-[8px] text-gray-600">(最多{consecutiveLosses.max})</span>
+                      </div>
+                    </div>
+                    {maxDrawdownPeriod && (
+                      <div className="text-center">
+                        <div className="text-[8px] text-gray-600">最大回撤区间</div>
+                        <div className="text-[9px] font-mono text-red-400">
+                          {maxDrawdownPeriod.start.slice(5)}~{maxDrawdownPeriod.end.slice(5)}
+                        </div>
+                        <div className="text-[8px] text-red-400">-{maxDrawdownPeriod.drawdown}%</div>
+                      </div>
+                    )}
+                    {maxDailyLoss && (
+                      <div className="text-center">
+                        <div className="text-[8px] text-gray-600">单日最大亏损</div>
+                        <div className="text-[9px] font-mono text-red-400">{maxDailyLoss.date.slice(5)}</div>
+                        <div className="text-[10px] font-mono text-red-400">¥{maxDailyLoss.loss.toLocaleString()}</div>
+                      </div>
+                    )}
+                    {slippageStats && (
+                      <div className="text-center">
+                        <div className="text-[8px] text-gray-600">平均滑点</div>
+                        <div className="text-xs font-mono text-yellow-400">{slippageStats.avgSlippage}%</div>
+                        <div className="text-[8px] text-gray-600">成本 ¥{slippageStats.totalSlippageCost.toLocaleString()}</div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}

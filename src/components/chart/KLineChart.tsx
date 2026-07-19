@@ -111,10 +111,20 @@ export function KLineChart() {
       {
         name: '成交量',
         type: 'bar',
-        data: volumes.map((v, i) => ({
-          value: v,
-          itemStyle: { color: klineData[i].close >= klineData[i].open ? 'rgba(239,68,68,0.5)' : 'rgba(34,197,94,0.5)' },
-        })),
+        data: volumes.map((v, i) => {
+          const isUp = klineData[i].close >= klineData[i].open;
+          // 模拟资金流向：放量上涨=主力流入(深红)，缩量上涨=散户流入(浅红)
+          // 放量下跌=主力流出(深绿)，缩量下跌=散户流出(浅绿)
+          const avgVol = volumes.slice(Math.max(0, i - 5), i).reduce((a, b) => a + b, 0) / Math.min(5, i || 1);
+          const isHighVolume = v > avgVol * 1.2;
+          let color: string;
+          if (isUp) {
+            color = isHighVolume ? 'rgba(239,68,68,0.8)' : 'rgba(239,68,68,0.4)';
+          } else {
+            color = isHighVolume ? 'rgba(34,197,94,0.8)' : 'rgba(34,197,94,0.4)';
+          }
+          return { value: v, itemStyle: { color } };
+        }),
         xAxisIndex: 1,
         yAxisIndex: 1,
       },
@@ -279,6 +289,49 @@ export function KLineChart() {
           xAxisIndex: idx, yAxisIndex: idx,
         },
       );
+
+      // MACD金叉死叉标记
+      const goldenCrossData: Array<[string, number] | null> = [];
+      const deathCrossData: Array<[string, number] | null> = [];
+      for (let i = 1; i < macdData.length; i++) {
+        const prev = macdData[i - 1];
+        const curr = macdData[i];
+        // 金叉：DIF从下穿上DEA
+        if (prev.dif <= prev.dea && curr.dif > curr.dea) {
+          goldenCrossData[i] = [dates[i], curr.dif];
+        }
+        // 死叉：DIF从上穿下DEA
+        if (prev.dif >= prev.dea && curr.dif < curr.dea) {
+          deathCrossData[i] = [dates[i], curr.dif];
+        }
+      }
+      if (goldenCrossData.some(d => d !== null)) {
+        series.push({
+          name: 'MACD金叉',
+          type: 'scatter',
+          data: goldenCrossData,
+          xAxisIndex: idx,
+          yAxisIndex: idx,
+          symbol: 'triangle',
+          symbolSize: 8,
+          itemStyle: { color: '#ef4444' },
+          z: 10,
+        } as Record<string, unknown>);
+      }
+      if (deathCrossData.some(d => d !== null)) {
+        series.push({
+          name: 'MACD死叉',
+          type: 'scatter',
+          data: deathCrossData,
+          xAxisIndex: idx,
+          yAxisIndex: idx,
+          symbol: 'triangle',
+          symbolSize: 8,
+          symbolRotate: 180,
+          itemStyle: { color: '#22c55e' },
+          z: 10,
+        } as Record<string, unknown>);
+      }
     }
 
     // KDJ

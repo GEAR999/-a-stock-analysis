@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { ThemeProvider } from '@/hooks/useTheme';
+import ClientBody from './client-body';
 
 export const metadata: Metadata = {
   title: 'A股智能分析系统',
@@ -13,7 +15,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="zh-CN" className="dark">
-      <body className="antialiased">{children}</body>
+      <ClientBody>
+        <ThemeProvider>
+          {children}
+        </ThemeProvider>
+      </ClientBody>
     </html>
   );
 }

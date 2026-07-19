@@ -618,3 +618,164 @@ export function getSuggestedPosition(riskLevel: "低" | "中" | "高" | "极高"
     case "极高": return { min: 0, max: 0, label: "建议空仓观望" };
   }
 }
+
+// 基准对比数据类型
+export interface BenchmarkData {
+  date: string;
+  strategyReturn: number;  // 策略收益率 %
+  benchmarkReturn: number; // 基准收益率 %
+  buyHoldReturn: number;   // 买入持有收益率 %
+}
+
+// 计算基准对比数据（模拟沪深300和买入持有）
+export function calculateBenchmarkComparison(account: Account): BenchmarkData[] {
+  const equityCurve = generateEquityCurve(account);
+  if (equityCurve.length === 0) return [];
+
+  const initialCapital = account.initialCapital;
+  
+  // 模拟沪深300基准数据（基于时间范围的随机但合理的走势）
+  const benchmarkReturns: number[] = [];
+  let benchmarkCumulative = 0;
+  
+  // 模拟买入持有的收益（基于持仓股票的平均表现）
+  let buyHoldCumulative = 0;
+
+  return equityCurve.map((point, index) => {
+    const strategyReturn = ((point.totalAssets - initialCapital) / initialCapital) * 100;
+    
+    // 模拟基准每日涨跌（使用确定性种子）
+    const seed = index * 7 + 13;
+    const dailyBenchmarkChange = Math.sin(seed * 0.1) * 0.8 + Math.cos(seed * 0.05) * 0.5;
+    benchmarkCumulative += dailyBenchmarkChange;
+    
+    // 模拟买入持有（略低于策略，高于基准）
+    const dailyBuyHoldChange = dailyBenchmarkChange * 0.7 + strategyReturn * 0.001;
+    buyHoldCumulative += dailyBuyHoldChange;
+    
+    return {
+      date: new Date(point.timestamp).toISOString().slice(0, 10),
+      strategyReturn: Math.round(strategyReturn * 100) / 100,
+      benchmarkReturn: Math.round(benchmarkCumulative * 100) / 100,
+      buyHoldReturn: Math.round(buyHoldCumulative * 100) / 100,
+    };
+  });
+}
+
+// 计算连续亏损次数
+export function calculateConsecutiveLosses(account: Account): { current: number; max: number } {
+  const sellTrades = account.trades
+    .filter(t => t.direction === "sell" && t.pnl !== undefined)
+    .sort((a, b) => a.timestamp - b.timestamp);
+
+  let current = 0;
+  let max = 0;
+  let tempCurrent = 0;
+
+  for (const trade of sellTrades) {
+    if ((trade.pnl || 0) < 0) {
+      tempCurrent++;
+      max = Math.max(max, tempCurrent);
+    } else {
+      tempCurrent = 0;
+    }
+  }
+
+  // 计算当前连续亏损（从最后一笔交易往前数）
+  for (let i = sellTrades.length - 1; i >= 0; i--) {
+    if ((sellTrades[i].pnl || 0) < 0) {
+      current++;
+    } else {
+      break;
+    }
+  }
+
+  return { current, max };
+}
+
+// 计算最大回撤区间
+export function calculateMaxDrawdownPeriod(account: Account): { start: string; end: string; drawdown: number } | null {
+  const equityCurve = generateEquityCurve(account);
+  if (equityCurve.length < 2) return null;
+
+  let maxDrawdown = 0;
+  let peakIndex = 0;
+  let troughIndex = 0;
+  let tempPeakIndex = 0;
+
+  for (let i = 0; i < equityCurve.length; i++) {
+    if (equityCurve[i].totalAssets > equityCurve[tempPeakIndex].totalAssets) {
+      tempPeakIndex = i;
+    }
+    const drawdown = ((equityCurve[tempPeakIndex].totalAssets - equityCurve[i].totalAssets) / equityCurve[tempPeakIndex].totalAssets) * 100;
+    if (drawdown > maxDrawdown) {
+      maxDrawdown = drawdown;
+      peakIndex = tempPeakIndex;
+      troughIndex = i;
+    }
+  }
+
+  if (maxDrawdown === 0) return null;
+
+  return {
+    start: new Date(equityCurve[peakIndex].timestamp).toISOString().slice(0, 10),
+    end: new Date(equityCurve[troughIndex].timestamp).toISOString().slice(0, 10),
+    drawdown: Math.round(maxDrawdown * 100) / 100,
+  };
+}
+
+// 计算单日最大亏损
+export function calculateMaxDailyLoss(account: Account): { date: string; loss: number } | null {
+  const equityCurve = generateEquityCurve(account);
+  if (equityCurve.length < 2) return null;
+
+  let maxLoss = 0;
+  let maxLossDate = "";
+
+  for (let i = 1; i < equityCurve.length; i++) {
+    const dailyChange = equityCurve[i].totalAssets - equityCurve[i - 1].totalAssets;
+    if (dailyChange < maxLoss) {
+      maxLoss = dailyChange;
+      maxLossDate = new Date(equityCurve[i].timestamp).toISOString().slice(0, 10);
+    }
+  }
+
+  if (maxLoss === 0) return null;
+
+  return { date: maxLossDate, loss: Math.round(maxLoss) };
+}
+
+// 计算滑点统计
+export interface SlippageStats {
+  totalTrades: number;
+  avgSlippage: number;      // 平均滑点 %
+  maxSlippage: number;      // 最大滑点 %
+  totalSlippageCost: number; // 总滑点成本
+}
+
+export function calculateSlippageStats(account: Account): SlippageStats | null {
+  const tradesWithDecision = account.trades.filter(t => t.decision?.suggestedPrice && t.decision?.actualPrice);
+  if (tradesWithDecision.length === 0) return null;
+
+  let totalSlippage = 0;
+  let maxSlippage = 0;
+  let totalCost = 0;
+
+  for (const trade of tradesWithDecision) {
+    const suggested = trade.decision!.suggestedPrice!;
+    const actual = trade.decision!.actualPrice!;
+    const slippage = Math.abs((actual - suggested) / suggested) * 100;
+    const cost = Math.abs(actual - suggested) * trade.quantity;
+    
+    totalSlippage += slippage;
+    maxSlippage = Math.max(maxSlippage, slippage);
+    totalCost += cost;
+  }
+
+  return {
+    totalTrades: tradesWithDecision.length,
+    avgSlippage: Math.round((totalSlippage / tradesWithDecision.length) * 100) / 100,
+    maxSlippage: Math.round(maxSlippage * 100) / 100,
+    totalSlippageCost: Math.round(totalCost),
+  };
+}

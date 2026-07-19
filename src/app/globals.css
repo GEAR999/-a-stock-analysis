@@ -123,6 +123,66 @@
   --sidebar-ring: #3b82f6;
 }
 
+/* 浅色主题 */
+[data-theme="light"] {
+  --background: #f8fafc;
+  --foreground: #1e293b;
+  --card: #ffffff;
+  --card-foreground: #1e293b;
+  --popover: #ffffff;
+  --popover-foreground: #1e293b;
+  --primary: #3b82f6;
+  --primary-foreground: #ffffff;
+  --secondary: #e2e8f0;
+  --secondary-foreground: #1e293b;
+  --muted: #e2e8f0;
+  --muted-foreground: #64748b;
+  --accent: #e2e8f0;
+  --accent-foreground: #1e293b;
+  --destructive: #ef4444;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #3b82f6;
+  --sidebar: #f1f5f9;
+  --sidebar-foreground: #1e293b;
+  --sidebar-primary: #3b82f6;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e2e8f0;
+  --sidebar-accent-foreground: #1e293b;
+  --sidebar-border: #e2e8f0;
+  --sidebar-ring: #3b82f6;
+}
+
+/* 护眼主题 */
+[data-theme="eye-care"] {
+  --background: #1a1f16;
+  --foreground: #d4d8c8;
+  --card: #232b1e;
+  --card-foreground: #d4d8c8;
+  --popover: #232b1e;
+  --popover-foreground: #d4d8c8;
+  --primary: #65a30d;
+  --primary-foreground: #ffffff;
+  --secondary: #3a4530;
+  --secondary-foreground: #d4d8c8;
+  --muted: #3a4530;
+  --muted-foreground: #8b9478;
+  --accent: #3a4530;
+  --accent-foreground: #d4d8c8;
+  --destructive: #dc2626;
+  --border: #3a4530;
+  --input: #3a4530;
+  --ring: #65a30d;
+  --sidebar: #1e2519;
+  --sidebar-foreground: #d4d8c8;
+  --sidebar-primary: #65a30d;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #3a4530;
+  --sidebar-accent-foreground: #d4d8c8;
+  --sidebar-border: #3a4530;
+  --sidebar-ring: #65a30d;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

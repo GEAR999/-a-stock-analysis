@@ -13,6 +13,7 @@ import { IndustryMappingPanel } from '@/components/industry/IndustryMappingPanel
 import { SentimentPanel } from '@/components/sentiment/SentimentPanel';
 import OverseasMapping from '@/components/analysis/OverseasMapping';
 import { BacktestPanel } from '@/components/backtest/BacktestPanel';
+import { SignalSummaryBar } from '@/components/analysis/SignalSummaryBar';
 
 // 手风琴面板组件
 function AccordionSection({ 
@@ -66,7 +67,7 @@ export function RightPanel() {
   const [activeAnalysisTab, setActiveAnalysisTab] = useState<'summary' | 'chanlun' | 'wave' | 'technical'>('summary');
 
   return (
-    <div className="w-[400px] shrink-0 h-full flex flex-col overflow-hidden border-l border-[#1e293b] bg-[#0a0e17]">
+    <div className="w-full h-full flex flex-col overflow-hidden bg-[#0a0e17]">
       {/* 固定顶部：当前股票信息 */}
       <div className="px-3 py-2 bg-[#111827] border-b border-gray-800 flex-shrink-0">
         <div className="flex items-center justify-between">
@@ -78,6 +79,9 @@ export function RightPanel() {
           </div>
         </div>
       </div>
+
+      {/* 信号总览 */}
+      <SignalSummaryBar />
 
       {/* 可滚动内容区域 */}
       <div className="flex-1 overflow-y-auto p-3 space-y-2">
