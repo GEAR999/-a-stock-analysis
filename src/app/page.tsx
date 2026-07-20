@@ -9,6 +9,7 @@ import { QuoteHeader } from '@/components/chart/QuoteHeader';
 import { AIAssistant } from '@/components/ai/AIAssistant';
 import { BacktestPanel } from '@/components/backtest/BacktestPanel';
 import { LearningCenter } from '@/components/learning/LearningCenter';
+import { AuthGate } from '@/components/AuthGate';
 import ThemeSwitcher from '@/components/ui/ThemeSwitcher';
 import CommandPalette from '@/components/ui/CommandPalette';
 
@@ -74,6 +75,7 @@ export default function Home() {
   }, []);
 
   return (
+    <AuthGate>
     <AppProvider>
       <CommandPalette />
       <div
@@ -172,5 +174,6 @@ export default function Home() {
         <AIAssistant />
       </div>
     </AppProvider>
+    </AuthGate>
   );
 }
