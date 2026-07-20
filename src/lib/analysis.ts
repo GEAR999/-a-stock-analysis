@@ -88,9 +88,16 @@ export function calculateRSI(data: KLineData[], period = 14) {
     }
     const avgGain = gains / period;
     const avgLoss = losses / period;
-    const rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
+
+    // 边界条件处理
+    if (avgGain === 0 && avgLoss === 0) return { rsi: 50 }; // 无波动
+    if (avgLoss === 0) return { rsi: 100 }; // 全部上涨
+    if (avgGain === 0) return { rsi: 0 }; // 全部下跌
+
+    const rs = avgGain / avgLoss;
     const rsi = 100 - (100 / (1 + rs));
-    return { rsi: Math.round(rsi * 100) / 100 };
+    // clamp 确保在 [0, 100] 范围内
+    return { rsi: Math.round(Math.max(0, Math.min(100, rsi)) * 100) / 100 };
   });
 }
 
@@ -418,10 +425,39 @@ export function analyzeChanlun(data: KLineData[]): ChanlunResult {
 }
 
 // Simplified Wave Analysis
-export function analyzeWaves(data: KLineData[]): WaveResult {
+// 计算ATR（真实波动幅度）
+function calculateATR(data: KLineData[], period = 14): number {
+  if (data.length < 2) return 0;
+  const trs: number[] = [];
+  for (let i = 1; i < data.length; i++) {
+    const high = data[i].high;
+    const low = data[i].low;
+    const prevClose = data[i - 1].close;
+    const tr = Math.max(
+      high - low,
+      Math.abs(high - prevClose),
+      Math.abs(low - prevClose)
+    );
+    trs.push(tr);
+  }
+  // 取最近period个TR的平均值
+  const recent = trs.slice(-period);
+  return recent.reduce((a, b) => a + b, 0) / recent.length;
+}
+
+// 波浪灵敏度类型
+export type WaveSensitivity = 'high' | 'medium' | 'low';
+
+export function analyzeWaves(data: KLineData[], sensitivity: WaveSensitivity = 'medium'): WaveResult {
   if (data.length < 10) {
     return { waves: [] };
   }
+
+  // 计算最小振幅阈值
+  const atr = calculateATR(data, 14);
+  const priceRange = Math.max(...data.map(d => d.high)) - Math.min(...data.map(d => d.low));
+  const sensitivityMultiplier = sensitivity === 'high' ? 0.3 : sensitivity === 'low' ? 1.0 : 0.5;
+  const minAmplitude = Math.max(atr * sensitivityMultiplier, priceRange * 0.02);
 
   // Find significant pivots with adaptive lookback
   const pivots: Array<{ index: number; price: number; type: 'high' | 'low' }> = [];
@@ -441,16 +477,39 @@ export function analyzeWaves(data: KLineData[]): WaveResult {
   }
 
   // Remove consecutive same-type pivots, keeping the more extreme one
-  const filtered: typeof pivots = [];
+  const deduped: typeof pivots = [];
   for (const p of pivots) {
-    if (filtered.length === 0 || filtered[filtered.length - 1].type !== p.type) {
+    if (deduped.length === 0 || deduped[deduped.length - 1].type !== p.type) {
+      deduped.push(p);
+    } else {
+      const last = deduped[deduped.length - 1];
+      if (p.type === 'high' && p.price > last.price) {
+        deduped[deduped.length - 1] = p;
+      } else if (p.type === 'low' && p.price < last.price) {
+        deduped[deduped.length - 1] = p;
+      }
+    }
+  }
+
+  // 最小振幅过滤：移除振幅 < minAmplitude 的枢轴点
+  const filtered: typeof pivots = [];
+  for (const p of deduped) {
+    if (filtered.length === 0) {
       filtered.push(p);
     } else {
       const last = filtered[filtered.length - 1];
-      if (p.type === 'high' && p.price > last.price) {
-        filtered[filtered.length - 1] = p;
-      } else if (p.type === 'low' && p.price < last.price) {
-        filtered[filtered.length - 1] = p;
+      const amplitude = Math.abs(p.price - last.price);
+      if (amplitude >= minAmplitude) {
+        filtered.push(p);
+      } else {
+        // 振幅不够，忽略较小的那个枢轴点
+        // 如果当前枢轴更极端，替换前一个
+        if (p.type === last.type) {
+          if ((p.type === 'high' && p.price > last.price) || (p.type === 'low' && p.price < last.price)) {
+            filtered[filtered.length - 1] = p;
+          }
+        }
+        // 不同类型但振幅不够 → 忽略当前（噪声）
       }
     }
   }
@@ -554,81 +613,99 @@ export function generateAdvice(
   let bullScore = 0;
   let totalScore = 0;
 
-  // MACD analysis
+  // MACD analysis (权重16)
   const lastMACD = indicators.macd[indicators.macd.length - 1];
   if (lastMACD) {
-    totalScore += 20;
+    totalScore += 16;
     if (lastMACD.dif > lastMACD.dea && lastMACD.histogram > 0) {
-      bullScore += 15;
+      bullScore += 12;
       details.push('MACD: 金叉状态，多头动能增强');
     } else if (lastMACD.dif < lastMACD.dea && lastMACD.histogram < 0) {
-      bullScore += 5;
+      bullScore += 4;
       details.push('MACD: 死叉状态，空头占优');
     } else {
-      bullScore += 10;
+      bullScore += 8;
       details.push('MACD: 信号不明确，观望为主');
     }
   }
 
-  // KDJ analysis
+  // KDJ analysis (权重16)
   const lastKDJ = indicators.kdj[indicators.kdj.length - 1];
   if (lastKDJ) {
-    totalScore += 20;
+    totalScore += 16;
     if (lastKDJ.j < 20) {
-      bullScore += 18;
+      bullScore += 14;
       details.push('KDJ: J值超卖区，存在反弹机会');
     } else if (lastKDJ.j > 80) {
-      bullScore += 5;
+      bullScore += 4;
       details.push('KDJ: J值超买区，注意回调风险');
     } else {
-      bullScore += 10;
+      bullScore += 8;
       details.push('KDJ: 中性区间');
     }
   }
 
-  // RSI analysis
+  // RSI analysis (权重16) - 增加NaN/undefined防护
   const lastRSI = indicators.rsi[indicators.rsi.length - 1];
-  if (lastRSI) {
-    totalScore += 20;
+  if (lastRSI && !isNaN(lastRSI.rsi) && isFinite(lastRSI.rsi)) {
+    totalScore += 16;
     if (lastRSI.rsi < 30) {
-      bullScore += 16;
+      bullScore += 13;
       details.push('RSI: 超卖区域，关注反弹信号');
     } else if (lastRSI.rsi > 70) {
-      bullScore += 4;
+      bullScore += 3;
       details.push('RSI: 超买区域，谨慎追高');
     } else {
-      bullScore += 10;
+      bullScore += 8;
       details.push(`RSI: ${lastRSI.rsi.toFixed(1)}，处于中性区间`);
     }
+  } else {
+    // RSI为NaN/undefined时给中性分
+    totalScore += 16;
+    bullScore += 8;
+    details.push('RSI: 数据异常，中性评估');
   }
 
-  // BOLL analysis
+  // BOLL analysis (权重16)
   const lastBOLL = indicators.boll[indicators.boll.length - 1];
   const lastClose = data[data.length - 1]?.close || 0;
   if (lastBOLL && lastClose) {
-    totalScore += 20;
+    totalScore += 16;
     if (lastClose < lastBOLL.lower) {
-      bullScore += 15;
+      bullScore += 12;
       details.push('BOLL: 价格跌破下轨，超卖状态');
     } else if (lastClose > lastBOLL.upper) {
-      bullScore += 5;
+      bullScore += 4;
       details.push('BOLL: 价格突破上轨，注意回调');
     } else {
-      bullScore += 10;
+      bullScore += 8;
       details.push('BOLL: 价格在通道内运行');
     }
   }
 
-  // Chanlun analysis
+  // Chanlun analysis (权重18)
   if (chanlun.buySignals.length > 0) {
-    totalScore += 20;
-    bullScore += 15;
+    totalScore += 18;
+    bullScore += 14;
     details.push(`缠论: 发现${chanlun.buySignals.length}个买点信号`);
   }
   if (chanlun.sellSignals.length > 0) {
-    totalScore += 20;
-    bullScore += 5;
+    totalScore += 18;
+    bullScore += 4;
     details.push(`缠论: 发现${chanlun.sellSignals.length}个卖点信号`);
+  }
+  if (chanlun.buySignals.length === 0 && chanlun.sellSignals.length === 0) {
+    totalScore += 18;
+    bullScore += 9;
+    details.push('缠论: 暂无明确买卖点');
+  }
+
+  // Wave analysis (权重18) - 新增波浪维度
+  totalScore += 18;
+  const waveScore = calculateWaveScore(data, wave);
+  bullScore += waveScore.score;
+  if (waveScore.detail) {
+    details.push(waveScore.detail);
   }
 
   const score = totalScore > 0 ? Math.round((bullScore / totalScore) * 100) : 50;
@@ -644,6 +721,96 @@ export function generateAdvice(
   ];
 
   return { overall, score, details, risk };
+}
+
+// 波浪维度评分计算
+function calculateWaveScore(data: KLineData[], wave: WaveResult): { score: number; detail: string } {
+  if (!wave.waves || wave.waves.length === 0) {
+    return { score: 9, detail: '波浪: 未检测到明确波浪模式' };
+  }
+
+  const impulseWaves = wave.waves.filter(w => w.type === 'impulse');
+  const correctiveWaves = wave.waves.filter(w => w.type === 'corrective');
+  const lastClose = data[data.length - 1]?.close || 0;
+
+  // 判断是否上升推动浪
+  if (impulseWaves.length >= 3) {
+    const firstWave = impulseWaves[0];
+    const lastWave = impulseWaves[impulseWaves.length - 1];
+    const isUpward = data[lastWave.end]?.close > data[firstWave.start]?.close;
+
+    // 判断当前处于第几浪
+    const currentWavePosition = determineCurrentWavePosition(data, impulseWaves, lastClose);
+
+    if (isUpward) {
+      // 上升推动浪
+      if (currentWavePosition === '3' || currentWavePosition === '5') {
+        return { score: 18, detail: '波浪: 上升推动浪第' + currentWavePosition + '浪，强势看多' };
+      } else if (currentWavePosition === '4') {
+        return { score: 12, detail: '波浪: 上升推动浪第4浪回调中，中性偏多' };
+      } else if (currentWavePosition === '2') {
+        return { score: 12, detail: '波浪: 上升推动浪第2浪回调中，蓄势待发' };
+      } else {
+        return { score: 14, detail: '波浪: 上升推动浪结构中，偏多' };
+      }
+    } else {
+      // 下降推动浪
+      if (currentWavePosition === '3' || currentWavePosition === '5') {
+        return { score: 3, detail: '波浪: 下降推动浪第' + currentWavePosition + '浪，强势看空' };
+      } else if (currentWavePosition === '4') {
+        return { score: 8, detail: '波浪: 下降推动浪第4浪反弹中，中性偏空' };
+      } else {
+        return { score: 6, detail: '波浪: 下降推动浪结构中，偏空' };
+      }
+    }
+  }
+
+  // 调整浪 A-B-C
+  if (correctiveWaves.length >= 2) {
+    const lastCorrective = correctiveWaves[correctiveWaves.length - 1];
+    if (lastCorrective.label === 'C') {
+      return { score: 14, detail: '波浪: A-B-C调整浪C浪末端，调整将结束偏多' };
+    }
+    return { score: 10, detail: '波浪: 调整浪结构中，观望为主' };
+  }
+
+  return { score: 9, detail: '波浪: 波浪模式不明确' };
+}
+
+// 判断当前处于推动浪的第几浪
+function determineCurrentWavePosition(data: KLineData[], impulseWaves: WaveResult['waves'], currentPrice: number): string {
+  if (impulseWaves.length === 0) return '';
+
+  // 获取各浪的关键价格点
+  const wavePoints: Array<{ label: string; endPrice: number; endIndex: number }> = [];
+  for (const w of impulseWaves) {
+    const endData = data[w.end];
+    if (endData) {
+      wavePoints.push({ label: w.label, endPrice: endData.close, endIndex: w.end });
+    }
+  }
+
+  // 找到最后一个已完成的浪
+  const lastCompletedWave = impulseWaves[impulseWaves.length - 1];
+  const lastDataIdx = data.length - 1;
+
+  // 如果当前价格已经超过最后一浪的终点，可能处于延伸浪
+  if (lastDataIdx > lastCompletedWave.end) {
+    const lastPrice = data[lastCompletedWave.end]?.close || 0;
+    if (currentPrice > lastPrice) {
+      return lastCompletedWave.label; // 延续当前浪
+    }
+  }
+
+  // 根据当前价格所在区间判断
+  for (let i = wavePoints.length - 1; i >= 0; i--) {
+    const wp = wavePoints[i];
+    if (lastDataIdx >= wp.endIndex) {
+      return wp.label;
+    }
+  }
+
+  return wavePoints[0]?.label || '';
 }
 
 // Calculate individual stock sentiment

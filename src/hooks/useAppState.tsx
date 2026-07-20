@@ -50,6 +50,7 @@ const defaultAnalysisSettings: AnalysisSettings = {
   boll: false,
   ma: true,
   maPeriods: [5, 10, 20, 60],
+  waveSensitivity: 'medium',
 };
 
 const AppContext = createContext<AppState | null>(null);

@@ -43,6 +43,7 @@ export interface AnalysisSettings {
   rsi: boolean;
   boll: boolean;
   ma: boolean;
+  waveSensitivity: 'high' | 'medium' | 'low';
   maPeriods: number[];
 }
 

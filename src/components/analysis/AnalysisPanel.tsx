@@ -48,6 +48,29 @@ export function AnalysisPanel() {
           <div className="w-2 h-2 rounded-full bg-blue-500" />
           <span className="text-xs text-gray-400 group-hover:text-gray-300">波浪理论</span>
         </label>
+        {/* 波浪灵敏度 */}
+        {analysisSettings.wave && (
+          <div className="ml-5 pl-2 border-l border-blue-500/20">
+            <div className="flex items-center gap-1 mb-1">
+              <span className="text-[10px] text-gray-500">灵敏度</span>
+            </div>
+            <div className="flex gap-1">
+              {([['high', '高'], ['medium', '中'], ['low', '低']] as const).map(([value, label]) => (
+                <button
+                  key={value}
+                  onClick={() => setAnalysisSettings({ ...analysisSettings, waveSensitivity: value })}
+                  className={`px-2 py-0.5 text-[10px] rounded transition-colors ${
+                    analysisSettings.waveSensitivity === value
+                      ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                      : 'text-gray-500 hover:text-gray-400 border border-transparent'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <label className="flex items-center gap-2 cursor-pointer group">
           <input
             type="checkbox"
