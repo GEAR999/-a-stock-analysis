@@ -8,10 +8,11 @@ import { KLineChart } from '@/components/chart/KLineChart';
 import { QuoteHeader } from '@/components/chart/QuoteHeader';
 import { AIAssistant } from '@/components/ai/AIAssistant';
 import { BacktestPanel } from '@/components/backtest/BacktestPanel';
+import { LearningCenter } from '@/components/learning/LearningCenter';
 import ThemeSwitcher from '@/components/ui/ThemeSwitcher';
 import CommandPalette from '@/components/ui/CommandPalette';
 
-type MainTab = 'analysis' | 'backtest';
+type MainTab = 'analysis' | 'backtest' | 'learning';
 
 export default function Home() {
   const [mainTab, setMainTab] = useState<MainTab>('analysis');
@@ -63,6 +64,15 @@ export default function Home() {
     return () => window.removeEventListener('resize', handleResize);
   }, [rightPanelCollapsed]);
 
+  // 监听学习中心导航事件
+  useEffect(() => {
+    const handleNavigateLearning = () => {
+      setMainTab('learning');
+    };
+    window.addEventListener('navigate-learning', handleNavigateLearning);
+    return () => window.removeEventListener('navigate-learning', handleNavigateLearning);
+  }, []);
+
   return (
     <AppProvider>
       <CommandPalette />
@@ -97,6 +107,16 @@ export default function Home() {
             >
               模拟回测
             </button>
+            <button
+              onClick={() => setMainTab('learning')}
+              className={`px-4 py-2 text-xs transition-colors ${
+                mainTab === 'learning'
+                  ? 'text-blue-400 border-b-2 border-blue-400 bg-blue-400/5'
+                  : 'text-gray-400 hover:text-gray-200'
+              }`}
+            >
+              📚 学习中心
+            </button>
             <div className="ml-auto flex items-center gap-2 pr-3">
               {/* 右侧面板收起/展开按钮 */}
               <button
@@ -120,9 +140,13 @@ export default function Home() {
               <QuoteHeader />
               <KLineChart />
             </>
-          ) : (
+          ) : mainTab === 'backtest' ? (
             <div className="flex-1 overflow-hidden">
               <BacktestPanel />
+            </div>
+          ) : (
+            <div className="flex-1 overflow-hidden">
+              <LearningCenter />
             </div>
           )}
         </div>

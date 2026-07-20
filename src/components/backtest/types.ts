@@ -71,10 +71,24 @@ export interface Position {
   stopLossSignals?: SignalPoint[];// 清仓信号
 }
 
+// 账户类型
+export type AccountType = "manual" | "quant";
+
+// 量化策略配置
+export interface QuantStrategy {
+  name: string;
+  theories: StrategySource[];  // 使用的分析理论
+  stopLossPercent: number;     // 止损百分比
+  takeProfitPercent: number;   // 止盈百分比
+  maxPositionPercent: number;  // 单只股票最大仓位
+  autoTrade: boolean;          // 是否自动交易
+}
+
 // 账户信息
 export interface Account {
   id: string;
   name: string;
+  type: AccountType;           // 账户类型
   initialCapital: number;
   currentCapital: number;
   positions: Position[];
@@ -82,6 +96,7 @@ export interface Account {
   trackingList: string[];
   stockLimits: Record<string, number>;
   equityCurve?: EquityPoint[];  // 资金曲线
+  strategy?: QuantStrategy;     // 量化策略配置（仅quant类型）
   createdAt: number;
   updatedAt: number;
 }

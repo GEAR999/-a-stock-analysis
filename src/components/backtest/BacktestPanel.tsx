@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Info, Download, Upload, Plus, Search, X } from "lucide-react";
-import type { Account, AccountSummary, ToastMessage, BuySignal, Trade, Position, SingleStrategyStats, FailureStats, FailureReason, StrategySource } from "./types";
+import type { Account, AccountSummary, ToastMessage, BuySignal, Trade, Position, SingleStrategyStats, FailureStats, FailureReason, StrategySource, AccountType } from "./types";
 import {
   getAllAccountSummaries, loadAccount, createAccount, deleteAccount,
   getActiveAccountId, setActiveAccountId, saveAccount,
@@ -84,9 +84,10 @@ function ConfirmDialog({ title, message, confirmText, onConfirm, onCancel }: {
 }
 
 // ===== 新建账户对话框 =====
-function CreateAccountDialog({ onCreate, onCancel }: { onCreate: (n: string, c: number) => void; onCancel: () => void }) {
+function CreateAccountDialog({ onCreate, onCancel }: { onCreate: (n: string, c: number, t: AccountType) => void; onCancel: () => void }) {
   const [name, setName] = useState("");
   const [capital, setCapital] = useState("1000000");
+  const [accountType, setAccountType] = useState<AccountType>("manual");
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
       <div className="bg-[#111827] border border-gray-700 rounded p-4 w-80">
@@ -102,10 +103,37 @@ function CreateAccountDialog({ onCreate, onCancel }: { onCreate: (n: string, c: 
             <input type="number" value={capital} onChange={(e) => setCapital(e.target.value)}
               className="w-full px-2 py-1.5 bg-[#0a0e17] border border-gray-700 rounded text-xs text-gray-200 focus:outline-none focus:border-blue-500" />
           </div>
+          <div>
+            <label className="text-[10px] text-gray-500 block mb-1">账户类型</label>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setAccountType("manual")}
+                className={`flex-1 px-3 py-2 text-xs rounded border transition-colors ${
+                  accountType === "manual"
+                    ? "bg-blue-500/20 border-blue-500 text-blue-400"
+                    : "bg-[#0a0e17] border-gray-700 text-gray-400 hover:border-gray-600"
+                }`}
+              >
+                <div className="font-medium">手动交易</div>
+                <div className="text-[10px] opacity-70 mt-0.5">手动买卖操作</div>
+              </button>
+              <button
+                onClick={() => setAccountType("quant")}
+                className={`flex-1 px-3 py-2 text-xs rounded border transition-colors ${
+                  accountType === "quant"
+                    ? "bg-purple-500/20 border-purple-500 text-purple-400"
+                    : "bg-[#0a0e17] border-gray-700 text-gray-400 hover:border-gray-600"
+                }`}
+              >
+                <div className="font-medium">量化回测</div>
+                <div className="text-[10px] opacity-70 mt-0.5">策略自动执行</div>
+              </button>
+            </div>
+          </div>
         </div>
         <div className="flex gap-2 justify-end mt-4">
           <button onClick={onCancel} className="px-3 py-1.5 text-xs text-gray-400 hover:text-gray-200">取消</button>
-          <button onClick={() => name.trim() && onCreate(name.trim(), Number(capital) || 1000000)} disabled={!name.trim()}
+          <button onClick={() => name.trim() && onCreate(name.trim(), Number(capital) || 1000000, accountType)} disabled={!name.trim()}
             className="px-3 py-1.5 text-xs bg-blue-500/20 text-blue-400 rounded hover:bg-blue-500/30 disabled:opacity-40">创建</button>
         </div>
       </div>
@@ -134,38 +162,114 @@ function StockLimitDialog({ stockCode, stockName, currentLimit, onSave, onCancel
   );
 }
 
-// ===== 手动交易对话框 =====
+// ===== 手动交易对话框（增强版） =====
 function TradeDialog({ stockCode, stockName, currentPrice, direction, availableCapital, onExecute, onCancel }: {
   stockCode: string; stockName: string; currentPrice: number; direction: "buy" | "sell"; availableCapital: number;
   onExecute: (p: number, q: number) => void; onCancel: () => void;
 }) {
-  const [price, setPrice] = useState(currentPrice.toString());
+  const [price, setPrice] = useState(currentPrice > 0 ? currentPrice.toString() : "");
   const [quantity, setQuantity] = useState("100");
+  
+  // 计算指定仓位比例的股数（整手）
+  const calculateShares = (ratio: number) => {
+    const p = Number(price);
+    if (!p || p <= 0) return 0;
+    const capital = availableCapital * ratio;
+    return Math.floor(capital / p / 100) * 100;
+  };
+  
+  const positionRatios = [
+    { label: "全仓", ratio: 1.0, percent: "100%" },
+    { label: "半仓", ratio: 0.5, percent: "50%" },
+    { label: "1/3仓", ratio: 1/3, percent: "33%" },
+    { label: "1/4仓", ratio: 0.25, percent: "25%" },
+  ];
+  
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="bg-[#111827] border border-gray-700 rounded p-4 w-80">
+      <div className="bg-[#111827] border border-gray-700 rounded-lg p-4 w-80 max-h-[90vh] overflow-y-auto">
         <h3 className="text-sm font-medium text-white mb-1">{direction === "buy" ? "买入" : "卖出"} {stockName}</h3>
         <p className="text-[10px] text-gray-500 mb-3">{stockCode}</p>
         <div className="space-y-3">
+          {/* 价格输入 */}
           <div>
-            <label className="text-[10px] text-gray-500 block mb-1">价格</label>
-            <input type="number" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)}
-              className="w-full px-2 py-1.5 bg-[#0a0e17] border border-gray-700 rounded text-xs text-gray-200 focus:outline-none focus:border-blue-500" />
+            <label className="text-[10px] text-gray-500 block mb-1">交易价格</label>
+            <div className="flex gap-2">
+              <input type="number" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)}
+                placeholder="输入价格"
+                className="flex-1 px-2 py-1.5 bg-[#0a0e17] border border-gray-700 rounded text-xs text-gray-200 focus:outline-none focus:border-blue-500" />
+              {currentPrice > 0 && (
+                <button onClick={() => setPrice(currentPrice.toString())}
+                  className="px-2 py-1.5 text-[10px] bg-blue-500/20 text-blue-400 rounded hover:bg-blue-500/30 whitespace-nowrap">
+                  📊 现价 {currentPrice.toFixed(2)}
+                </button>
+              )}
+            </div>
           </div>
+          
+          {/* 仓位快捷选择（仅买入时显示） */}
+          {direction === "buy" && (
+            <div>
+              <label className="text-[10px] text-gray-500 block mb-1.5">仓位快捷选择</label>
+              <div className="flex gap-1.5 flex-wrap">
+                {positionRatios.map(({ label, ratio, percent }) => (
+                  <button key={label}
+                    onClick={() => { const shares = calculateShares(ratio); if (shares > 0) setQuantity(shares.toString()); }}
+                    className="px-2 py-1 text-[10px] bg-gray-700/50 text-gray-300 rounded hover:bg-gray-600/50 hover:text-white transition-colors">
+                    {label} ({percent})
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* 数量输入 */}
           <div>
             <label className="text-[10px] text-gray-500 block mb-1">数量 (股)</label>
             <input type="number" step="100" value={quantity} onChange={(e) => setQuantity(e.target.value)}
+              placeholder="输入股数（100的整数倍）"
               className="w-full px-2 py-1.5 bg-[#0a0e17] border border-gray-700 rounded text-xs text-gray-200 focus:outline-none focus:border-blue-500" />
           </div>
-          <div className="bg-[#0a0e17] rounded p-2 text-[10px]">
-            <div className="flex justify-between"><span className="text-gray-500">预计金额</span><span className="text-gray-200 font-mono">¥{(Number(price) * Number(quantity)).toLocaleString()}</span></div>
-            {direction === "buy" && <div className="flex justify-between mt-1"><span className="text-gray-500">可用资金</span><span className="text-gray-200 font-mono">¥{availableCapital.toLocaleString()}</span></div>}
+          
+          {/* 预计金额 */}
+          <div className="bg-[#0a0e17] rounded p-2 text-[10px] space-y-1">
+            <div className="flex justify-between">
+              <span className="text-gray-500">预计金额</span>
+              <span className="text-gray-200 font-mono">¥{(Number(price) * Number(quantity)).toLocaleString()}</span>
+            </div>
+            {direction === "buy" && (
+              <>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">可用资金</span>
+                  <span className="text-gray-200 font-mono">¥{availableCapital.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">资金占比</span>
+                  <span className={`font-mono ${Number(price) * Number(quantity) > availableCapital ? 'text-red-400' : 'text-gray-200'}`}>
+                    {availableCapital > 0 ? ((Number(price) * Number(quantity) / availableCapital) * 100).toFixed(1) : 0}%
+                  </span>
+                </div>
+              </>
+            )}
+            {direction === "sell" && (
+              <div className="flex justify-between">
+                <span className="text-gray-500">预计收入</span>
+                <span className="text-green-400 font-mono">+¥{(Number(price) * Number(quantity)).toLocaleString()}</span>
+              </div>
+            )}
           </div>
         </div>
+        
+        {/* 操作按钮 */}
         <div className="flex gap-2 justify-end mt-4">
           <button onClick={onCancel} className="px-3 py-1.5 text-xs text-gray-400 hover:text-gray-200">取消</button>
           <button onClick={() => onExecute(Number(price), Number(quantity))}
-            className={`px-3 py-1.5 text-xs rounded ${direction === "buy" ? "bg-red-500/20 text-red-400 hover:bg-red-500/30" : "bg-green-500/20 text-green-400 hover:bg-green-500/30"}`}>
+            disabled={!price || !quantity || Number(price) <= 0 || Number(quantity) <= 0}
+            className={`px-3 py-1.5 text-xs rounded font-medium disabled:opacity-50 disabled:cursor-not-allowed ${
+              direction === "buy" 
+                ? "bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/30" 
+                : "bg-green-500/20 text-green-400 hover:bg-green-500/30 border border-green-500/30"
+            }`}>
             确认{direction === "buy" ? "买入" : "卖出"}
           </button>
         </div>
@@ -434,10 +538,10 @@ export function BacktestPanel({ externalAddStock }: { externalAddStock?: { code:
 
   const switchAccount = (id: string) => { setActiveAccountId(id); setActiveAccountIdState(id); const acc = loadAccount(id); if (acc) setAccount(acc); };
 
-  const handleCreateAccount = (name: string, capital: number) => {
-    const acc = createAccount(name, capital);
+  const handleCreateAccount = (name: string, capital: number, accountType: AccountType) => {
+    const acc = createAccount(name, capital, accountType);
     setActiveAccountId(acc.id); setActiveAccountIdState(acc.id); setAccount(acc); setAccounts(getAllAccountSummaries());
-    setShowCreateDialog(false); addToast("success", `账户"${name}"创建成功`);
+    setShowCreateDialog(false); addToast("success", `账户"${name}"创建成功${accountType === "quant" ? "（量化回测）" : ""}`);
   };
 
   const handleDeleteAccount = (id: string, name: string) => {

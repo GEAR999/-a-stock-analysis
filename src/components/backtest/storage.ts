@@ -1,4 +1,4 @@
-import type { Account, AccountSummary, Trade, Position, StrategyMetrics, EquityPoint, SingleStrategyStats, FailureStats, FailureReason, StrategySource } from "./types";
+import type { Account, AccountSummary, Trade, Position, StrategyMetrics, EquityPoint, SingleStrategyStats, FailureStats, FailureReason, StrategySource, AccountType, QuantStrategy } from "./types";
 
 const STORAGE_PREFIX = "backtest_account_";
 const ACTIVE_ACCOUNT_KEY = "backtest_active_account";
@@ -82,17 +82,31 @@ export function setActiveAccountId(id: string): void {
   localStorage.setItem(ACTIVE_ACCOUNT_KEY, id);
 }
 
+// 创建默认量化策略
+export function createDefaultStrategy(): QuantStrategy {
+  return {
+    name: "默认量化策略",
+    theories: ["composite"],
+    stopLossPercent: 8,
+    takeProfitPercent: 15,
+    maxPositionPercent: 30,
+    autoTrade: false,
+  };
+}
+
 // 创建新账户
-export function createAccount(name: string, initialCapital: number): Account {
+export function createAccount(name: string, initialCapital: number, type: AccountType = "manual", strategy?: QuantStrategy): Account {
   const account: Account = {
     id: generateId(),
     name,
+    type,
     initialCapital,
     currentCapital: initialCapital,
     positions: [],
     trades: [],
     trackingList: [],
     stockLimits: {},
+    strategy: type === "quant" ? (strategy || createDefaultStrategy()) : undefined,
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };
@@ -411,6 +425,7 @@ export function generateDemoAccount(): Account {
   const account: Account = {
     id: generateId(),
     name: "演示账户",
+    type: "manual",
     initialCapital: 1000000,
     currentCapital: 862750,
     positions: [
