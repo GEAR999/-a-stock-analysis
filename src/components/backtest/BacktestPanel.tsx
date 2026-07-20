@@ -10,6 +10,7 @@ import { getAllAvailableStrategies, calculateWeightsByConfidence } from './strat
 import type { BuiltinStrategy } from './strategy-storage';
 import type { Account, QuantStrategy, StrategySource, CustomStrategy, RunMode } from './types';
 import StrategyValidationReport from '../analysis/StrategyValidationReport';
+import { HistoryBacktestPanel } from './HistoryBacktestPanel';
 
 type ToastType = 'success' | 'error' | 'warning' | 'info';
 
@@ -494,6 +495,16 @@ export function BacktestPanel() {
             onToast={showToast}
           />
         )}
+
+        {/* 历史回测 */}
+        <div className="bg-[var(--bg-panel)] border border-[var(--border-default)] rounded">
+          <div className="px-3 py-2 border-b border-[var(--border-default)] flex items-center gap-2">
+            <Activity className="w-3.5 h-3.5 text-[var(--accent-blue)]" />
+            <span className="text-xs text-[var(--text-primary)] font-medium">历史回测</span>
+            <span className="text-[10px] text-[var(--text-muted)]">用历史K线数据验证策略表现</span>
+          </div>
+          <HistoryBacktestPanel />
+        </div>
 
         {/* 交易记录 */}
         <TradeHistoryPanel account={currentAccount} />
