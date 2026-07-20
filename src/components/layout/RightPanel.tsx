@@ -14,6 +14,7 @@ import { SentimentSummary } from '@/components/sentiment/SentimentSummary';
 import OverseasMapping from '@/components/analysis/OverseasMapping';
 import { BacktestPanel } from '@/components/backtest/BacktestPanel';
 import { SignalSummaryBar } from '@/components/analysis/SignalSummaryBar';
+import { AIInterpretation } from '@/components/analysis/AIInterpretation';
 
 // 手风琴面板组件
 function AccordionSection({ 
@@ -21,12 +22,14 @@ function AccordionSection({
   icon, 
   defaultOpen = false, 
   summary,
+  action,
   children 
 }: { 
   title: string;
   icon?: string;
   defaultOpen?: boolean;
   summary?: string;
+  action?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
@@ -44,14 +47,17 @@ function AccordionSection({
             <span className="text-xs text-gray-500 truncate max-w-[120px]">{summary}</span>
           )}
         </div>
-        <svg
-          className={`w-4 h-4 text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`}
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
+        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+          {action}
+          <svg
+            className={`w-4 h-4 text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
       </button>
       {isOpen && (
         <div className="bg-[#0a0e17] max-h-[60vh] overflow-y-auto">
@@ -63,8 +69,10 @@ function AccordionSection({
 }
 
 export function RightPanel() {
-  const { analysisSettings, selectedStock } = useAppState();
+  const { analysisSettings, selectedStock, klineData } = useAppState();
   const [activeAnalysisTab, setActiveAnalysisTab] = useState<'summary' | 'chanlun' | 'wave' | 'technical'>('summary');
+  const [isRefreshingAnalysis, setIsRefreshingAnalysis] = useState(false);
+  const [isRefreshingPositions, setIsRefreshingPositions] = useState(false);
   const [externalAddStock, setExternalAddStock] = useState<{ code: string; name: string } | null>(null);
 
   // 一键加入回测跟踪
@@ -102,7 +110,17 @@ export function RightPanel() {
 
       {/* 可滚动内容区域 */}
       <div className="flex-1 overflow-y-auto p-3 space-y-2">
+        {/* 未选股票时显示引导提示 */}
+        {!selectedStock && (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <div className="text-4xl mb-4 opacity-50">📈</div>
+            <p className="text-gray-400 text-sm mb-2">请搜索或选择一只股票开始分析</p>
+            <p className="text-gray-500 text-xs">在左侧搜索框输入股票代码或名称</p>
+          </div>
+        )}
+
         {/* 1. 分析引擎 - 手风琴模式 */}
+        {selectedStock && (
         <AccordionSection 
           title="分析引擎" 
           icon="📊"
@@ -110,6 +128,20 @@ export function RightPanel() {
           summary={activeAnalysisTab === 'summary' ? '综合分析' : 
                    activeAnalysisTab === 'chanlun' ? '缠论' :
                    activeAnalysisTab === 'wave' ? '波浪' : '技术指标'}
+          action={
+            <button
+              onClick={() => {
+                // Force re-render by triggering a state change
+                setIsRefreshingAnalysis(true);
+                setTimeout(() => setIsRefreshingAnalysis(false), 500);
+              }}
+              disabled={isRefreshingAnalysis}
+              className="p-1 text-gray-400 hover:text-white disabled:opacity-50 transition-colors"
+              title="重新分析"
+            >
+              {isRefreshingAnalysis ? '⏳' : '🔄'}
+            </button>
+          }
         >
           <div className="p-2">
             {/* Tab切换 */}
@@ -180,6 +212,12 @@ export function RightPanel() {
             )}
           </div>
         </AccordionSection>
+        )}
+
+        {/* 1.5 AI大白话解读 */}
+        {selectedStock && klineData.length > 0 && (
+        <AIInterpretation klineData={klineData} />
+        )}
 
         {/* 2. 宏观经济 - 手风琴模式 */}
         <AccordionSection 
@@ -219,12 +257,14 @@ export function RightPanel() {
         </AccordionSection>
 
         {/* 5. 综合建议 - 手风琴模式 */}
+        {selectedStock && (
         <AccordionSection 
           title="综合建议" 
           icon="💡"
         >
           <AdvicePanel />
         </AccordionSection>
+        )}
 
         {/* 6. 模拟回测 - 手风琴模式 */}
         <AccordionSection 

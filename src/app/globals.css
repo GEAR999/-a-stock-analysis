@@ -225,6 +225,24 @@ body {
 .price-flash-up { animation: flash-up 0.3s ease-out; }
 .price-flash-down { animation: flash-down 0.3s ease-out; }
 
+/* Skeleton shimmer animation */
+@keyframes skeleton-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    #1a1f2e 0%,
+    #252b3b 40%,
+    #252b3b 60%,
+    #1a1f2e 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.8s ease-in-out infinite;
+  border-radius: 4px;
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: #0a0e17; }

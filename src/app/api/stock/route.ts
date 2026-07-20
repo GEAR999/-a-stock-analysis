@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { searchStocks, getQuote, getKLineData, getMarketSentiment, getSectorList, getSectorStocks } from '@/lib/api/stock';
+import { searchStocks, getQuote, getKLineData, getMarketSentiment, getSectorList, getSectorStocks, getMarketIndices } from '@/lib/api/stock';
 import { calculateStockSentiment } from '@/lib/analysis';
 import { calculateSectorSentiment } from '@/services/sentiment/sector-sentiment';
 import { fetchComprehensiveSentiment } from '@/services/sentiment/sentiment-panel';
@@ -144,6 +144,10 @@ export async function GET(request: NextRequest) {
         const sentiment = await getMarketSentiment();
         if (!sentiment) return NextResponse.json({ error: 'Sentiment data unavailable' }, { status: 500 });
         return NextResponse.json({ success: true, data: sentiment });
+      }
+      case 'market_indices': {
+        const indices = await getMarketIndices();
+        return NextResponse.json({ success: true, data: indices });
       }
       case 'sector_list': {
         // 获取板块列表

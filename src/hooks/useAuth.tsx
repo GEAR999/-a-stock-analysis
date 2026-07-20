@@ -16,6 +16,7 @@ interface AuthState {
   login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
   register: (email: string, username: string, password: string) => Promise<{ ok: boolean; error?: string }>;
   logout: () => Promise<void>;
+  skipLocalMode: () => void;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -76,6 +77,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
+  // 跳过登录，使用本地模式
+  const skipLocalMode = useCallback(() => {
+    setUser({ id: 'local', email: 'local', username: '本地用户' });
+  }, []);
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -84,6 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       register,
       logout,
+      skipLocalMode,
     }}>
       {children}
     </AuthContext.Provider>

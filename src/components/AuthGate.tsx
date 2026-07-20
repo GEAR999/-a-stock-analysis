@@ -13,6 +13,9 @@ import type { ReactNode } from 'react';
 export function AuthGate({ children }: { children: ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
 
+  // 检查是否处于本地模式（用户选择了跳过登录）
+  const isLocalMode = typeof window !== 'undefined' && localStorage.getItem('auth_local_mode') === 'true';
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#0a0e17]">
@@ -21,8 +24,8 @@ export function AuthGate({ children }: { children: ReactNode }) {
     );
   }
 
-  // 已登录或未配置数据库 → 显示主界面
-  if (isAuthenticated) {
+  // 已登录 或 本地模式 → 显示主界面
+  if (isAuthenticated || isLocalMode) {
     return <>{children}</>;
   }
 

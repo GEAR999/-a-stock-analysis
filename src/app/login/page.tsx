@@ -121,6 +121,19 @@ export default function LoginPage() {
               {isRegister ? '已有账户？去登录' : '没有账户？去注册'}
             </button>
           </div>
+
+          <div className="mt-4 pt-4 border-t border-[#1e293b] text-center">
+            <button
+              onClick={() => {
+                // 跳过登录，使用本地数据模式
+                localStorage.setItem('auth_local_mode', 'true');
+                window.location.href = '/';
+              }}
+              className="text-[#94a3b8] text-sm hover:text-[#e2e8f0] transition-colors"
+            >
+              跳过登录，使用本地数据 →
+            </button>
+          </div>
         </div>
       </div>
     </div>

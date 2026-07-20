@@ -89,6 +89,52 @@ export async function getQuote(code: string): Promise<StockQuote | null> {
   }
 }
 
+// Market index type
+export interface MarketIndex {
+  code: string;
+  name: string;
+  price: number;
+  change: number;
+  changePercent: number;
+}
+
+// Get market indices (上证/深证/创业板/科创50/恒生)
+export async function getMarketIndices(): Promise<MarketIndex[]> {
+  const indices = [
+    { code: '1.000001', name: '上证指数' },
+    { code: '0.399001', name: '深证成指' },
+    { code: '0.399006', name: '创业板指' },
+    { code: '1.000688', name: '科创50' },
+    { code: '100.HSI', name: '恒生指数' },
+  ];
+
+  try {
+    const secids = indices.map(i => i.code).join(',');
+    const url = `${EASTMONEY_QUOTE_URL}?fltt=2&invt=2&fields=f2,f3,f4,f12,f14&secids=${secids}`;
+    
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Referer': 'https://quote.eastmoney.com/',
+      },
+      next: { revalidate: 30 },
+    });
+    const json = await res.json();
+
+    if (!json.data?.diff) return [];
+
+    return json.data.diff.map((item: Record<string, unknown>, index: number) => ({
+      code: String(item.f12 || indices[index].code),
+      name: String(item.f14 || indices[index].name),
+      price: Number(item.f2) || 0,
+      change: Number(item.f4) || 0,
+      changePercent: Number(item.f3) || 0,
+    }));
+  } catch {
+    return [];
+  }
+}
+
 // Sector types
 export interface SectorInfo {
   name: string;

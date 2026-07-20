@@ -4,6 +4,8 @@ import { useEffect, useRef, useCallback, useState } from 'react';
 import * as echarts from 'echarts';
 import { useAppState } from '@/hooks/useAppState';
 import { calculateMA, calculateMACD, calculateKDJ, calculateRSI, calculateBOLL, analyzeChanlun, analyzeWaves } from '@/lib/analysis';
+import { getKLineData } from '@/lib/api/stock';
+import { getCachedKline, setCachedKline } from '@/lib/idb-cache';
 import type { KLineData } from '@/lib/types';
 
 const PERIODS: Array<{ key: string; label: string }> = [
@@ -21,23 +23,64 @@ export function KLineChart() {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
 
-  // Fetch kline data
+  // Fetch kline data with IndexedDB cache
   useEffect(() => {
     if (!selectedStock) return;
+    let cancelled = false;
+
     const fetchKline = async () => {
+      // Step 1: Check IndexedDB cache first
+      const cached = await getCachedKline(selectedStock.code, klinePeriod);
+      if (cached && !cancelled) {
+        setKlineData(cached as KLineData[]);
+      }
+
+      // Step 2: Always fetch fresh data in background
       try {
         const res = await fetch(`/api/stock?action=kline&code=${selectedStock.code}&period=${klinePeriod}&limit=250`);
         const json = await res.json();
-        if (json.success) setKlineData(json.data);
+        if (json.success && !cancelled) {
+          setKlineData(json.data);
+          // Step 3: Update cache with fresh data
+          setCachedKline(selectedStock.code, klinePeriod, json.data);
+        }
       } catch {
-        // ignore
+        // ignore - cache data is already displayed if available
       }
     };
     fetchKline();
+
+    return () => { cancelled = true; };
   }, [selectedStock, klinePeriod, setKlineData]);
+
+  // Listen for auto-refresh event
+  useEffect(() => {
+    const handleAutoRefresh = () => {
+      if (selectedStock) {
+        handleRefresh();
+      }
+    };
+    window.addEventListener('auto-refresh', handleAutoRefresh);
+    return () => window.removeEventListener('auto-refresh', handleAutoRefresh);
+  }, [selectedStock, klinePeriod]);
 
   // Build chart
   const [showLegend, setShowLegend] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [showAnnotations, setShowAnnotations] = useState(true);
+
+  const handleRefresh = async () => {
+    if (!selectedStock) return;
+    setLoading(true);
+    try {
+      const data = await getKLineData(selectedStock.code, klinePeriod, 120);
+      setKlineData(data);
+    } catch (e) {
+      console.error('Refresh kline failed:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const buildChart = useCallback(() => {
     if (!chartRef.current || klineData.length === 0) return;
@@ -158,7 +201,7 @@ export function KLineChart() {
     }
 
     // Chanlun overlays
-    if (chanlunData) {
+    if (chanlunData && showAnnotations) {
       // Draw strokes
       chanlunData.strokes.forEach(stroke => {
         if (stroke.start < 0 || stroke.end < 0 || stroke.start >= klineData.length || stroke.end >= klineData.length) return;
@@ -210,7 +253,7 @@ export function KLineChart() {
     }
 
     // Wave labels and connecting lines
-    if (waveData && waveData.waves.length > 0) {
+    if (waveData && waveData.waves.length > 0 && showAnnotations) {
       // Draw connecting lines between wave pivots
       const wavePoints: Array<{ index: number; price: number; label: string; type: string }> = [];
       waveData.waves.forEach(w => {
@@ -374,7 +417,7 @@ export function KLineChart() {
     };
 
     chart.setOption(option, true);
-  }, [klineData, analysisSettings]);
+  }, [klineData, analysisSettings, showAnnotations]);
 
   useEffect(() => {
     buildChart();
@@ -401,6 +444,14 @@ export function KLineChart() {
     <div className="flex-1 flex flex-col min-h-0 relative">
       {/* Period selector */}
       <div className="flex items-center gap-1 px-3 py-2 border-b border-[#1e293b]">
+        <button
+          onClick={handleRefresh}
+          disabled={loading}
+          className="px-2 py-0.5 text-xs text-gray-400 hover:text-white disabled:opacity-50 transition-colors"
+          title="刷新数据"
+        >
+          {loading ? '⏳' : '🔄'}
+        </button>
         {PERIODS.map(p => (
           <button
             key={p.key}
@@ -424,6 +475,23 @@ export function KLineChart() {
             className={`px-1.5 py-0.5 rounded text-[10px] transition-colors ${showLegend ? 'bg-[#3b82f6] text-white' : 'text-[#94a3b8] hover:text-[#e2e8f0] hover:bg-[#1e293b]'}`}
           >
             图例
+          </button>
+          <label className="flex items-center gap-1 cursor-pointer select-none" title="显示/隐藏分析标注">
+            <input
+              type="checkbox"
+              checked={showAnnotations}
+              onChange={(e) => setShowAnnotations(e.target.checked)}
+              className="w-3 h-3 rounded border-gray-600 bg-gray-800 text-blue-500 focus:ring-0 focus:ring-offset-0 accent-blue-500"
+            />
+            <span className="text-[10px] text-[#94a3b8]">标注</span>
+          </label>
+          <button
+            onClick={handleRefresh}
+            disabled={loading}
+            className="px-1.5 py-0.5 rounded text-[10px] text-[#94a3b8] hover:text-[#e2e8f0] hover:bg-[#1e293b] transition-colors disabled:opacity-50"
+            title="刷新数据"
+          >
+            {loading ? '⏳' : '🔄'}
           </button>
         </div>
       </div>

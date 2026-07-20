@@ -12,6 +12,7 @@ import { LearningCenter } from '@/components/learning/LearningCenter';
 import { AuthGate } from '@/components/AuthGate';
 import ThemeSwitcher from '@/components/ui/ThemeSwitcher';
 import CommandPalette from '@/components/ui/CommandPalette';
+import { AutoRefreshIndicator } from '@/components/chart/AutoRefreshIndicator';
 
 type MainTab = 'analysis' | 'backtest' | 'learning';
 
@@ -172,6 +173,9 @@ export default function Home() {
 
         {/* AI Assistant */}
         <AIAssistant />
+
+        {/* Auto Refresh Indicator */}
+        <AutoRefreshIndicator onRefresh={() => window.dispatchEvent(new Event('auto-refresh'))} />
       </div>
     </AppProvider>
     </AuthGate>

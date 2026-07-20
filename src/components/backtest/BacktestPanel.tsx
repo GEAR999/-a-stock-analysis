@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import { Info, Download, Upload, Plus, Search, X } from "lucide-react";
+import { Info, Download, Upload, Plus, Search, X, RefreshCw } from "lucide-react";
 import type { Account, AccountSummary, ToastMessage, BuySignal, Trade, Position, SingleStrategyStats, FailureStats, FailureReason, StrategySource, AccountType, StrategyWeight } from "./types";
 import { StrategySelector } from "./StrategySelector";
 import {
@@ -15,6 +15,7 @@ import {
   calculateMaxDrawdownPeriod, calculateMaxDailyLoss, calculateSlippageStats,
 } from "./storage";
 import { useAppState } from "@/hooks/useAppState";
+import EquityCurveChart from "./EquityCurveChart";
 
 // ===== 失败原因标签配置 =====
 const FAILURE_REASON_CONFIG: Record<FailureReason, { label: string; color: string; bg: string }> = {
@@ -502,7 +503,7 @@ export function BacktestPanel({ externalAddStock }: { externalAddStock?: { code:
   const [accounts, setAccounts] = useState<AccountSummary[]>([]);
   const [activeAccountId, setActiveAccountIdState] = useState<string | null>(null);
   const [account, setAccount] = useState<Account | null>(null);
-  const [activeTab, setActiveTab] = useState<"tracking" | "positions" | "trades" | "strategy" | "settings">("tracking");
+  const [activeTab, setActiveTab] = useState<"tracking" | "positions" | "trades" | "strategy" | "settings" | "chart">("tracking");
   const [expandedPositions, setExpandedPositions] = useState<Set<string>>(new Set());
   const [expandedTrades, setExpandedTrades] = useState<Set<string>>(new Set());
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -630,6 +631,31 @@ export function BacktestPanel({ externalAddStock }: { externalAddStock?: { code:
     setExpandedTrades((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
   };
 
+  // 导出交易记录到 CSV
+  const exportTradesToCSV = (acc: Account) => {
+    const headers = ['日期', '股票代码', '股票名称', '方向', '价格', '数量', '金额', '盈亏', '策略', '原因'];
+    const rows = acc.trades.map(t => [
+      new Date(t.timestamp).toLocaleDateString(),
+      t.stockCode,
+      t.stockName,
+      t.direction === 'buy' ? '买入' : '卖出',
+      t.price.toFixed(2),
+      t.quantity.toString(),
+      t.amount.toFixed(2),
+      t.pnl !== undefined ? t.pnl.toFixed(2) : '',
+      t.strategy || '',
+      `"${(t.reason || '').replace(/"/g, '""')}"`,
+    ]);
+    const csv = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${acc.name}_交易记录_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   // ===== 新增：股票搜索功能 =====
   const searchStockForAdd = useCallback(async (keyword: string) => {
     if (!keyword.trim()) { setSearchResults([]); return; }
@@ -755,6 +781,7 @@ export function BacktestPanel({ externalAddStock }: { externalAddStock?: { code:
     { id: "tracking" as const, label: "跟踪", count: account?.trackingList.length || 0 },
     { id: "positions" as const, label: "持仓", count: account?.positions.length || 0 },
     { id: "trades" as const, label: "交易", count: account?.trades.length || 0 },
+    { id: "chart" as const, label: "资金曲线" },
     { id: "strategy" as const, label: "策略" },
     { id: "settings" as const, label: "设置" },
   ];
@@ -1006,6 +1033,18 @@ export function BacktestPanel({ externalAddStock }: { externalAddStock?: { code:
             {/* 持仓 */}
             {activeTab === "positions" && (
               <div className="p-2">
+                {account.positions.length > 0 && (
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] text-gray-500">持仓列表 ({account.positions.length})</span>
+                    <button 
+                      onClick={() => { const updated = loadAccount(account.id); if (updated) { setAccount({ ...updated }); addToast("success", "持仓已刷新"); } }}
+                      className="flex items-center gap-1 px-2 py-0.5 text-[10px] text-blue-400 hover:text-blue-300 hover:bg-blue-400/10 rounded transition-colors"
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                      刷新持仓
+                    </button>
+                  </div>
+                )}
                 {account.positions.length === 0 ? (
                   <div className="text-center py-8"><p className="text-xs text-gray-600">暂无持仓</p></div>
                 ) : (
@@ -1060,6 +1099,17 @@ export function BacktestPanel({ externalAddStock }: { externalAddStock?: { code:
             {/* 交易记录 */}
             {activeTab === "trades" && (
               <div className="p-2">
+                {account.trades.length > 0 && (
+                  <div className="flex justify-end mb-2">
+                    <button
+                      onClick={() => exportTradesToCSV(account)}
+                      className="text-[10px] text-gray-400 hover:text-white bg-gray-800 hover:bg-gray-700 px-2 py-1 rounded flex items-center gap-1 transition-colors"
+                    >
+                      <Download className="w-3 h-3" />
+                      导出CSV
+                    </button>
+                  </div>
+                )}
                 {account.trades.length === 0 ? (
                   <div className="text-center py-8"><p className="text-xs text-gray-600">暂无交易记录</p></div>
                 ) : (
@@ -1243,6 +1293,70 @@ export function BacktestPanel({ externalAddStock }: { externalAddStock?: { code:
                     )}
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* 资金曲线 */}
+            {activeTab === "chart" && (
+              <div className="p-2 space-y-3">
+                {account && account.trades.length > 0 ? (
+                  <>
+                    {/* 资金曲线图 */}
+                    <div className="bg-[#111827] rounded p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[10px] text-gray-500">资金曲线</span>
+                        <div className="flex items-center gap-3 text-[9px]">
+                          <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-blue-500 inline-block"></span>策略</span>
+                          <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-gray-500 inline-block"></span>沪深300</span>
+                        </div>
+                      </div>
+                      <EquityCurveChart account={account} />
+                    </div>
+
+                    {/* 关键指标 */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="bg-[#111827] rounded p-2">
+                        <div className="text-[9px] text-gray-500">累计收益</div>
+                        <div className={`text-sm font-mono font-bold ${totalPnl >= 0 ? "text-red-400" : "text-green-400"}`}>
+                          {totalPnl >= 0 ? "+" : ""}{totalPnl.toLocaleString()}
+                        </div>
+                      </div>
+                      <div className="bg-[#111827] rounded p-2">
+                        <div className="text-[9px] text-gray-500">收益率</div>
+                        <div className={`text-sm font-mono font-bold ${totalPnlPercent >= 0 ? "text-red-400" : "text-green-400"}`}>
+                          {totalPnlPercent >= 0 ? "+" : ""}{totalPnlPercent.toFixed(2)}%
+                        </div>
+                      </div>
+                      <div className="bg-[#111827] rounded p-2">
+                        <div className="text-[9px] text-gray-500">最大回撤</div>
+                        <div className="text-sm font-mono font-bold text-orange-400">
+                          {metrics?.maxDrawdown.toFixed(2) ?? '0.00'}%
+                        </div>
+                      </div>
+                      <div className="bg-[#111827] rounded p-2">
+                        <div className="text-[9px] text-gray-500">夏普比率</div>
+                        <div className="text-sm font-mono font-bold text-blue-400">
+                          {metrics?.sharpeRatio.toFixed(2) ?? '0.00'}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 交易标记说明 */}
+                    <div className="bg-[#111827] rounded p-2">
+                      <div className="text-[10px] text-gray-500 mb-2">交易标记</div>
+                      <div className="flex flex-wrap gap-2 text-[9px]">
+                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500"></span>买入</span>
+                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500"></span>卖出</span>
+                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500/50 ring-2 ring-green-500/30"></span>盈利</span>
+                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500/50 ring-2 ring-red-500/30"></span>亏损</span>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center py-8 text-gray-500 text-[10px]">
+                    暂无交易记录，无法生成资金曲线
+                  </div>
+                )}
               </div>
             )}
 
