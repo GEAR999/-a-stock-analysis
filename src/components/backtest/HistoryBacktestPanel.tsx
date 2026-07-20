@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
-import { Play, Square, Download, Settings, TrendingUp, TrendingDown, BarChart3 } from "lucide-react";
-import { useAppState } from "@/hooks/useAppState";
+import { useState, useCallback } from "react";
+import { Play, Square, Download, Settings, TrendingUp, TrendingDown, BarChart3, Search, X, Loader2 } from "lucide-react";
 import { runBacktest, type BacktestConfig, type BacktestResult, type StrategyType } from "@/lib/backtest-engine";
+import type { KLineData } from "@/lib/types";
 
 const STRATEGY_OPTIONS: { value: StrategyType; label: string; group: string }[] = [
   { value: "macd_golden_cross", label: "MACD金叉", group: "MACD" },
@@ -33,60 +33,211 @@ const TIME_RANGES = [
   { label: "全部", days: 0 },
 ];
 
+interface StockInfo {
+  code: string;
+  name: string;
+  klineData: KLineData[];
+}
+
+interface BacktestResultItem {
+  stockCode: string;
+  stockName: string;
+  result: BacktestResult;
+}
+
 export function HistoryBacktestPanel() {
-  const { selectedStock, klineData } = useAppState();
+  // 股票输入相关
+  const [stockInput, setStockInput] = useState("");
+  const [stockList, setStockList] = useState<StockInfo[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState("");
+
+  // 回测配置
   const [strategies, setStrategies] = useState<StrategyType[]>(["macd_golden_cross", "macd_death_cross"]);
   const [timeRange, setTimeRange] = useState(252);
   const [initialCapital, setInitialCapital] = useState(1000000);
-  const [isRunning, setIsRunning] = useState(false);
-  const [progress, setProgress] = useState({ current: 0, total: 0 });
-  const [result, setResult] = useState<BacktestResult | null>(null);
 
+  // 回测状态
+  const [isRunning, setIsRunning] = useState(false);
+  const [progress, setProgress] = useState({ current: 0, total: 0, currentStock: "" });
+  const [results, setResults] = useState<BacktestResultItem[]>([]);
+  const [activeResultIndex, setActiveResultIndex] = useState(0);
+
+  // 搜索并添加股票
+  const searchAndAddStock = useCallback(async (code: string) => {
+    try {
+      const res = await fetch(`/api/stock?action=search&keyword=${encodeURIComponent(code)}`);
+      const data = await res.json();
+      if (data.data && data.data.length > 0) {
+        const stock = data.data[0];
+        return { code: stock.code, name: stock.name || stock.code };
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  // 获取K线数据
+  const fetchKLineData = useCallback(async (code: string): Promise<KLineData[]> => {
+    const res = await fetch(`/api/stock?action=kline&code=${encodeURIComponent(code)}&period=daily&limit=1000`);
+    const data = await res.json();
+    if (data.data && Array.isArray(data.data)) {
+      return data.data;
+    }
+    return [];
+  }, []);
+
+  // 处理添加股票
+  const handleAddStock = useCallback(async () => {
+    if (!stockInput.trim()) return;
+
+    setIsSearching(true);
+    setSearchError("");
+
+    // 解析输入的股票代码（支持逗号、空格、中文逗号分隔）
+    const codes = stockInput
+      .split(/[,，\s]+/)
+      .map(s => s.trim())
+      .filter(s => s.length > 0);
+
+    if (codes.length === 0) {
+      setSearchError("请输入有效的股票代码");
+      setIsSearching(false);
+      return;
+    }
+
+    const newStocks: StockInfo[] = [];
+    const errors: string[] = [];
+
+    for (const code of codes) {
+      // 检查是否已存在
+      if (stockList.some(s => s.code === code)) {
+        errors.push(`${code} 已在列表中`);
+        continue;
+      }
+
+      // 搜索股票信息
+      const stockInfo = await searchAndAddStock(code);
+      if (!stockInfo) {
+        errors.push(`${code} 未找到`);
+        continue;
+      }
+
+      // 获取K线数据
+      const klineData = await fetchKLineData(code);
+      if (klineData.length === 0) {
+        errors.push(`${code} 无K线数据`);
+        continue;
+      }
+
+      newStocks.push({
+        code: stockInfo.code,
+        name: stockInfo.name,
+        klineData,
+      });
+    }
+
+    if (newStocks.length > 0) {
+      setStockList(prev => [...prev, ...newStocks]);
+      setStockInput("");
+    }
+
+    if (errors.length > 0) {
+      setSearchError(errors.join("；"));
+    }
+
+    setIsSearching(false);
+  }, [stockInput, stockList, searchAndAddStock, fetchKLineData]);
+
+  // 移除股票
+  const removeStock = (code: string) => {
+    setStockList(prev => prev.filter(s => s.code !== code));
+    // 如果移除的是当前选中的结果，重置activeResultIndex
+    if (results.some(r => r.stockCode === code)) {
+      setActiveResultIndex(0);
+    }
+  };
+
+  // 清空所有股票
+  const clearAllStocks = () => {
+    setStockList([]);
+    setResults([]);
+    setActiveResultIndex(0);
+  };
+
+  // 策略切换
   const toggleStrategy = (strategy: StrategyType) => {
-    setStrategies(prev => 
-      prev.includes(strategy) 
+    setStrategies(prev =>
+      prev.includes(strategy)
         ? prev.filter(s => s !== strategy)
         : [...prev, strategy]
     );
   };
 
-  const runBacktestHandler = useCallback(async () => {
-    if (!klineData.length || strategies.length === 0) return;
-    
+  // 全选/取消全选
+  const toggleAllStrategies = () => {
+    if (strategies.length === STRATEGY_OPTIONS.length) {
+      setStrategies([]);
+    } else {
+      setStrategies(STRATEGY_OPTIONS.map(s => s.value));
+    }
+  };
+
+  // 执行回测
+  const handleRunBacktest = useCallback(async () => {
+    if (stockList.length === 0 || strategies.length === 0) return;
+
     setIsRunning(true);
-    setResult(null);
-    setProgress({ current: 0, total: 0 });
+    setResults([]);
+    setProgress({ current: 0, total: stockList.length, currentStock: "" });
 
-    // 使用 setTimeout 避免阻塞UI
-    setTimeout(() => {
-      try {
-        const filteredKline = timeRange > 0 
-          ? klineData.slice(-timeRange)
-          : klineData;
+    const newResults: BacktestResultItem[] = [];
 
-        const config: BacktestConfig = {
-          strategies,
-          initialCapital,
-          commission: 0.0003,
-          slippage: 0.001,
-          positionSize: 0.95,
-          onProgress: (current, total) => {
-            setProgress({ current, total });
-          },
-        };
+    for (let i = 0; i < stockList.length; i++) {
+      const stock = stockList[i];
+      setProgress({ current: i + 1, total: stockList.length, currentStock: stock.name });
 
-        const backtestResult = runBacktest(filteredKline, config);
-        setResult(backtestResult);
-      } catch (err) {
-        console.error("Backtest error:", err);
-      } finally {
-        setIsRunning(false);
-      }
-    }, 100);
-  }, [klineData, strategies, timeRange, initialCapital]);
+      // 使用 setTimeout 避免阻塞UI
+      await new Promise<void>((resolve) => {
+        setTimeout(() => {
+          try {
+            const filteredKline = timeRange > 0
+              ? stock.klineData.slice(-timeRange)
+              : stock.klineData;
 
-  const exportCSV = () => {
-    if (!result) return;
+            const config: BacktestConfig = {
+              strategies,
+              initialCapital,
+              commission: 0.0003,
+              slippage: 0.001,
+              positionSize: 0.95,
+              onProgress: () => {},
+            };
+
+            const backtestResult = runBacktest(filteredKline, config);
+            newResults.push({
+              stockCode: stock.code,
+              stockName: stock.name,
+              result: backtestResult,
+            });
+          } catch (err) {
+            console.error(`Backtest error for ${stock.code}:`, err);
+          }
+          resolve();
+        }, 50);
+      });
+    }
+
+    setResults(newResults);
+    setActiveResultIndex(0);
+    setIsRunning(false);
+    setProgress({ current: 0, total: 0, currentStock: "" });
+  }, [stockList, strategies, timeRange, initialCapital]);
+
+  // 导出CSV
+  const exportCSV = (resultItem: BacktestResultItem) => {
+    const { result } = resultItem;
     const headers = ["日期", "方向", "价格", "数量", "金额", "手续费", "策略"];
     const rows = result.trades.map(t => [
       t.date,
@@ -103,7 +254,7 @@ export function HistoryBacktestPanel() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `回测结果_${selectedStock?.code || "stock"}_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `回测结果_${resultItem.stockCode}_${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -111,23 +262,105 @@ export function HistoryBacktestPanel() {
   const formatPercent = (v: number) => `${(v * 100).toFixed(2)}%`;
   const formatMoney = (v: number) => `¥${(v / 10000).toFixed(1)}万`;
 
-  if (!selectedStock) {
-    return (
-      <div className="p-4 text-center text-xs text-[var(--text-secondary)]">
-        请先选择股票进行回测
-      </div>
-    );
-  }
+  const activeResult = results[activeResultIndex] || null;
 
   return (
     <div className="flex flex-col h-full">
+      {/* 股票输入区域 */}
+      <div className="p-3 border-b border-[var(--border-default)] space-y-3">
+        {/* 股票输入框 */}
+        <div>
+          <div className="text-xs text-[var(--text-secondary)] mb-1.5 flex items-center gap-1">
+            <Search className="w-3 h-3" />
+            输入股票代码（多只用逗号分隔，如 000001,600519）
+          </div>
+          <div className="flex gap-2">
+            <div className="flex-1 relative">
+              <input
+                type="text"
+                value={stockInput}
+                onChange={(e) => {
+                  setStockInput(e.target.value);
+                  setSearchError("");
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleAddStock();
+                  }
+                }}
+                placeholder="输入股票代码，如 000001, 600519"
+                className="w-full px-3 py-1.5 text-xs bg-[var(--bg-card)]/50 border border-[var(--border-default)] rounded text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--accent-blue)]/50"
+              />
+            </div>
+            <button
+              onClick={handleAddStock}
+              disabled={isSearching || !stockInput.trim()}
+              className="px-3 py-1.5 text-xs bg-[var(--accent-blue)]/20 text-[var(--accent-blue)] rounded hover:bg-[var(--accent-blue)]/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+            >
+              {isSearching ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <Search className="w-3 h-3" />
+              )}
+              添加
+            </button>
+          </div>
+          {searchError && (
+            <div className="mt-1 text-[10px] text-[var(--accent-red)]">{searchError}</div>
+          )}
+        </div>
+
+        {/* 已添加的股票列表 */}
+        {stockList.length > 0 && (
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[10px] text-[var(--text-secondary)]">
+                已添加 {stockList.length} 只股票
+              </span>
+              <button
+                onClick={clearAllStocks}
+                className="text-[10px] text-[var(--text-muted)] hover:text-[var(--accent-red)] transition-colors"
+              >
+                清空全部
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {stockList.map(stock => (
+                <div
+                  key={stock.code}
+                  className="flex items-center gap-1 px-2 py-1 bg-[var(--bg-card)]/50 rounded text-[10px] border border-[var(--border-default)]/50"
+                >
+                  <span className="text-[var(--text-primary)]">{stock.name}</span>
+                  <span className="text-[var(--text-muted)] font-mono">{stock.code}</span>
+                  <span className="text-[var(--text-muted)]">({stock.klineData.length}根K线)</span>
+                  <button
+                    onClick={() => removeStock(stock.code)}
+                    className="ml-0.5 text-[var(--text-muted)] hover:text-[var(--accent-red)] transition-colors"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* 配置区域 */}
       <div className="p-3 border-b border-[var(--border-default)] space-y-3">
         {/* 策略选择 */}
         <div>
-          <div className="text-xs text-[var(--text-secondary)] mb-2 flex items-center gap-1">
-            <Settings className="w-3 h-3" />
-            选择策略（可多选）
+          <div className="text-xs text-[var(--text-secondary)] mb-2 flex items-center justify-between">
+            <div className="flex items-center gap-1">
+              <Settings className="w-3 h-3" />
+              选择策略（可多选）
+            </div>
+            <button
+              onClick={toggleAllStrategies}
+              className="text-[10px] text-[var(--accent-blue)] hover:underline"
+            >
+              {strategies.length === STRATEGY_OPTIONS.length ? "取消全选" : "全选"}
+            </button>
           </div>
           {/* 基础策略 */}
           <div className="flex flex-wrap gap-1 mb-1">
@@ -137,7 +370,7 @@ export function HistoryBacktestPanel() {
                 onClick={() => toggleStrategy(opt.value)}
                 className={`px-2 py-1 text-[10px] rounded transition-colors ${
                   strategies.includes(opt.value)
-                    ? "bg-blue-500/20 text-[var(--accent-blue)] border border-[var(--accent-blue)]/30"
+                    ? "bg-[var(--accent-blue)]/20 text-[var(--accent-blue)] border border-[var(--accent-blue)]/30"
                     : "bg-[var(--bg-card)]/50 text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-transparent"
                 }`}
               >
@@ -177,7 +410,7 @@ export function HistoryBacktestPanel() {
                   onClick={() => setTimeRange(tr.days)}
                   className={`px-2 py-1 text-[10px] rounded transition-colors ${
                     timeRange === tr.days
-                      ? "bg-blue-500/20 text-[var(--accent-blue)]"
+                      ? "bg-[var(--accent-blue)]/20 text-[var(--accent-blue)]"
                       : "bg-[var(--bg-card)]/50 text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                   }`}
                 >
@@ -199,164 +432,250 @@ export function HistoryBacktestPanel() {
 
         {/* 运行按钮 */}
         <button
-          onClick={runBacktestHandler}
-          disabled={isRunning || strategies.length === 0 || klineData.length === 0}
+          onClick={handleRunBacktest}
+          disabled={isRunning || strategies.length === 0 || stockList.length === 0}
           className={`w-full py-2 rounded text-xs font-medium transition-colors flex items-center justify-center gap-2 ${
             isRunning
               ? "bg-[var(--bg-card)] text-[var(--text-secondary)] cursor-not-allowed"
-              : "bg-blue-500/20 text-[var(--accent-blue)] hover:bg-blue-500/30 border border-[var(--accent-blue)]/30"
+              : stockList.length === 0 || strategies.length === 0
+                ? "bg-[var(--bg-card)] text-[var(--text-muted)] cursor-not-allowed"
+                : "bg-[var(--accent-blue)]/20 text-[var(--accent-blue)] hover:bg-[var(--accent-blue)]/30 border border-[var(--accent-blue)]/30"
           }`}
         >
           {isRunning ? (
             <>
               <div className="w-3 h-3 border-2 border-[var(--text-muted)] border-t-transparent rounded-full animate-spin" />
               {progress.total > 0
-                ? `回测中... ${Math.round((progress.current / progress.total) * 100)}%`
+                ? `回测中... ${progress.currentStock} (${progress.current}/${progress.total})`
                 : "回测中..."}
             </>
           ) : (
             <>
               <Play className="w-3 h-3" />
-              开始回测
+              开始回测{stockList.length > 0 ? ` (${stockList.length}只股票)` : ""}
             </>
           )}
         </button>
       </div>
 
       {/* 结果区域 */}
-      {result && (
+      {results.length > 0 && (
         <div className="flex-1 overflow-y-auto p-3 space-y-3">
-          {/* 关键指标 */}
-          <div className="grid grid-cols-3 gap-2">
-            <div className="bg-[var(--bg-card)]/30 rounded p-2">
-              <div className="text-[10px] text-[var(--text-secondary)]">总收益率</div>
-              <div className={`text-sm font-mono font-medium ${result.metrics.totalReturn >= 0 ? "text-[var(--accent-red)]" : "text-[var(--accent-green)]"}`}>
-                {formatPercent(result.metrics.totalReturn)}
-              </div>
-            </div>
-            <div className="bg-[var(--bg-card)]/30 rounded p-2">
-              <div className="text-[10px] text-[var(--text-secondary)]">年化收益</div>
-              <div className={`text-sm font-mono font-medium ${result.metrics.annualizedReturn >= 0 ? "text-[var(--accent-red)]" : "text-[var(--accent-green)]"}`}>
-                {formatPercent(result.metrics.annualizedReturn)}
-              </div>
-            </div>
-            <div className="bg-[var(--bg-card)]/30 rounded p-2">
-              <div className="text-[10px] text-[var(--text-secondary)]">最大回撤</div>
-              <div className="text-sm font-mono font-medium text-[var(--accent-green)]">
-                {formatPercent(result.metrics.maxDrawdown)}
-              </div>
-            </div>
-            <div className="bg-[var(--bg-card)]/30 rounded p-2">
-              <div className="text-[10px] text-[var(--text-secondary)]">夏普比率</div>
-              <div className="text-sm font-mono font-medium text-[var(--text-primary)]">
-                {result.metrics.sharpeRatio.toFixed(2)}
-              </div>
-            </div>
-            <div className="bg-[var(--bg-card)]/30 rounded p-2">
-              <div className="text-[10px] text-[var(--text-secondary)]">胜率</div>
-              <div className={`text-sm font-mono font-medium ${result.metrics.winRate >= 0.5 ? "text-[var(--accent-red)]" : "text-[var(--accent-green)]"}`}>
-                {formatPercent(result.metrics.winRate)}
-              </div>
-            </div>
-            <div className="bg-[var(--bg-card)]/30 rounded p-2">
-              <div className="text-[10px] text-[var(--text-secondary)]">盈亏比</div>
-              <div className="text-sm font-mono font-medium text-[var(--text-primary)]">
-                {result.metrics.profitLossRatio.toFixed(2)}
-              </div>
-            </div>
-          </div>
-
-          {/* 交易统计 */}
-          <div className="bg-[var(--bg-card)]/30 rounded p-2">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-[var(--text-secondary)]">交易统计</span>
-              <button
-                onClick={exportCSV}
-                className="text-[10px] text-[var(--accent-blue)] hover:text-blue-300 flex items-center gap-1"
-              >
-                <Download className="w-3 h-3" />
-                导出CSV
-              </button>
-            </div>
-            <div className="flex gap-4 text-xs">
-              <span className="text-[var(--text-secondary)]">
-                总交易: <span className="text-[var(--text-primary)]">{result.metrics.totalTrades}笔</span>
-              </span>
-              <span className="text-[var(--text-secondary)]">
-                盈利: <span className="text-[var(--accent-red)]">{result.metrics.winningTrades}笔</span>
-              </span>
-              <span className="text-[var(--text-secondary)]">
-                亏损: <span className="text-[var(--accent-green)]">{result.metrics.losingTrades}笔</span>
-              </span>
-            </div>
-          </div>
-
-          {/* 资金曲线简易图 */}
-          {result.dailyRecords.length > 0 && (
-            <div className="bg-[var(--bg-card)]/30 rounded p-2">
-              <div className="text-xs text-[var(--text-secondary)] mb-2 flex items-center gap-1">
-                <BarChart3 className="w-3 h-3" />
-                资金曲线
-              </div>
-              <svg viewBox="0 0 300 80" className="w-full h-20">
-                {/* 基准线 */}
-                <path
-                  d={result.dailyRecords.map((r, i) => {
-                    const x = (i / (result.dailyRecords.length - 1)) * 300;
-                    const y = 80 - ((r.benchmark / initialCapital) * 40);
-                    return `${i === 0 ? "M" : "L"} ${x} ${Math.max(0, Math.min(80, y))}`;
-                  }).join(" ")}
-                  fill="none"
-                  stroke="#4b5563"
-                  strokeWidth="1"
-                  strokeDasharray="2,2"
-                />
-                {/* 资金曲线 */}
-                <path
-                  d={result.dailyRecords.map((r, i) => {
-                    const x = (i / (result.dailyRecords.length - 1)) * 300;
-                    const y = 80 - ((r.totalValue / initialCapital) * 40);
-                    return `${i === 0 ? "M" : "L"} ${x} ${Math.max(0, Math.min(80, y))}`;
-                  }).join(" ")}
-                  fill="none"
-                  stroke="#3b82f6"
-                  strokeWidth="1.5"
-                />
-              </svg>
-              <div className="flex justify-between text-[9px] text-[var(--text-secondary)] mt-1">
-                <span>{result.dailyRecords[0]?.date}</span>
-                <span className="text-[var(--accent-blue)]">● 策略</span>
-                <span className="text-[var(--text-secondary)]">- - 基准</span>
-                <span>{result.dailyRecords[result.dailyRecords.length - 1]?.date}</span>
-              </div>
+          {/* 多股票结果切换 */}
+          {results.length > 1 && (
+            <div className="flex gap-1 flex-wrap">
+              {results.map((r, idx) => (
+                <button
+                  key={r.stockCode}
+                  onClick={() => setActiveResultIndex(idx)}
+                  className={`px-2 py-1 text-[10px] rounded transition-colors ${
+                    idx === activeResultIndex
+                      ? "bg-[var(--accent-blue)]/20 text-[var(--accent-blue)] border border-[var(--accent-blue)]/30"
+                      : "bg-[var(--bg-card)]/50 text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-transparent"
+                  }`}
+                >
+                  {r.stockName} ({r.stockCode})
+                </button>
+              ))}
             </div>
           )}
 
-          {/* 交易记录 */}
-          <div className="bg-[var(--bg-card)]/30 rounded p-2">
-            <div className="text-xs text-[var(--text-secondary)] mb-2">交易记录（最近10笔）</div>
-            <div className="space-y-1 max-h-40 overflow-y-auto">
-              {result.trades.slice(-10).reverse().map((trade, i) => (
-                <div key={i} className="flex items-center justify-between text-[10px] py-1 border-b border-[var(--border-default)]/50 last:border-0">
-                  <div className="flex items-center gap-2">
-                    {trade.type === "buy" ? (
-                      <TrendingUp className="w-3 h-3 text-[var(--accent-red)]" />
-                    ) : (
-                      <TrendingDown className="w-3 h-3 text-[var(--accent-green)]" />
-                    )}
-                    <span className="text-[var(--text-secondary)]">{trade.date}</span>
-                    <span className={trade.type === "buy" ? "text-[var(--accent-red)]" : "text-[var(--accent-green)]"}>
-                      {trade.type === "buy" ? "买入" : "卖出"}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[var(--text-primary)] font-mono">{trade.price.toFixed(2)}</span>
-                    <span className="text-[var(--text-secondary)]">{trade.shares}股</span>
+          {activeResult && (
+            <>
+              {/* 股票名称 */}
+              <div className="text-xs text-[var(--text-primary)] font-medium">
+                {activeResult.stockName} ({activeResult.stockCode}) 回测结果
+              </div>
+
+              {/* 关键指标 */}
+              <div className="grid grid-cols-3 gap-2">
+                <div className="bg-[var(--bg-card)]/30 rounded p-2">
+                  <div className="text-[10px] text-[var(--text-secondary)]">总收益率</div>
+                  <div className={`text-sm font-mono font-medium ${activeResult.result.metrics.totalReturn >= 0 ? "text-[var(--accent-red)]" : "text-[var(--accent-green)]"}`}>
+                    {formatPercent(activeResult.result.metrics.totalReturn)}
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
+                <div className="bg-[var(--bg-card)]/30 rounded p-2">
+                  <div className="text-[10px] text-[var(--text-secondary)]">年化收益</div>
+                  <div className={`text-sm font-mono font-medium ${activeResult.result.metrics.annualizedReturn >= 0 ? "text-[var(--accent-red)]" : "text-[var(--accent-green)]"}`}>
+                    {formatPercent(activeResult.result.metrics.annualizedReturn)}
+                  </div>
+                </div>
+                <div className="bg-[var(--bg-card)]/30 rounded p-2">
+                  <div className="text-[10px] text-[var(--text-secondary)]">最大回撤</div>
+                  <div className="text-sm font-mono font-medium text-[var(--accent-green)]">
+                    {formatPercent(activeResult.result.metrics.maxDrawdown)}
+                  </div>
+                </div>
+                <div className="bg-[var(--bg-card)]/30 rounded p-2">
+                  <div className="text-[10px] text-[var(--text-secondary)]">夏普比率</div>
+                  <div className="text-sm font-mono font-medium text-[var(--text-primary)]">
+                    {activeResult.result.metrics.sharpeRatio.toFixed(2)}
+                  </div>
+                </div>
+                <div className="bg-[var(--bg-card)]/30 rounded p-2">
+                  <div className="text-[10px] text-[var(--text-secondary)]">胜率</div>
+                  <div className={`text-sm font-mono font-medium ${activeResult.result.metrics.winRate >= 0.5 ? "text-[var(--accent-red)]" : "text-[var(--accent-green)]"}`}>
+                    {formatPercent(activeResult.result.metrics.winRate)}
+                  </div>
+                </div>
+                <div className="bg-[var(--bg-card)]/30 rounded p-2">
+                  <div className="text-[10px] text-[var(--text-secondary)]">盈亏比</div>
+                  <div className="text-sm font-mono font-medium text-[var(--text-primary)]">
+                    {activeResult.result.metrics.profitLossRatio.toFixed(2)}
+                  </div>
+                </div>
+              </div>
+
+              {/* 多股票对比表 */}
+              {results.length > 1 && (
+                <div className="bg-[var(--bg-card)]/30 rounded p-2">
+                  <div className="text-xs text-[var(--text-secondary)] mb-2">策略对比</div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-[10px]">
+                      <thead>
+                        <tr className="border-b border-[var(--border-default)]/50">
+                          <th className="text-left py-1 text-[var(--text-secondary)]">股票</th>
+                          <th className="text-right py-1 text-[var(--text-secondary)]">总收益</th>
+                          <th className="text-right py-1 text-[var(--text-secondary)]">年化</th>
+                          <th className="text-right py-1 text-[var(--text-secondary)]">最大回撤</th>
+                          <th className="text-right py-1 text-[var(--text-secondary)]">夏普</th>
+                          <th className="text-right py-1 text-[var(--text-secondary)]">胜率</th>
+                          <th className="text-right py-1 text-[var(--text-secondary)]">交易数</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {results.map((r) => (
+                          <tr key={r.stockCode} className="border-b border-[var(--border-default)]/30">
+                            <td className="py-1 text-[var(--text-primary)]">{r.stockName}</td>
+                            <td className={`text-right py-1 ${r.result.metrics.totalReturn >= 0 ? "text-[var(--accent-red)]" : "text-[var(--accent-green)]"}`}>
+                              {formatPercent(r.result.metrics.totalReturn)}
+                            </td>
+                            <td className={`text-right py-1 ${r.result.metrics.annualizedReturn >= 0 ? "text-[var(--accent-red)]" : "text-[var(--accent-green)]"}`}>
+                              {formatPercent(r.result.metrics.annualizedReturn)}
+                            </td>
+                            <td className="text-right py-1 text-[var(--accent-green)]">
+                              {formatPercent(r.result.metrics.maxDrawdown)}
+                            </td>
+                            <td className="text-right py-1 text-[var(--text-primary)]">
+                              {r.result.metrics.sharpeRatio.toFixed(2)}
+                            </td>
+                            <td className={`text-right py-1 ${r.result.metrics.winRate >= 0.5 ? "text-[var(--accent-red)]" : "text-[var(--accent-green)]"}`}>
+                              {formatPercent(r.result.metrics.winRate)}
+                            </td>
+                            <td className="text-right py-1 text-[var(--text-primary)]">
+                              {r.result.metrics.totalTrades}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* 交易统计 */}
+              <div className="bg-[var(--bg-card)]/30 rounded p-2">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs text-[var(--text-secondary)]">交易统计</span>
+                  <button
+                    onClick={() => exportCSV(activeResult)}
+                    className="text-[10px] text-[var(--accent-blue)] hover:text-blue-300 flex items-center gap-1"
+                  >
+                    <Download className="w-3 h-3" />
+                    导出CSV
+                  </button>
+                </div>
+                <div className="flex gap-4 text-xs">
+                  <span className="text-[var(--text-secondary)]">
+                    总交易: <span className="text-[var(--text-primary)]">{activeResult.result.metrics.totalTrades}笔</span>
+                  </span>
+                  <span className="text-[var(--text-secondary)]">
+                    盈利: <span className="text-[var(--accent-red)]">{activeResult.result.metrics.winningTrades}笔</span>
+                  </span>
+                  <span className="text-[var(--text-secondary)]">
+                    亏损: <span className="text-[var(--accent-green)]">{activeResult.result.metrics.losingTrades}笔</span>
+                  </span>
+                </div>
+              </div>
+
+              {/* 资金曲线简易图 */}
+              {activeResult.result.dailyRecords.length > 0 && (
+                <div className="bg-[var(--bg-card)]/30 rounded p-2">
+                  <div className="text-xs text-[var(--text-secondary)] mb-2 flex items-center gap-1">
+                    <BarChart3 className="w-3 h-3" />
+                    资金曲线
+                  </div>
+                  <svg viewBox="0 0 300 80" className="w-full h-20">
+                    {/* 基准线 */}
+                    <path
+                      d={activeResult.result.dailyRecords.map((r, i) => {
+                        const x = (i / (activeResult.result.dailyRecords.length - 1)) * 300;
+                        const y = 80 - ((r.benchmark / initialCapital) * 40);
+                        return `${i === 0 ? "M" : "L"} ${x} ${Math.max(0, Math.min(80, y))}`;
+                      }).join(" ")}
+                      fill="none"
+                      stroke="#4b5563"
+                      strokeWidth="1"
+                      strokeDasharray="2,2"
+                    />
+                    {/* 资金曲线 */}
+                    <path
+                      d={activeResult.result.dailyRecords.map((r, i) => {
+                        const x = (i / (activeResult.result.dailyRecords.length - 1)) * 300;
+                        const y = 80 - ((r.totalValue / initialCapital) * 40);
+                        return `${i === 0 ? "M" : "L"} ${x} ${Math.max(0, Math.min(80, y))}`;
+                      }).join(" ")}
+                      fill="none"
+                      stroke="#3b82f6"
+                      strokeWidth="1.5"
+                    />
+                  </svg>
+                  <div className="flex justify-between text-[9px] text-[var(--text-secondary)] mt-1">
+                    <span>{activeResult.result.dailyRecords[0]?.date}</span>
+                    <span className="text-[var(--accent-blue)]">● 策略</span>
+                    <span className="text-[var(--text-secondary)]">- - 基准</span>
+                    <span>{activeResult.result.dailyRecords[activeResult.result.dailyRecords.length - 1]?.date}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* 交易记录 */}
+              <div className="bg-[var(--bg-card)]/30 rounded p-2">
+                <div className="text-xs text-[var(--text-secondary)] mb-2">交易记录（最近10笔）</div>
+                <div className="space-y-1 max-h-40 overflow-y-auto">
+                  {activeResult.result.trades.slice(-10).reverse().map((trade, i) => (
+                    <div key={i} className="flex items-center justify-between text-[10px] py-1 border-b border-[var(--border-default)]/50 last:border-0">
+                      <div className="flex items-center gap-2">
+                        {trade.type === "buy" ? (
+                          <TrendingUp className="w-3 h-3 text-[var(--accent-red)]" />
+                        ) : (
+                          <TrendingDown className="w-3 h-3 text-[var(--accent-green)]" />
+                        )}
+                        <span className="text-[var(--text-secondary)]">{trade.date}</span>
+                        <span className={trade.type === "buy" ? "text-[var(--accent-red)]" : "text-[var(--accent-green)]"}>
+                          {trade.type === "buy" ? "买入" : "卖出"}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[var(--text-primary)] font-mono">{trade.price.toFixed(2)}</span>
+                        <span className="text-[var(--text-secondary)]">{trade.shares}股</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* 无股票时的提示 */}
+      {stockList.length === 0 && !isRunning && (
+        <div className="flex-1 flex flex-col items-center justify-center py-8 text-[var(--text-secondary)]">
+          <Search className="w-8 h-8 mb-2 opacity-50" />
+          <p className="text-xs">输入股票代码开始回测</p>
+          <p className="text-[10px] text-[var(--text-muted)] mt-1">支持多只股票同时回测，用逗号分隔</p>
         </div>
       )}
     </div>
