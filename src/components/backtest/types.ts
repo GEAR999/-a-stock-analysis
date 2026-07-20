@@ -47,6 +47,7 @@ export interface Trade {
   isAuto?: boolean;
   strategy?: StrategySource;      // 策略来源
   decision?: TradeDecision;       // 决策快照
+  aiReasoning?: string;           // AI判断理由
   failureReason?: FailureReason;  // 失败原因(亏损交易)
   failureReasons?: FailureReason[]; // 多个失败原因
   suggestedPrice?: number;        // 建议价格（用于计算滑点）
@@ -87,6 +88,10 @@ export interface QuantStrategy {
   // 自定义权重模式
   weightMode?: "auto" | "custom";  // 权重分配模式
   customWeights?: Record<string, number>;  // 自定义权重（策略ID -> 百分比）
+  // AI辅助判断配置
+  aiEnabled?: boolean;         // 是否启用AI辅助
+  aiType?: "none" | "rule-based" | "api";  // AI适配器类型
+  aiWeight?: number;           // AI权重占比(0-50)，默认20
 }
 
 // 账户信息

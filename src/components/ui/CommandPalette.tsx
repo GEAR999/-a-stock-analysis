@@ -36,9 +36,9 @@ export default function CommandPalette() {
   // 命令列表
   const commands: CommandItem[] = [
     // 主题切换
-    { id: "theme-dark", label: "切换到深色主题", description: "深色交易终端模式", icon: Settings, action: () => setTheme("dark"), category: "主题" },
+    { id: "theme-dark", label: "切换到深蓝终端主题", description: "深色交易终端模式", icon: Settings, action: () => setTheme("dark-blue"), category: "主题" },
     { id: "theme-light", label: "切换到浅色主题", description: "浅色明亮模式", icon: Settings, action: () => setTheme("light"), category: "主题" },
-    { id: "theme-eyecare", label: "切换到护眼主题", description: "护眼绿色模式", icon: Settings, action: () => setTheme("eye-care"), category: "主题" },
+    { id: "theme-eyecare", label: "切换到护眼主题", description: "护眼绿色模式", icon: Settings, action: () => setTheme("eye-green"), category: "主题" },
     // 功能导航
     { id: "nav-analysis", label: "展开分析引擎", description: "展开所有分析面板", icon: BarChart3, action: () => document.querySelectorAll<HTMLButtonElement>('[data-accordion]').forEach(b => { if (!b.dataset.expanded) b.click(); }), category: "导航" },
     { id: "nav-collapse", label: "折叠所有面板", description: "折叠所有展开的面板", icon: BarChart3, action: () => document.querySelectorAll<HTMLButtonElement>('[data-accordion][data-expanded]').forEach(b => b.click()), category: "导航" },

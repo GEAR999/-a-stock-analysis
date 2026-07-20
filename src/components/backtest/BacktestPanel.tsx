@@ -174,7 +174,7 @@ export function BacktestPanel() {
   }
 
   return (
-    <div className="flex flex-col h-full bg-[#0a0e17] overflow-y-auto">
+    <div className="flex flex-col h-full bg-[var(--bg-primary)] overflow-y-auto">
       {/* Toast */}
       {toast && (
         <div className={`fixed top-4 right-4 z-50 px-4 py-2 rounded text-xs font-medium shadow-lg ${
@@ -188,7 +188,7 @@ export function BacktestPanel() {
       )}
 
       {/* 账户选择器 */}
-      <div className="flex items-center justify-between p-3 border-b border-gray-800 bg-[#111827]">
+      <div className="flex items-center justify-between p-3 border-b border-gray-800 bg-[var(--bg-panel)]">
         <div className="flex items-center gap-2">
           <Wallet className="w-4 h-4 text-blue-400" />
           <select
@@ -231,7 +231,7 @@ export function BacktestPanel() {
 
       {/* 新建账户表单 */}
       {showNewAccount && (
-        <div className="p-3 border-b border-gray-800 bg-[#111827] space-y-2">
+        <div className="p-3 border-b border-gray-800 bg-[var(--bg-panel)] space-y-2">
           <input
             type="text"
             value={newAccountName}
@@ -316,7 +316,7 @@ export function BacktestPanel() {
               </button>
 
               {showStrategyPicker && (
-                <div className="max-h-48 overflow-y-auto space-y-1 border border-gray-700 rounded bg-[#0a0e17] p-1.5">
+                <div className="max-h-48 overflow-y-auto space-y-1 border border-gray-700 rounded bg-[var(--bg-primary)] p-1.5">
                   {allStrategies.map((s) => {
                     const isSelected = selectedStrategyIds.includes(s.id);
                     const isBuiltin = s.source === 'builtin';
@@ -383,12 +383,12 @@ export function BacktestPanel() {
 
       {/* 修改策略面板 */}
       {showChangeStrategy && currentAccount.type === 'quant' && (
-        <div className="p-3 border-b border-gray-800 bg-[#111827] space-y-2">
+        <div className="p-3 border-b border-gray-800 bg-[var(--bg-panel)] space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs text-gray-300 font-medium">修改策略</span>
             <span className="text-[10px] text-gray-500">当前: {currentAccount.strategy?.name || '默认'}</span>
           </div>
-          <div className="max-h-48 overflow-y-auto space-y-1 border border-gray-700 rounded bg-[#0a0e17] p-1.5">
+          <div className="max-h-48 overflow-y-auto space-y-1 border border-gray-700 rounded bg-[var(--bg-primary)] p-1.5">
             {allStrategies.map((s) => {
               const isSelected = selectedStrategyIds.includes(s.id);
               const isBuiltin = s.source === 'builtin';
@@ -450,7 +450,7 @@ export function BacktestPanel() {
 
         {/* 当前策略信息（量化账户） */}
         {currentAccount.type === 'quant' && currentAccount.strategy && (
-          <div className="px-3 py-2 bg-[#111827] border border-gray-800 rounded">
+          <div className="px-3 py-2 bg-[var(--bg-panel)] border border-gray-800 rounded">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Settings className="w-3.5 h-3.5 text-purple-400" />

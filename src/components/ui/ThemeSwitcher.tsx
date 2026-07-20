@@ -1,21 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Sun, Moon, Eye } from "lucide-react";
+import { Palette } from "lucide-react";
 import { useTheme, THEME_CONFIG, type ThemeMode } from "@/hooks/useTheme";
-
-const themeIcons: Record<ThemeMode, typeof Sun> = {
-  dark: Moon,
-  light: Sun,
-  "eye-care": Eye,
-};
 
 export default function ThemeSwitcher() {
   const { theme, setTheme } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
-  const Icon = themeIcons[theme];
 
-  const themes: ThemeMode[] = ["dark", "light", "eye-care"];
+  const themes: ThemeMode[] = ["dark-blue", "dark-gray", "light", "eye-green", "warm-orange", "purple-night", "deep-sea"];
 
   return (
     <div className="relative">
@@ -24,24 +17,44 @@ export default function ThemeSwitcher() {
         className="p-1.5 rounded hover:bg-white/10 transition-colors"
         title="切换主题"
       >
-        <Icon className="w-3.5 h-3.5 text-gray-400" />
+        <Palette className="w-3.5 h-3.5 text-[var(--text-secondary)]" />
       </button>
       {isOpen && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
-          <div className="absolute right-0 top-full mt-1 bg-[#1a1f2e] border border-gray-700 rounded shadow-lg z-50 min-w-[100px]">
-            {themes.map((t) => (
-              <button
-                key={t}
-                onClick={() => { setTheme(t); setIsOpen(false); }}
-                className={`w-full px-3 py-1.5 text-left text-[10px] hover:bg-white/5 flex items-center gap-2 ${
-                  theme === t ? "text-blue-400" : "text-gray-400"
-                }`}
-              >
-                {(() => { const I = themeIcons[t]; return <I className="w-3 h-3" />; })()}
-                {THEME_CONFIG[t].label}
-              </button>
-            ))}
+          <div className="absolute right-0 top-full mt-1 bg-[var(--bg-panel)] border border-[var(--border-default)] rounded shadow-lg z-50 p-2 min-w-[200px]">
+            <div className="grid grid-cols-2 gap-1.5">
+              {themes.map((t) => {
+                const config = THEME_CONFIG[t];
+                const isSelected = theme === t;
+                return (
+                  <button
+                    key={t}
+                    onClick={() => { setTheme(t); setIsOpen(false); }}
+                    className={`flex items-center gap-2 px-2 py-1.5 rounded text-left transition-colors ${
+                      isSelected 
+                        ? "bg-[var(--bg-hover)] ring-1 ring-[var(--accent-blue)]" 
+                        : "hover:bg-[var(--bg-hover)]"
+                    }`}
+                  >
+                    {/* Color preview circles */}
+                    <div className="flex -space-x-1 flex-shrink-0">
+                      <div 
+                        className="w-3 h-3 rounded-full border border-white/20"
+                        style={{ backgroundColor: config.bg }}
+                      />
+                      <div 
+                        className="w-3 h-3 rounded-full border border-white/20"
+                        style={{ backgroundColor: config.accent }}
+                      />
+                    </div>
+                    <span className={`text-[10px] truncate ${isSelected ? "text-[var(--text-primary)]" : "text-[var(--text-secondary)]"}`}>
+                      {config.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </>
       )}

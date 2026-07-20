@@ -56,11 +56,11 @@ export function Sidebar() {
   const ungroupedStocks = watchlist.filter(s => !groupedCodes.has(s.code));
 
   return (
-    <div className={`${collapsed ? 'w-16' : 'w-[260px]'} shrink-0 bg-[#0d1117] border-r border-[#1e293b] flex flex-col h-full overflow-hidden transition-all duration-300 ease-in-out relative group`}>
+    <div className={`${collapsed ? 'w-16' : 'w-[260px]'} shrink-0 bg-[var(--bg-primary)] border-r border-[var(--border-default)] flex flex-col h-full overflow-hidden transition-all duration-300 ease-in-out relative group`}>
       {/* Collapse Button */}
       <button
         onClick={toggleCollapse}
-        className="absolute top-2 right-1 z-10 w-6 h-6 flex items-center justify-center rounded text-[#94a3b8] hover:text-[#e2e8f0] hover:bg-[#1e293b] transition-colors"
+        className="absolute top-2 right-1 z-10 w-6 h-6 flex items-center justify-center rounded text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-colors"
         title={collapsed ? '展开侧边栏' : '折叠侧边栏'}
       >
         <svg className={`w-4 h-4 transition-transform ${collapsed ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -69,25 +69,25 @@ export function Sidebar() {
       </button>
 
       {/* Logo + Theme Switcher */}
-      <div className="px-3 py-3 border-b border-[#1e293b]">
+      <div className="px-3 py-3 border-b border-[var(--border-default)]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded bg-[#3b82f6] flex items-center justify-center shrink-0">
+            <div className="w-6 h-6 rounded bg-[var(--accent-blue)] flex items-center justify-center shrink-0">
               <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
               </svg>
             </div>
-            {!collapsed && <span className="text-sm font-bold text-[#e2e8f0] whitespace-nowrap">A股智能分析</span>}
+            {!collapsed && <span className="text-sm font-bold text-[var(--text-primary)] whitespace-nowrap">A股智能分析</span>}
           </div>
           {!collapsed && <ThemeSwitcher />}
         </div>
         {/* View Tabs - only show when expanded */}
         {!collapsed && (
-          <div className="flex mt-2 bg-[#1e293b] rounded p-0.5">
+          <div className="flex mt-2 bg-[var(--bg-card)] rounded p-0.5">
             <button
               onClick={() => setView('stocks')}
               className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
-                view === 'stocks' ? 'bg-[#3b82f6] text-white' : 'text-[#94a3b8] hover:text-[#e2e8f0]'
+                view === 'stocks' ? 'bg-[var(--accent-blue)] text-white' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
               }`}
             >
               自选股
@@ -95,7 +95,7 @@ export function Sidebar() {
             <button
               onClick={() => setView('dashboard')}
               className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
-                view === 'dashboard' ? 'bg-[#3b82f6] text-white' : 'text-[#94a3b8] hover:text-[#e2e8f0]'
+                view === 'dashboard' ? 'bg-[var(--accent-blue)] text-white' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
               }`}
             >
               仪表盘
@@ -103,7 +103,7 @@ export function Sidebar() {
             <button
               onClick={() => setView('learning')}
               className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
-                view === 'learning' ? 'bg-[#3b82f6] text-white' : 'text-[#94a3b8] hover:text-[#e2e8f0]'
+                view === 'learning' ? 'bg-[var(--accent-blue)] text-white' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
               }`}
             >
               学习
@@ -118,7 +118,7 @@ export function Sidebar() {
           <button
             onClick={() => setView('stocks')}
             className={`w-10 h-10 rounded flex items-center justify-center transition-colors ${
-              view === 'stocks' ? 'bg-[#3b82f6] text-white' : 'text-[#94a3b8] hover:bg-[#1e293b] hover:text-[#e2e8f0]'
+              view === 'stocks' ? 'bg-[var(--accent-blue)] text-white' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-card)] hover:text-[var(--text-primary)]'
             }`}
             title="自选股"
           >
@@ -129,7 +129,7 @@ export function Sidebar() {
           <button
             onClick={() => setView('dashboard')}
             className={`w-10 h-10 rounded flex items-center justify-center transition-colors ${
-              view === 'dashboard' ? 'bg-[#3b82f6] text-white' : 'text-[#94a3b8] hover:bg-[#1e293b] hover:text-[#e2e8f0]'
+              view === 'dashboard' ? 'bg-[var(--accent-blue)] text-white' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-card)] hover:text-[var(--text-primary)]'
             }`}
             title="仪表盘"
           >
@@ -140,7 +140,7 @@ export function Sidebar() {
           <button
             onClick={() => setView('learning')}
             className={`w-10 h-10 rounded flex items-center justify-center transition-colors ${
-              view === 'learning' ? 'bg-[#3b82f6] text-white' : 'text-[#94a3b8] hover:bg-[#1e293b] hover:text-[#e2e8f0]'
+              view === 'learning' ? 'bg-[var(--accent-blue)] text-white' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-card)] hover:text-[var(--text-primary)]'
             }`}
             title="学习中心"
           >
@@ -148,21 +148,21 @@ export function Sidebar() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.668 18.477 18.082 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
             </svg>
           </button>
-          <div className="w-8 h-px bg-[#1e293b] my-2" />
-          <div className={`w-10 h-10 rounded flex items-center justify-center ${isMonitoring ? 'text-[#22c55e]' : 'text-[#94a3b8]'}`} title={isMonitoring ? '监控中' : '监控关闭'}>
+          <div className="w-8 h-px bg-[var(--bg-card)] my-2" />
+          <div className={`w-10 h-10 rounded flex items-center justify-center ${isMonitoring ? 'text-[#22c55e]' : 'text-[var(--text-secondary)]'}`} title={isMonitoring ? '监控中' : '监控关闭'}>
             <div className={`w-2 h-2 rounded-full ${isMonitoring ? 'bg-[#22c55e] animate-pulse' : 'bg-[#94a3b8]'}`} />
           </div>
         </div>
       ) : (
         <>
           {/* Search - always on top */}
-          <div className="px-3 py-2 border-b border-[#1e293b]">
+          <div className="px-3 py-2 border-b border-[var(--border-default)]">
             <StockSearch />
           </div>
 
           {/* Monitor switch */}
-          <div className="flex items-center justify-between px-3 py-2 border-b border-[#1e293b]">
-            <span className="text-xs text-[#94a3b8]">实时监控</span>
+          <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--border-default)]">
+            <span className="text-xs text-[var(--text-secondary)]">实时监控</span>
             <div className="flex items-center gap-2">
               <div className={`w-1.5 h-1.5 rounded-full ${isMonitoring ? 'bg-[#22c55e] animate-pulse' : 'bg-[#94a3b8]'}`} />
               <Switch checked={isMonitoring} onCheckedChange={setIsMonitoring} />
@@ -178,18 +178,18 @@ export function Sidebar() {
                 if (groupStocks.length === 0) return null;
                 const isExpanded = expandedGroups.has(key);
                 return (
-                  <div key={key} className="border-b border-[#1e293b]">
+                  <div key={key} className="border-b border-[var(--border-default)]">
                     <button
                       onClick={() => toggleGroup(key)}
-                      className="w-full flex items-center justify-between px-3 py-2 hover:bg-[#1e293b]/50 transition-colors"
+                      className="w-full flex items-center justify-between px-3 py-2 hover:bg-[var(--bg-card)]/50 transition-colors"
                     >
                       <div className="flex items-center gap-2">
                         <div className="w-2 h-2 rounded-full" style={{ backgroundColor: group.color }} />
-                        <span className="text-xs font-medium text-[#e2e8f0]">{group.label}</span>
-                        <span className="text-xs text-[#94a3b8]">({groupStocks.length})</span>
+                        <span className="text-xs font-medium text-[var(--text-primary)]">{group.label}</span>
+                        <span className="text-xs text-[var(--text-secondary)]">({groupStocks.length})</span>
                       </div>
                       <svg
-                        className={`w-3 h-3 text-[#94a3b8] transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                        className={`w-3 h-3 text-[var(--text-secondary)] transition-transform ${isExpanded ? 'rotate-180' : ''}`}
                         fill="none" stroke="currentColor" viewBox="0 0 24 24"
                       >
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -207,9 +207,9 @@ export function Sidebar() {
               })}
               {/* Ungrouped stocks */}
               {ungroupedStocks.length > 0 && (
-                <div className="border-b border-[#1e293b]">
+                <div className="border-b border-[var(--border-default)]">
                   <div className="px-3 py-2">
-                    <span className="text-xs font-medium text-[#94a3b8]">其他 ({ungroupedStocks.length})</span>
+                    <span className="text-xs font-medium text-[var(--text-secondary)]">其他 ({ungroupedStocks.length})</span>
                   </div>
                   {ungroupedStocks.map(stock => (
                     <WatchListItem key={stock.code} stock={stock} />
@@ -218,7 +218,7 @@ export function Sidebar() {
               )}
               {/* Empty state */}
               {watchlist.length === 0 && (
-                <div className="px-3 py-4 text-center text-xs text-[#94a3b8]">
+                <div className="px-3 py-4 text-center text-xs text-[var(--text-secondary)]">
                   搜索股票并添加到自选
                 </div>
               )}
@@ -244,20 +244,20 @@ function WatchListItem({ stock, groupColor }: { stock: { code: string; name: str
       onClick={() => setSelectedStock({ code: stock.code, name: stock.name, market: stock.market, type: 'stock' })}
       className={`
         flex items-center justify-between px-3 py-2 pl-6 cursor-pointer transition-all
-        ${isSelected ? 'bg-[#1e293b] border-l-2 border-l-[#3b82f6]' : 'hover:bg-[#1e293b]/50 border-l-2 border-l-transparent'}
+        ${isSelected ? 'bg-[var(--bg-card)] border-l-2 border-l-[#3b82f6]' : 'hover:bg-[var(--bg-card)]/50 border-l-2 border-l-transparent'}
       `}
     >
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1">
           {groupColor && <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: groupColor }} />}
-          <span className="text-sm text-[#e2e8f0] truncate">{stock.name}</span>
+          <span className="text-sm text-[var(--text-primary)] truncate">{stock.name}</span>
         </div>
-        <span className="text-xs text-[#94a3b8] font-mono-num">{stock.code}</span>
+        <span className="text-xs text-[var(--text-secondary)] font-mono-num">{stock.code}</span>
       </div>
       {currentQuote && selectedStock?.code === stock.code && (
         <span className={`text-xs font-mono-num ${
           currentQuote.changePercent > 0 ? 'text-[#ef4444]' :
-          currentQuote.changePercent < 0 ? 'text-[#22c55e]' : 'text-[#94a3b8]'
+          currentQuote.changePercent < 0 ? 'text-[#22c55e]' : 'text-[var(--text-secondary)]'
         }`}>
           {currentQuote.changePercent > 0 ? '+' : ''}{currentQuote.changePercent.toFixed(2)}%
         </span>
@@ -283,7 +283,7 @@ function LearningEntry() {
 
   return (
     <div className="flex-1 overflow-y-auto p-3">
-      <div className="text-xs text-[#94a3b8] mb-3">选择学习模块</div>
+      <div className="text-xs text-[var(--text-secondary)] mb-3">选择学习模块</div>
       <div className="space-y-2">
         {learningModules.map(mod => (
           <button
@@ -292,12 +292,12 @@ function LearningEntry() {
               // Navigate to learning center in main area
               window.dispatchEvent(new CustomEvent('navigate-learning', { detail: mod.id }));
             }}
-            className="w-full flex items-center gap-3 p-3 bg-[#111827] rounded border border-[#1e293b] hover:border-[#3b82f6]/50 transition-colors text-left"
+            className="w-full flex items-center gap-3 p-3 bg-[var(--bg-panel)] rounded border border-[var(--border-default)] hover:border-[var(--accent-blue)]/50 transition-colors text-left"
           >
             <span className="text-xl">{mod.icon}</span>
             <div>
-              <div className="text-sm text-[#e2e8f0]">{mod.title}</div>
-              <div className="text-xs text-[#94a3b8]">{mod.desc}</div>
+              <div className="text-sm text-[var(--text-primary)]">{mod.title}</div>
+              <div className="text-xs text-[var(--text-secondary)]">{mod.desc}</div>
             </div>
           </button>
         ))}
@@ -330,15 +330,15 @@ function DashboardView() {
   return (
     <div className="flex-1 overflow-y-auto p-3 space-y-3">
       {/* 账户选择 */}
-      <div className="bg-[#111827] rounded p-3 border border-[#1e293b]">
-        <div className="text-xs text-[#94a3b8] mb-2">选择账户</div>
+      <div className="bg-[var(--bg-panel)] rounded p-3 border border-[var(--border-default)]">
+        <div className="text-xs text-[var(--text-secondary)] mb-2">选择账户</div>
         {accounts.length === 0 ? (
-          <div className="text-xs text-[#94a3b8]">暂无账户，请在回测面板创建</div>
+          <div className="text-xs text-[var(--text-secondary)]">暂无账户，请在回测面板创建</div>
         ) : (
           <select
             value={selectedAccountId}
             onChange={(e) => setSelectedAccountId(e.target.value)}
-            className="w-full bg-[#1e293b] border border-[#374151] rounded px-2 py-1.5 text-xs text-[#e2e8f0] focus:outline-none focus:border-[#3b82f6]"
+            className="w-full bg-[var(--bg-card)] border border-[#374151] rounded px-2 py-1.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-blue)]"
           >
             {accounts.map(acc => (
               <option key={acc.id} value={acc.id}>{acc.name}</option>
@@ -350,9 +350,9 @@ function DashboardView() {
       {/* 持仓总览 */}
       {selectedAccount && metrics && (
         <>
-          <div className="bg-[#111827] rounded p-3 border border-[#1e293b]">
-            <div className="text-xs text-[#94a3b8] mb-1">持仓市值</div>
-            <div className="text-lg font-bold text-[#e2e8f0] font-mono-num">
+          <div className="bg-[var(--bg-panel)] rounded p-3 border border-[var(--border-default)]">
+            <div className="text-xs text-[var(--text-secondary)] mb-1">持仓市值</div>
+            <div className="text-lg font-bold text-[var(--text-primary)] font-mono-num">
               ¥{marketValue.toLocaleString()}
             </div>
             <div className={`text-sm font-mono-num ${totalPnl >= 0 ? 'text-[#ef4444]' : 'text-[#22c55e]'}`}>
@@ -361,30 +361,30 @@ function DashboardView() {
           </div>
 
           {/* 账户统计 */}
-          <div className="bg-[#111827] rounded p-3 border border-[#1e293b]">
-            <div className="text-xs text-[#94a3b8] mb-2">账户统计</div>
+          <div className="bg-[var(--bg-panel)] rounded p-3 border border-[var(--border-default)]">
+            <div className="text-xs text-[var(--text-secondary)] mb-2">账户统计</div>
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <div className="text-xs text-[#94a3b8]">累计收益</div>
+                <div className="text-xs text-[var(--text-secondary)]">累计收益</div>
                 <div className={`text-sm font-mono-num ${metrics.totalReturn >= 0 ? 'text-[#ef4444]' : 'text-[#22c55e]'}`}>
                   {metrics.totalReturn >= 0 ? '+' : ''}{metrics.totalReturn.toFixed(2)}%
                 </div>
               </div>
               <div>
-                <div className="text-xs text-[#94a3b8]">可用资金</div>
-                <div className="text-sm font-mono-num text-[#e2e8f0]">
+                <div className="text-xs text-[var(--text-secondary)]">可用资金</div>
+                <div className="text-sm font-mono-num text-[var(--text-primary)]">
                   ¥{selectedAccount.currentCapital.toLocaleString()}
                 </div>
               </div>
               <div>
-                <div className="text-xs text-[#94a3b8]">最大回撤</div>
+                <div className="text-xs text-[var(--text-secondary)]">最大回撤</div>
                 <div className="text-sm font-mono-num text-[#f59e0b]">
                   {metrics.maxDrawdown.toFixed(2)}%
                 </div>
               </div>
               <div>
-                <div className="text-xs text-[#94a3b8]">胜率</div>
-                <div className="text-sm font-mono-num text-[#e2e8f0]">
+                <div className="text-xs text-[var(--text-secondary)]">胜率</div>
+                <div className="text-sm font-mono-num text-[var(--text-primary)]">
                   {metrics.winRate.toFixed(1)}%
                 </div>
               </div>
@@ -395,14 +395,14 @@ function DashboardView() {
 
       {/* 持仓列表 */}
       {positions.length > 0 && (
-        <div className="bg-[#111827] rounded p-3 border border-[#1e293b]">
-          <div className="text-xs font-medium text-[#e2e8f0] mb-2">当前持仓 ({positions.length})</div>
+        <div className="bg-[var(--bg-panel)] rounded p-3 border border-[var(--border-default)]">
+          <div className="text-xs font-medium text-[var(--text-primary)] mb-2">当前持仓 ({positions.length})</div>
           <div className="space-y-2">
             {positions.map(p => (
               <div key={p.stockCode} className="flex items-center justify-between">
                 <div>
-                  <div className="text-xs text-[#e2e8f0]">{p.stockName}</div>
-                  <div className="text-xs text-[#94a3b8] font-mono-num">{p.stockCode}</div>
+                  <div className="text-xs text-[var(--text-primary)]">{p.stockName}</div>
+                  <div className="text-xs text-[var(--text-secondary)] font-mono-num">{p.stockCode}</div>
                 </div>
                 <div className="text-right">
                   <div className={`text-xs font-mono-num ${p.pnl >= 0 ? 'text-[#ef4444]' : 'text-[#22c55e]'}`}>
@@ -420,17 +420,17 @@ function DashboardView() {
 
       {/* 无持仓提示 */}
       {selectedAccount && positions.length === 0 && (
-        <div className="bg-[#111827] rounded p-3 border border-[#1e293b]">
-          <div className="text-xs text-[#94a3b8] text-center">暂无持仓</div>
+        <div className="bg-[var(--bg-panel)] rounded p-3 border border-[var(--border-default)]">
+          <div className="text-xs text-[var(--text-secondary)] text-center">暂无持仓</div>
         </div>
       )}
 
       {/* 风险预警 */}
       {selectedAccount && (
-        <div className="bg-[#111827] rounded p-3 border border-[#1e293b]">
+        <div className="bg-[var(--bg-panel)] rounded p-3 border border-[var(--border-default)]">
           <div className="flex items-center gap-2 mb-2">
             <div className={`w-2 h-2 rounded-full ${marketValue / (selectedAccount.initialCapital || 1) > 0.7 ? 'bg-[#ef4444]' : 'bg-[#22c55e]'} animate-pulse`} />
-            <span className="text-xs font-medium text-[#e2e8f0]">风险状态</span>
+            <span className="text-xs font-medium text-[var(--text-primary)]">风险状态</span>
           </div>
           <div className="space-y-1">
             {marketValue / (selectedAccount.initialCapital || 1) > 0.7 && (
@@ -440,7 +440,7 @@ function DashboardView() {
               <div className="text-xs text-[#f59e0b]">• 亏损超过5%，注意止损</div>
             )}
             {positions.length === 0 && (
-              <div className="text-xs text-[#94a3b8]">• 空仓状态</div>
+              <div className="text-xs text-[var(--text-secondary)]">• 空仓状态</div>
             )}
           </div>
         </div>
@@ -448,15 +448,15 @@ function DashboardView() {
 
       {/* 当前股票信息 */}
       {selectedStock && currentQuote && (
-        <div className="bg-[#111827] rounded p-3 border border-[#3b82f6]/30">
-          <div className="text-xs text-[#94a3b8] mb-1">当前查看</div>
+        <div className="bg-[var(--bg-panel)] rounded p-3 border border-[var(--accent-blue)]/30">
+          <div className="text-xs text-[var(--text-secondary)] mb-1">当前查看</div>
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-sm font-medium text-[#e2e8f0]">{selectedStock.name}</div>
-              <div className="text-xs text-[#94a3b8] font-mono-num">{selectedStock.code}</div>
+              <div className="text-sm font-medium text-[var(--text-primary)]">{selectedStock.name}</div>
+              <div className="text-xs text-[var(--text-secondary)] font-mono-num">{selectedStock.code}</div>
             </div>
             <div className="text-right">
-              <div className="text-sm font-bold text-[#e2e8f0] font-mono-num">{currentQuote.price.toFixed(2)}</div>
+              <div className="text-sm font-bold text-[var(--text-primary)] font-mono-num">{currentQuote.price.toFixed(2)}</div>
               <div className={`text-xs font-mono-num ${currentQuote.changePercent >= 0 ? 'text-[#ef4444]' : 'text-[#22c55e]'}`}>
                 {currentQuote.changePercent >= 0 ? '+' : ''}{currentQuote.changePercent.toFixed(2)}%
               </div>

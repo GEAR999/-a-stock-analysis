@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bot, Settings, Play, Pause, Trash2 } from 'lucide-react';
+import { Bot, Settings, Play, Pause, Trash2, Brain, Sparkles } from 'lucide-react';
 import type { Account, QuantStrategy, StrategySource } from './types';
 import { saveAccount, deleteAccount } from './storage';
 import { formatMoney } from './utils';
@@ -59,6 +59,9 @@ export function QuantAutoTradePanel({ account, stockCode, stockName, onUpdate, o
         takeProfitPercent: account.strategy?.takeProfitPercent || 10,
         maxPositionPercent: account.strategy?.maxPositionPercent || 20,
         autoTrade: account.strategy?.autoTrade || false,
+        aiEnabled: account.strategy?.aiEnabled || false,
+        aiType: account.strategy?.aiType || 'rule-based',
+        aiWeight: account.strategy?.aiWeight ?? 20,
         ...updates 
       },
     };
@@ -172,6 +175,79 @@ export function QuantAutoTradePanel({ account, stockCode, stockName, onUpdate, o
               onChange={(e) => handleUpdateStrategy({ takeProfitPercent: Number(e.target.value) })}
               className="w-full mt-1 px-2 py-1 text-xs bg-gray-800/50 border border-gray-700 rounded text-gray-200"
             />
+          </div>
+
+          {/* AI辅助判断配置 */}
+          <div className="pt-3 border-t border-gray-800">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <Brain className="w-3.5 h-3.5 text-purple-400" />
+                <label className="text-xs text-gray-300">AI辅助判断</label>
+              </div>
+              <button
+                onClick={() => handleUpdateStrategy({ aiEnabled: !strategy.aiEnabled })}
+                className={`relative w-9 h-5 rounded-full transition-colors ${
+                  strategy.aiEnabled ? 'bg-purple-500' : 'bg-gray-700'
+                }`}
+              >
+                <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform ${
+                  strategy.aiEnabled ? 'translate-x-4' : ''
+                }`} />
+              </button>
+            </div>
+
+            {strategy.aiEnabled && (
+              <div className="mt-3 space-y-3 pl-5">
+                {/* AI适配器选择 */}
+                <div>
+                  <label className="text-[10px] text-gray-500">AI适配器</label>
+                  <div className="mt-1 flex gap-2">
+                    <button
+                      onClick={() => handleUpdateStrategy({ aiType: 'rule-based' })}
+                      className={`flex-1 px-2 py-1.5 text-[10px] rounded border transition-colors ${
+                        strategy.aiType === 'rule-based'
+                          ? 'border-purple-500 bg-purple-500/10 text-purple-300'
+                          : 'border-gray-700 text-gray-400 hover:border-gray-600'
+                      }`}
+                    >
+                      <Sparkles className="w-3 h-3 inline mr-1" />
+                      规则增强
+                    </button>
+                    <button
+                      disabled
+                      className="flex-1 px-2 py-1.5 text-[10px] rounded border border-gray-800 bg-gray-800/30 text-gray-600 cursor-not-allowed relative"
+                    >
+                      🌐 API接口
+                      <span className="absolute -top-1 -right-1 px-1 py-0.5 text-[8px] bg-gray-700 text-gray-400 rounded">
+                        即将推出
+                      </span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* AI权重配置 */}
+                <div>
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] text-gray-500">AI权重占比</label>
+                    <span className="text-[10px] text-purple-400 font-mono">{strategy.aiWeight}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="50"
+                    step="5"
+                    value={strategy.aiWeight}
+                    onChange={(e) => handleUpdateStrategy({ aiWeight: Number(e.target.value) })}
+                    className="w-full mt-1 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-purple-500"
+                  />
+                  <div className="flex justify-between text-[9px] text-gray-600 mt-0.5">
+                    <span>0%</span>
+                    <span>25%</span>
+                    <span>50%</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -204,7 +204,7 @@ export function ComprehensiveAnalysis({ settings }: ComprehensiveAnalysisProps) 
               {positionAdvice.label}
             </div>
             {/* 仓位可视化 */}
-            <div className="relative h-3 bg-[#0a0e17] rounded-full overflow-hidden">
+            <div className="relative h-3 bg-[var(--bg-primary)] rounded-full overflow-hidden">
               <div
                 className="absolute h-full rounded-full transition-all duration-500"
                 style={{

@@ -54,42 +54,9 @@
     'Times New Roman', Times, serif;
 }
 
-:root {
+/* 深蓝终端主题（默认） */
+:root, [data-theme="dark-blue"] {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-}
-
-.dark {
   --background: #0a0e17;
   --foreground: #e2e8f0;
   --card: #111827;
@@ -121,13 +88,28 @@
   --sidebar-accent-foreground: #e2e8f0;
   --sidebar-border: #1e293b;
   --sidebar-ring: #3b82f6;
+  /* Custom theme variables */
+  --bg-primary: #0a0e17;
+  --bg-panel: #111827;
+  --bg-card: #1e293b;
+  --bg-hover: #374151;
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --border-default: #1e293b;
+  --border-active: #3b82f6;
+  --accent-blue: #3b82f6;
+  --accent-red: #ef4444;
+  --accent-green: #22c55e;
+  --accent-yellow: #eab308;
+  --shadow: rgba(0,0,0,0.3);
 }
 
-/* 浅色主题 */
+/* 明亮白主题 */
 [data-theme="light"] {
-  --background: #f8fafc;
+  --background: #ffffff;
   --foreground: #1e293b;
-  --card: #ffffff;
+  --card: #f8fafc;
   --card-foreground: #1e293b;
   --popover: #ffffff;
   --popover-foreground: #1e293b;
@@ -151,36 +133,246 @@
   --sidebar-accent-foreground: #1e293b;
   --sidebar-border: #e2e8f0;
   --sidebar-ring: #3b82f6;
+  /* Custom theme variables */
+  --bg-primary: #ffffff;
+  --bg-panel: #f8fafc;
+  --bg-card: #e2e8f0;
+  --bg-hover: #cbd5e1;
+  --text-primary: #1e293b;
+  --text-secondary: #64748b;
+  --text-muted: #94a3b8;
+  --border-default: #e2e8f0;
+  --border-active: #3b82f6;
+  --accent-blue: #3b82f6;
+  --accent-red: #ef4444;
+  --accent-green: #22c55e;
+  --accent-yellow: #eab308;
+  --shadow: rgba(0,0,0,0.1);
 }
 
-/* 护眼主题 */
-[data-theme="eye-care"] {
-  --background: #1a1f16;
-  --foreground: #d4d8c8;
-  --card: #232b1e;
-  --card-foreground: #d4d8c8;
-  --popover: #232b1e;
-  --popover-foreground: #d4d8c8;
-  --primary: #65a30d;
+/* 深灰商务主题 */
+[data-theme="dark-gray"] {
+  --background: #1a1a2e;
+  --foreground: #e0e0e0;
+  --card: #16213e;
+  --card-foreground: #e0e0e0;
+  --popover: #16213e;
+  --popover-foreground: #e0e0e0;
+  --primary: #6366f1;
   --primary-foreground: #ffffff;
-  --secondary: #3a4530;
-  --secondary-foreground: #d4d8c8;
-  --muted: #3a4530;
-  --muted-foreground: #8b9478;
-  --accent: #3a4530;
-  --accent-foreground: #d4d8c8;
-  --destructive: #dc2626;
-  --border: #3a4530;
-  --input: #3a4530;
-  --ring: #65a30d;
-  --sidebar: #1e2519;
-  --sidebar-foreground: #d4d8c8;
-  --sidebar-primary: #65a30d;
+  --secondary: #2a2a4a;
+  --secondary-foreground: #e0e0e0;
+  --muted: #2a2a4a;
+  --muted-foreground: #a0a0b0;
+  --accent: #2a2a4a;
+  --accent-foreground: #e0e0e0;
+  --destructive: #ef4444;
+  --border: #2a2a4a;
+  --input: #2a2a4a;
+  --ring: #6366f1;
+  --sidebar: #16213e;
+  --sidebar-foreground: #e0e0e0;
+  --sidebar-primary: #6366f1;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #3a4530;
-  --sidebar-accent-foreground: #d4d8c8;
-  --sidebar-border: #3a4530;
-  --sidebar-ring: #65a30d;
+  --sidebar-accent: #2a2a4a;
+  --sidebar-accent-foreground: #e0e0e0;
+  --sidebar-border: #2a2a4a;
+  --sidebar-ring: #6366f1;
+  /* Custom theme variables */
+  --bg-primary: #1a1a2e;
+  --bg-panel: #16213e;
+  --bg-card: #2a2a4a;
+  --bg-hover: #3a3a5a;
+  --text-primary: #e0e0e0;
+  --text-secondary: #a0a0b0;
+  --text-muted: #707080;
+  --border-default: #2a2a4a;
+  --border-active: #6366f1;
+  --accent-blue: #6366f1;
+  --accent-red: #ef4444;
+  --accent-green: #22c55e;
+  --accent-yellow: #eab308;
+  --shadow: rgba(0,0,0,0.4);
+}
+
+/* 护眼绿主题 */
+[data-theme="eye-green"] {
+  --background: #1a2e1a;
+  --foreground: #d4e8c8;
+  --card: #233023;
+  --card-foreground: #d4e8c8;
+  --popover: #233023;
+  --popover-foreground: #d4e8c8;
+  --primary: #22c55e;
+  --primary-foreground: #ffffff;
+  --secondary: #3a5030;
+  --secondary-foreground: #d4e8c8;
+  --muted: #3a5030;
+  --muted-foreground: #8b9478;
+  --accent: #3a5030;
+  --accent-foreground: #d4e8c8;
+  --destructive: #dc2626;
+  --border: #3a5030;
+  --input: #3a5030;
+  --ring: #22c55e;
+  --sidebar: #1e2519;
+  --sidebar-foreground: #d4e8c8;
+  --sidebar-primary: #22c55e;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #3a5030;
+  --sidebar-accent-foreground: #d4e8c8;
+  --sidebar-border: #3a5030;
+  --sidebar-ring: #22c55e;
+  /* Custom theme variables */
+  --bg-primary: #1a2e1a;
+  --bg-panel: #233023;
+  --bg-card: #3a5030;
+  --bg-hover: #4a6040;
+  --text-primary: #d4e8c8;
+  --text-secondary: #8b9478;
+  --text-muted: #6b7458;
+  --border-default: #3a5030;
+  --border-active: #22c55e;
+  --accent-blue: #22c55e;
+  --accent-red: #dc2626;
+  --accent-green: #22c55e;
+  --accent-yellow: #eab308;
+  --shadow: rgba(0,0,0,0.3);
+}
+
+/* 暖橙夜主题 */
+[data-theme="warm-orange"] {
+  --background: #1f1410;
+  --foreground: #f0d8c0;
+  --card: #2a1d15;
+  --card-foreground: #f0d8c0;
+  --popover: #2a1d15;
+  --popover-foreground: #f0d8c0;
+  --primary: #f97316;
+  --primary-foreground: #ffffff;
+  --secondary: #4a3525;
+  --secondary-foreground: #f0d8c0;
+  --muted: #4a3525;
+  --muted-foreground: #b09080;
+  --accent: #4a3525;
+  --accent-foreground: #f0d8c0;
+  --destructive: #dc2626;
+  --border: #4a3525;
+  --input: #4a3525;
+  --ring: #f97316;
+  --sidebar: #251a12;
+  --sidebar-foreground: #f0d8c0;
+  --sidebar-primary: #f97316;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #4a3525;
+  --sidebar-accent-foreground: #f0d8c0;
+  --sidebar-border: #4a3525;
+  --sidebar-ring: #f97316;
+  /* Custom theme variables */
+  --bg-primary: #1f1410;
+  --bg-panel: #2a1d15;
+  --bg-card: #4a3525;
+  --bg-hover: #5a4535;
+  --text-primary: #f0d8c0;
+  --text-secondary: #b09080;
+  --text-muted: #806050;
+  --border-default: #4a3525;
+  --border-active: #f97316;
+  --accent-blue: #f97316;
+  --accent-red: #dc2626;
+  --accent-green: #22c55e;
+  --accent-yellow: #eab308;
+  --shadow: rgba(0,0,0,0.4);
+}
+
+/* 紫夜科技主题 */
+[data-theme="purple-night"] {
+  --background: #0f0a1e;
+  --foreground: #e0d8f0;
+  --card: #1a1030;
+  --card-foreground: #e0d8f0;
+  --popover: #1a1030;
+  --popover-foreground: #e0d8f0;
+  --primary: #a855f7;
+  --primary-foreground: #ffffff;
+  --secondary: #2d2055;
+  --secondary-foreground: #e0d8f0;
+  --muted: #2d2055;
+  --muted-foreground: #9080b0;
+  --accent: #2d2055;
+  --accent-foreground: #e0d8f0;
+  --destructive: #ef4444;
+  --border: #2d2055;
+  --input: #2d2055;
+  --ring: #a855f7;
+  --sidebar: #150d25;
+  --sidebar-foreground: #e0d8f0;
+  --sidebar-primary: #a855f7;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #2d2055;
+  --sidebar-accent-foreground: #e0d8f0;
+  --sidebar-border: #2d2055;
+  --sidebar-ring: #a855f7;
+  /* Custom theme variables */
+  --bg-primary: #0f0a1e;
+  --bg-panel: #1a1030;
+  --bg-card: #2d2055;
+  --bg-hover: #3d3065;
+  --text-primary: #e0d8f0;
+  --text-secondary: #9080b0;
+  --text-muted: #605080;
+  --border-default: #2d2055;
+  --border-active: #a855f7;
+  --accent-blue: #a855f7;
+  --accent-red: #ef4444;
+  --accent-green: #22c55e;
+  --accent-yellow: #eab308;
+  --shadow: rgba(0,0,0,0.4);
+}
+
+/* 深海冷静主题 */
+[data-theme="deep-sea"] {
+  --background: #0a1520;
+  --foreground: #d0e8f0;
+  --card: #0f2030;
+  --card-foreground: #d0e8f0;
+  --popover: #0f2030;
+  --popover-foreground: #d0e8f0;
+  --primary: #06b6d4;
+  --primary-foreground: #ffffff;
+  --secondary: #1a3545;
+  --secondary-foreground: #d0e8f0;
+  --muted: #1a3545;
+  --muted-foreground: #80a0b0;
+  --accent: #1a3545;
+  --accent-foreground: #d0e8f0;
+  --destructive: #ef4444;
+  --border: #1a3545;
+  --input: #1a3545;
+  --ring: #06b6d4;
+  --sidebar: #0d1a28;
+  --sidebar-foreground: #d0e8f0;
+  --sidebar-primary: #06b6d4;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #1a3545;
+  --sidebar-accent-foreground: #d0e8f0;
+  --sidebar-border: #1a3545;
+  --sidebar-ring: #06b6d4;
+  /* Custom theme variables */
+  --bg-primary: #0a1520;
+  --bg-panel: #0f2030;
+  --bg-card: #1a3545;
+  --bg-hover: #2a4555;
+  --text-primary: #d0e8f0;
+  --text-secondary: #80a0b0;
+  --text-muted: #507080;
+  --border-default: #1a3545;
+  --border-active: #06b6d4;
+  --accent-blue: #06b6d4;
+  --accent-red: #ef4444;
+  --accent-green: #22c55e;
+  --accent-yellow: #eab308;
+  --shadow: rgba(0,0,0,0.4);
 }
 
 @layer base {
@@ -201,16 +393,16 @@ body {
   --color-up: #ef4444;
   --color-down: #22c55e;
   --color-flat: #94a3b8;
-  --color-highlight: #3b82f6;
+  --color-highlight: var(--accent-blue, #3b82f6);
   --color-warning: #f59e0b;
-  --color-panel: #111827;
-  --color-panel-dark: #0d1117;
-  --color-border: #1e293b;
+  --color-panel: var(--bg-panel, #111827);
+  --color-panel-dark: var(--bg-primary, #0a0e17);
+  --color-border: var(--border-default, #1e293b);
 }
 
-.dark body {
-  background: #0a0e17;
-  color: #e2e8f0;
+body {
+  background: var(--bg-primary, #0a0e17);
+  color: var(--text-primary, #e2e8f0);
 }
 
 /* Price flash animation */
@@ -233,10 +425,10 @@ body {
 .skeleton {
   background: linear-gradient(
     90deg,
-    #1a1f2e 0%,
-    #252b3b 40%,
-    #252b3b 60%,
-    #1a1f2e 100%
+    var(--bg-panel, #1a1f2e) 0%,
+    var(--bg-card, #252b3b) 40%,
+    var(--bg-card, #252b3b) 60%,
+    var(--bg-panel, #1a1f2e) 100%
   );
   background-size: 200% 100%;
   animation: skeleton-shimmer 1.8s ease-in-out infinite;
