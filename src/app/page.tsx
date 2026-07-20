@@ -12,6 +12,7 @@ import { LearningCenter } from '@/components/learning/LearningCenter';
 import { AuthGate } from '@/components/AuthGate';
 import ThemeSwitcher from '@/components/ui/ThemeSwitcher';
 import CommandPalette from '@/components/ui/CommandPalette';
+import NotificationCenter from '@/components/ui/NotificationCenter';
 import { AutoRefreshIndicator } from '@/components/chart/AutoRefreshIndicator';
 
 type MainTab = 'analysis' | 'backtest' | 'learning';
@@ -121,6 +122,8 @@ export default function Home() {
               📚 学习中心
             </button>
             <div className="ml-auto flex items-center gap-2 pr-3">
+              {/* 消息通知 */}
+              <NotificationCenter />
               {/* 右侧面板收起/展开按钮 */}
               <button
                 onClick={() => setRightPanelCollapsed(!rightPanelCollapsed)}

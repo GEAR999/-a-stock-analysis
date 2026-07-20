@@ -15,6 +15,8 @@ import OverseasMapping from '@/components/analysis/OverseasMapping';
 import { BacktestPanel } from '@/components/backtest/BacktestPanel';
 import { SignalSummaryBar } from '@/components/analysis/SignalSummaryBar';
 import { AIInterpretation } from '@/components/analysis/AIInterpretation';
+import { StockComparison } from '@/components/analysis/StockComparison';
+import { HistoricalSignalsPanel } from '@/components/analysis/HistoricalSignalsPanel';
 
 // 手风琴面板组件
 function AccordionSection({ 
@@ -273,6 +275,24 @@ export function RightPanel() {
           summary="多账户管理"
         >
           <BacktestPanel externalAddStock={externalAddStock} />
+        </AccordionSection>
+
+        {/* 7. 多股对比 - 手风琴模式 */}
+        <AccordionSection 
+          title="多股对比" 
+          icon="📊"
+          summary="归一化对比"
+        >
+          <StockComparison />
+        </AccordionSection>
+
+        {/* 8. 历史信号 - 手风琴模式 */}
+        <AccordionSection 
+          title="历史信号" 
+          icon="🕐"
+          summary="回看与准确率"
+        >
+          <HistoricalSignalsPanel />
         </AccordionSection>
       </div>
     </div>

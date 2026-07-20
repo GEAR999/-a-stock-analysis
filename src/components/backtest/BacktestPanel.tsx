@@ -16,6 +16,7 @@ import {
 } from "./storage";
 import { useAppState } from "@/hooks/useAppState";
 import EquityCurveChart from "./EquityCurveChart";
+import { HistoryBacktestPanel } from "./HistoryBacktestPanel";
 
 // ===== 失败原因标签配置 =====
 const FAILURE_REASON_CONFIG: Record<FailureReason, { label: string; color: string; bg: string }> = {
@@ -503,7 +504,7 @@ export function BacktestPanel({ externalAddStock }: { externalAddStock?: { code:
   const [accounts, setAccounts] = useState<AccountSummary[]>([]);
   const [activeAccountId, setActiveAccountIdState] = useState<string | null>(null);
   const [account, setAccount] = useState<Account | null>(null);
-  const [activeTab, setActiveTab] = useState<"tracking" | "positions" | "trades" | "strategy" | "settings" | "chart">("tracking");
+  const [activeTab, setActiveTab] = useState<"tracking" | "positions" | "trades" | "strategy" | "settings" | "chart" | "history">("tracking");
   const [expandedPositions, setExpandedPositions] = useState<Set<string>>(new Set());
   const [expandedTrades, setExpandedTrades] = useState<Set<string>>(new Set());
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -782,6 +783,7 @@ export function BacktestPanel({ externalAddStock }: { externalAddStock?: { code:
     { id: "positions" as const, label: "持仓", count: account?.positions.length || 0 },
     { id: "trades" as const, label: "交易", count: account?.trades.length || 0 },
     { id: "chart" as const, label: "资金曲线" },
+    { id: "history" as const, label: "历史回测" },
     { id: "strategy" as const, label: "策略" },
     { id: "settings" as const, label: "设置" },
   ];
@@ -1357,6 +1359,13 @@ export function BacktestPanel({ externalAddStock }: { externalAddStock?: { code:
                     暂无交易记录，无法生成资金曲线
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* 历史回测 */}
+            {activeTab === "history" && (
+              <div className="h-full">
+                <HistoryBacktestPanel />
               </div>
             )}
 

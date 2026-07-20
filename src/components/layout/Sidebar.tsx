@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { StockSearch } from '@/components/sidebar/StockSearch';
 import { useAppState } from '@/hooks/useAppState';
 import { Switch } from '@/components/ui/switch';
@@ -22,6 +22,20 @@ export function Sidebar() {
   const { isMonitoring, setIsMonitoring, watchlist, selectedStock, currentQuote } = useAppState();
   const [view, setView] = useState<SidebarView>('stocks');
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['ai']));
+  const [collapsed, setCollapsed] = useState(false);
+
+  // 从 localStorage 读取折叠状态
+  useEffect(() => {
+    const saved = localStorage.getItem('sidebar-collapsed');
+    if (saved === 'true') setCollapsed(true);
+  }, []);
+
+  // 保存折叠状态到 localStorage
+  const toggleCollapse = () => {
+    const newState = !collapsed;
+    setCollapsed(newState);
+    localStorage.setItem('sidebar-collapsed', String(newState));
+  };
 
   const toggleGroup = (group: string) => {
     setExpandedGroups(prev => {
@@ -42,121 +56,179 @@ export function Sidebar() {
   const ungroupedStocks = watchlist.filter(s => !groupedCodes.has(s.code));
 
   return (
-    <div className="w-[260px] shrink-0 bg-[#0d1117] border-r border-[#1e293b] flex flex-col h-full overflow-hidden">
+    <div className={`${collapsed ? 'w-16' : 'w-[260px]'} shrink-0 bg-[#0d1117] border-r border-[#1e293b] flex flex-col h-full overflow-hidden transition-all duration-300 ease-in-out relative group`}>
+      {/* Collapse Button */}
+      <button
+        onClick={toggleCollapse}
+        className="absolute top-2 right-1 z-10 w-6 h-6 flex items-center justify-center rounded text-[#94a3b8] hover:text-[#e2e8f0] hover:bg-[#1e293b] transition-colors"
+        title={collapsed ? '展开侧边栏' : '折叠侧边栏'}
+      >
+        <svg className={`w-4 h-4 transition-transform ${collapsed ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+        </svg>
+      </button>
+
       {/* Logo + Theme Switcher */}
       <div className="px-3 py-3 border-b border-[#1e293b]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded bg-[#3b82f6] flex items-center justify-center">
+            <div className="w-6 h-6 rounded bg-[#3b82f6] flex items-center justify-center shrink-0">
               <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
               </svg>
             </div>
-            <span className="text-sm font-bold text-[#e2e8f0]">A股智能分析</span>
+            {!collapsed && <span className="text-sm font-bold text-[#e2e8f0] whitespace-nowrap">A股智能分析</span>}
           </div>
-          <ThemeSwitcher />
+          {!collapsed && <ThemeSwitcher />}
         </div>
-        {/* View Tabs */}
-        <div className="flex mt-2 bg-[#1e293b] rounded p-0.5">
+        {/* View Tabs - only show when expanded */}
+        {!collapsed && (
+          <div className="flex mt-2 bg-[#1e293b] rounded p-0.5">
+            <button
+              onClick={() => setView('stocks')}
+              className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
+                view === 'stocks' ? 'bg-[#3b82f6] text-white' : 'text-[#94a3b8] hover:text-[#e2e8f0]'
+              }`}
+            >
+              自选股
+            </button>
+            <button
+              onClick={() => setView('dashboard')}
+              className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
+                view === 'dashboard' ? 'bg-[#3b82f6] text-white' : 'text-[#94a3b8] hover:text-[#e2e8f0]'
+              }`}
+            >
+              仪表盘
+            </button>
+            <button
+              onClick={() => setView('learning')}
+              className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
+                view === 'learning' ? 'bg-[#3b82f6] text-white' : 'text-[#94a3b8] hover:text-[#e2e8f0]'
+              }`}
+            >
+              学习
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Collapsed state: show icons only */}
+      {collapsed ? (
+        <div className="flex flex-col items-center py-4 gap-4">
           <button
             onClick={() => setView('stocks')}
-            className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
-              view === 'stocks' ? 'bg-[#3b82f6] text-white' : 'text-[#94a3b8] hover:text-[#e2e8f0]'
+            className={`w-10 h-10 rounded flex items-center justify-center transition-colors ${
+              view === 'stocks' ? 'bg-[#3b82f6] text-white' : 'text-[#94a3b8] hover:bg-[#1e293b] hover:text-[#e2e8f0]'
             }`}
+            title="自选股"
           >
-            自选股
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+            </svg>
           </button>
           <button
             onClick={() => setView('dashboard')}
-            className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
-              view === 'dashboard' ? 'bg-[#3b82f6] text-white' : 'text-[#94a3b8] hover:text-[#e2e8f0]'
+            className={`w-10 h-10 rounded flex items-center justify-center transition-colors ${
+              view === 'dashboard' ? 'bg-[#3b82f6] text-white' : 'text-[#94a3b8] hover:bg-[#1e293b] hover:text-[#e2e8f0]'
             }`}
+            title="仪表盘"
           >
-            仪表盘
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
           </button>
           <button
             onClick={() => setView('learning')}
-            className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
-              view === 'learning' ? 'bg-[#3b82f6] text-white' : 'text-[#94a3b8] hover:text-[#e2e8f0]'
+            className={`w-10 h-10 rounded flex items-center justify-center transition-colors ${
+              view === 'learning' ? 'bg-[#3b82f6] text-white' : 'text-[#94a3b8] hover:bg-[#1e293b] hover:text-[#e2e8f0]'
             }`}
+            title="学习中心"
           >
-            学习
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.668 18.477 18.082 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            </svg>
           </button>
+          <div className="w-8 h-px bg-[#1e293b] my-2" />
+          <div className={`w-10 h-10 rounded flex items-center justify-center ${isMonitoring ? 'text-[#22c55e]' : 'text-[#94a3b8]'}`} title={isMonitoring ? '监控中' : '监控关闭'}>
+            <div className={`w-2 h-2 rounded-full ${isMonitoring ? 'bg-[#22c55e] animate-pulse' : 'bg-[#94a3b8]'}`} />
+          </div>
         </div>
-      </div>
-
-      {/* Search - always on top */}
-      <div className="px-3 py-2 border-b border-[#1e293b]">
-        <StockSearch />
-      </div>
-
-      {/* Monitor switch */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-[#1e293b]">
-        <span className="text-xs text-[#94a3b8]">实时监控</span>
-        <div className="flex items-center gap-2">
-          <div className={`w-1.5 h-1.5 rounded-full ${isMonitoring ? 'bg-[#22c55e] animate-pulse' : 'bg-[#94a3b8]'}`} />
-          <Switch checked={isMonitoring} onCheckedChange={setIsMonitoring} />
-        </div>
-      </div>
-
-      {/* Content */}
-      {view === 'stocks' ? (
-        <div className="flex flex-col flex-1 min-h-0 overflow-y-auto">
-          {/* Grouped Watchlist */}
-          {Object.entries(STOCK_GROUPS).map(([key, group]) => {
-            const groupStocks = getGroupStocks(group.codes);
-            if (groupStocks.length === 0) return null;
-            const isExpanded = expandedGroups.has(key);
-            return (
-              <div key={key} className="border-b border-[#1e293b]">
-                <button
-                  onClick={() => toggleGroup(key)}
-                  className="w-full flex items-center justify-between px-3 py-2 hover:bg-[#1e293b]/50 transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: group.color }} />
-                    <span className="text-xs font-medium text-[#e2e8f0]">{group.label}</span>
-                    <span className="text-xs text-[#94a3b8]">({groupStocks.length})</span>
-                  </div>
-                  <svg
-                    className={`w-3 h-3 text-[#94a3b8] transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                    fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-                {isExpanded && (
-                  <div>
-                    {groupStocks.map(stock => (
-                      <WatchListItem key={stock.code} stock={stock} groupColor={group.color} />
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-          {/* Ungrouped stocks */}
-          {ungroupedStocks.length > 0 && (
-            <div className="border-b border-[#1e293b]">
-              <div className="px-3 py-2">
-                <span className="text-xs font-medium text-[#94a3b8]">其他 ({ungroupedStocks.length})</span>
-              </div>
-              {ungroupedStocks.map(stock => (
-                <WatchListItem key={stock.code} stock={stock} />
-              ))}
-            </div>
-          )}
-          {/* Empty state */}
-          {watchlist.length === 0 && (
-            <div className="px-3 py-4 text-center text-xs text-[#94a3b8]">
-              搜索股票并添加到自选
-            </div>
-          )}
-        </div>
-      ) : view === 'dashboard' ? (
-        <DashboardView />
       ) : (
-        <LearningEntry />
+        <>
+          {/* Search - always on top */}
+          <div className="px-3 py-2 border-b border-[#1e293b]">
+            <StockSearch />
+          </div>
+
+          {/* Monitor switch */}
+          <div className="flex items-center justify-between px-3 py-2 border-b border-[#1e293b]">
+            <span className="text-xs text-[#94a3b8]">实时监控</span>
+            <div className="flex items-center gap-2">
+              <div className={`w-1.5 h-1.5 rounded-full ${isMonitoring ? 'bg-[#22c55e] animate-pulse' : 'bg-[#94a3b8]'}`} />
+              <Switch checked={isMonitoring} onCheckedChange={setIsMonitoring} />
+            </div>
+          </div>
+
+          {/* Content */}
+          {view === 'stocks' ? (
+            <div className="flex flex-col flex-1 min-h-0 overflow-y-auto">
+              {/* Grouped Watchlist */}
+              {Object.entries(STOCK_GROUPS).map(([key, group]) => {
+                const groupStocks = getGroupStocks(group.codes);
+                if (groupStocks.length === 0) return null;
+                const isExpanded = expandedGroups.has(key);
+                return (
+                  <div key={key} className="border-b border-[#1e293b]">
+                    <button
+                      onClick={() => toggleGroup(key)}
+                      className="w-full flex items-center justify-between px-3 py-2 hover:bg-[#1e293b]/50 transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: group.color }} />
+                        <span className="text-xs font-medium text-[#e2e8f0]">{group.label}</span>
+                        <span className="text-xs text-[#94a3b8]">({groupStocks.length})</span>
+                      </div>
+                      <svg
+                        className={`w-3 h-3 text-[#94a3b8] transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                        fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                    {isExpanded && (
+                      <div>
+                        {groupStocks.map(stock => (
+                          <WatchListItem key={stock.code} stock={stock} groupColor={group.color} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              {/* Ungrouped stocks */}
+              {ungroupedStocks.length > 0 && (
+                <div className="border-b border-[#1e293b]">
+                  <div className="px-3 py-2">
+                    <span className="text-xs font-medium text-[#94a3b8]">其他 ({ungroupedStocks.length})</span>
+                  </div>
+                  {ungroupedStocks.map(stock => (
+                    <WatchListItem key={stock.code} stock={stock} />
+                  ))}
+                </div>
+              )}
+              {/* Empty state */}
+              {watchlist.length === 0 && (
+                <div className="px-3 py-4 text-center text-xs text-[#94a3b8]">
+                  搜索股票并添加到自选
+                </div>
+              )}
+            </div>
+          ) : view === 'dashboard' ? (
+            <DashboardView />
+          ) : (
+            <LearningEntry />
+          )}
+        </>
       )}
     </div>
   );

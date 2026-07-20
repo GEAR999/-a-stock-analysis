@@ -14,13 +14,23 @@ interface CommandItem {
   category: string;
 }
 
+interface StockSearchResult {
+  code: string;
+  name: string;
+  market: string;
+  type: string;
+}
+
 export default function CommandPalette() {
   const { selectedStock, setSelectedStock, watchlist } = useAppState();
   const { setTheme } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [searchResults, setSearchResults] = useState<StockSearchResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   // 命令列表
   const commands: CommandItem[] = [
@@ -47,14 +57,68 @@ export default function CommandPalette() {
 
   const allCommands = [...stockCommands, ...commands];
 
+  // 实时股票搜索（带防抖）
+  useEffect(() => {
+    if (!query || query.length < 1) {
+      setSearchResults([]);
+      return;
+    }
+
+    // 清除之前的定时器
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+
+    // 300ms 防抖
+    debounceRef.current = setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const res = await fetch(`/api/stock?action=search&keyword=${encodeURIComponent(query)}`);
+        const data = await res.json();
+        if (data.success && data.data) {
+          setSearchResults(data.data.slice(0, 10));
+        } else {
+          setSearchResults([]);
+        }
+      } catch {
+        setSearchResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300);
+
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, [query]);
+
+  // 合并搜索结果和命令
+  const searchItems: CommandItem[] = searchResults.map(stock => ({
+    id: `search-${stock.code}`,
+    label: `${stock.name} (${stock.code})`,
+    description: `${stock.market === 'sh' ? '沪' : '深'}市 · ${stock.type === 'stock' ? '股票' : '指数'}`,
+    icon: TrendingUp,
+    action: () => setSelectedStock({
+      code: stock.code,
+      name: stock.name,
+      market: stock.market as 'sh' | 'sz' | 'bj',
+      type: (stock.type || 'stock') as 'stock' | 'etf' | 'index',
+    }),
+    category: "搜索结果",
+  }));
+
   // 过滤命令
-  const filtered = query
+  const filteredCommands = query
     ? allCommands.filter(cmd =>
         cmd.label.toLowerCase().includes(query.toLowerCase()) ||
         cmd.description.toLowerCase().includes(query.toLowerCase()) ||
         cmd.category.toLowerCase().includes(query.toLowerCase())
       )
     : allCommands;
+
+  const filtered = [...searchItems, ...filteredCommands];
 
   // 键盘快捷键
   useEffect(() => {
@@ -130,9 +194,12 @@ export default function CommandPalette() {
             type="text"
             value={query}
             onChange={(e) => { setQuery(e.target.value); setSelectedIndex(0); }}
-            placeholder="输入命令或搜索股票..."
+            placeholder="输入股票代码/名称搜索，或输入命令..."
             className="flex-1 bg-transparent text-sm text-gray-200 placeholder-gray-500 outline-none"
           />
+          {isSearching && (
+            <div className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+          )}
           <kbd className="px-1.5 py-0.5 text-[10px] text-gray-500 bg-gray-800 rounded">ESC</kbd>
         </div>
 
