@@ -69,6 +69,11 @@ export function KLineChart() {
   const [showLegend, setShowLegend] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showAnnotations, setShowAnnotations] = useState(true);
+  const [zoomLevel, setZoomLevel] = useState(100); // percentage of visible data
+  const [hoveredData, setHoveredData] = useState<{
+    date: string; open: number; high: number; low: number; close: number;
+    volume: number; change: number; changePercent: number;
+  } | null>(null);
 
   const handleRefresh = async () => {
     if (!selectedStock) return;
@@ -401,18 +406,79 @@ export function KLineChart() {
       backgroundColor: 'transparent',
       tooltip: {
         trigger: 'axis',
-        axisPointer: { type: 'cross', lineStyle: { color: '#3b82f6', width: 0.5 } },
-        backgroundColor: '#111827',
+        axisPointer: {
+          type: 'cross',
+          lineStyle: { color: '#3b82f6', width: 0.5, type: 'dashed' },
+          crossStyle: { color: '#3b82f6', width: 0.5, type: 'dashed' },
+          label: {
+            backgroundColor: '#1e293b',
+            color: '#e2e8f0',
+            fontSize: 10,
+            borderColor: '#3b82f6',
+            borderWidth: 1,
+          },
+        },
+        backgroundColor: 'rgba(17,24,39,0.95)',
         borderColor: '#1e293b',
+        borderWidth: 1,
         textStyle: { color: '#e2e8f0', fontSize: 11 },
+        padding: [8, 12],
+        formatter: (params: unknown) => {
+          if (!Array.isArray(params) || params.length === 0) return '';
+          const idx = (params[0] as Record<string, unknown>).dataIndex as number;
+          if (idx < 0 || idx >= klineData.length) return '';
+          const d = klineData[idx];
+          const prevClose = idx > 0 ? klineData[idx - 1].close : d.open;
+          const change = d.close - prevClose;
+          const changePercent = prevClose ? (change / prevClose * 100) : 0;
+          const color = change >= 0 ? '#ef4444' : '#22c55e';
+          const sign = change >= 0 ? '+' : '';
+          // Store hovered data for external display
+          setHoveredData({
+            date: d.date, open: d.open, high: d.high, low: d.low, close: d.close,
+            volume: d.volume, change, changePercent,
+          });
+          return `<div style="font-family:monospace;font-size:11px;line-height:1.6">
+            <div style="color:#94a3b8;margin-bottom:4px">${d.date}</div>
+            <div>开: <span style="color:${d.close >= d.open ? '#ef4444' : '#22c55e'}">${d.open.toFixed(2)}</span></div>
+            <div>高: <span style="color:#ef4444">${d.high.toFixed(2)}</span></div>
+            <div>低: <span style="color:#22c55e">${d.low.toFixed(2)}</span></div>
+            <div>收: <span style="color:${color}">${d.close.toFixed(2)}</span></div>
+            <div>涨跌: <span style="color:${color}">${sign}${change.toFixed(2)} (${sign}${changePercent.toFixed(2)}%)</span></div>
+            <div>量: <span style="color:#94a3b8">${(d.volume / 10000).toFixed(1)}万</span></div>
+          </div>`;
+        },
       },
       legend: { show: false },
       grid: grids,
       xAxis: xAxes,
       yAxis: yAxes,
       dataZoom: [
-        { type: 'inside', xAxisIndex: xAxes.map((_, i) => i), start: 60, end: 100 },
-        { type: 'slider', xAxisIndex: xAxes.map((_, i) => i), bottom: 5, height: 15, borderColor: '#1e293b', backgroundColor: '#0a0e17', fillerColor: 'rgba(59,130,246,0.1)', handleStyle: { color: '#3b82f6' }, textStyle: { color: '#94a3b8', fontSize: 9 } },
+        {
+          type: 'inside',
+          xAxisIndex: xAxes.map((_, i) => i),
+          start: 60,
+          end: 100,
+          minValueSpan: 20, // minimum 20 candles visible
+          zoomOnMouseWheel: true,
+          moveOnMouseMove: true,
+          moveOnMouseWheel: false,
+        },
+        {
+          type: 'slider',
+          xAxisIndex: xAxes.map((_, i) => i),
+          bottom: 5,
+          height: 15,
+          borderColor: '#1e293b',
+          backgroundColor: '#0a0e17',
+          fillerColor: 'rgba(59,130,246,0.1)',
+          handleStyle: { color: '#3b82f6', borderColor: '#3b82f6' },
+          textStyle: { color: '#94a3b8', fontSize: 9 },
+          dataBackground: {
+            lineStyle: { color: '#1e293b' },
+            areaStyle: { color: 'rgba(59,130,246,0.05)' },
+          },
+        },
       ],
       series: series as echarts.SeriesOption[],
     };
@@ -423,6 +489,43 @@ export function KLineChart() {
   useEffect(() => {
     buildChart();
   }, [buildChart]);
+
+  // Listen for dataZoom events to track zoom level
+  useEffect(() => {
+    if (!chartInstance.current) return;
+    const chart = chartInstance.current;
+    
+    const handleDataZoom = () => {
+      const option = chart.getOption();
+      const dataZoom = option.dataZoom as Array<{ start: number; end: number }>;
+      if (dataZoom && dataZoom[0]) {
+        const visiblePercent = Math.round(dataZoom[0].end - dataZoom[0].start);
+        setZoomLevel(visiblePercent);
+      }
+    };
+
+    const handleMouseOut = () => {
+      setHoveredData(null);
+    };
+
+    chart.on('datazoom', handleDataZoom);
+    chart.on('globalout', handleMouseOut);
+
+    return () => {
+      chart.off('datazoom', handleDataZoom);
+      chart.off('globalout', handleMouseOut);
+    };
+  }, []);
+
+  // Reset view handler
+  const handleResetView = useCallback(() => {
+    if (!chartInstance.current) return;
+    chartInstance.current.dispatchAction({
+      type: 'dataZoom',
+      start: 60,
+      end: 100,
+    });
+  }, []);
 
   useEffect(() => {
     const handleResize = () => chartInstance.current?.resize();
@@ -585,6 +688,37 @@ export function KLineChart() {
       {/* Chart */}
       <div className="flex-1 min-h-0 relative">
         <div ref={chartRef} className="absolute inset-0" />
+        
+        {/* Hovered K-line data overlay (top-left) */}
+        {hoveredData && (
+          <div className="absolute top-2 left-16 z-10 pointer-events-none">
+            <div className="flex items-center gap-3 text-[11px] font-mono">
+              <span className="text-[#94a3b8]">{hoveredData.date}</span>
+              <span>开:<span className={hoveredData.close >= hoveredData.open ? 'text-[#ef4444]' : 'text-[#22c55e]'}>{hoveredData.open.toFixed(2)}</span></span>
+              <span>高:<span className="text-[#ef4444]">{hoveredData.high.toFixed(2)}</span></span>
+              <span>低:<span className="text-[#22c55e]">{hoveredData.low.toFixed(2)}</span></span>
+              <span>收:<span className={hoveredData.close >= hoveredData.open ? 'text-[#ef4444]' : 'text-[#22c55e]'}>{hoveredData.close.toFixed(2)}</span></span>
+              <span className={hoveredData.change >= 0 ? 'text-[#ef4444]' : 'text-[#22c55e]'}>
+                {hoveredData.change >= 0 ? '+' : ''}{hoveredData.change.toFixed(2)} ({hoveredData.changePercent >= 0 ? '+' : ''}{hoveredData.changePercent.toFixed(2)}%)
+              </span>
+              <span className="text-[#94a3b8]">量:{(hoveredData.volume / 10000).toFixed(1)}万</span>
+            </div>
+          </div>
+        )}
+
+        {/* Zoom indicator (bottom-right) */}
+        <div className="absolute bottom-8 right-10 z-10 flex items-center gap-2">
+          <span className="text-[10px] text-[#94a3b8] font-mono">{zoomLevel}%</span>
+          {zoomLevel < 100 && (
+            <button
+              onClick={handleResetView}
+              className="px-1.5 py-0.5 text-[10px] text-[#94a3b8] hover:text-white bg-[#111827]/80 border border-[#1e293b] rounded transition-colors"
+              title="重置视图"
+            >
+              重置
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
