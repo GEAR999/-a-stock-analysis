@@ -8,7 +8,7 @@ interface OverseasMappingProps {
   stockName: string;
 }
 
-// 预设的产业链映射关系
+// 产业链映射关系（仅定义结构，不含数据值）
 const INDUSTRY_MAPPINGS: Record<string, {
   overseas: string[];
   sector: string;
@@ -65,39 +65,6 @@ const INDUSTRY_MAPPINGS: Record<string, {
   },
 };
 
-// 模拟的海外龙头近期表现
-const OVERSEAS_PERFORMANCE: Record<string, {
-  latestChange: number;
-  fiveDayChange: number;
-  news: string;
-}> = {
-  'NVDA (英伟达)': {
-    latestChange: 2.5,
-    fiveDayChange: 8.3,
-    news: '英伟达发布新一代AI芯片，性能提升30%',
-  },
-  'AMD': {
-    latestChange: 1.8,
-    fiveDayChange: 5.2,
-    news: 'AMD MI300系列订单超预期',
-  },
-  'TSLA (特斯拉)': {
-    latestChange: -1.2,
-    fiveDayChange: -3.5,
-    news: '特斯拉Q4交付量略低于预期',
-  },
-  'AAPL (苹果)': {
-    latestChange: 0.8,
-    fiveDayChange: 2.1,
-    news: 'iPhone销量企稳，服务业务增长',
-  },
-  'TSM (台积电)': {
-    latestChange: 3.2,
-    fiveDayChange: 6.8,
-    news: '台积电先进制程产能满载',
-  },
-};
-
 export default function OverseasMapping({ stockCode, stockName }: OverseasMappingProps) {
   const mapping = INDUSTRY_MAPPINGS[stockCode];
   
@@ -146,28 +113,18 @@ export default function OverseasMapping({ stockCode, stockName }: OverseasMappin
         {/* 关联海外龙头 */}
         <div className="space-y-2">
           <span className="text-xs text-gray-400">关联海外龙头</span>
-          {mapping.overseas.map((name, i) => {
-            const perf = OVERSEAS_PERFORMANCE[name];
-            if (!perf) return null;
-            
-            return (
-              <div key={i} className="p-2 rounded bg-[#1a1a2e]">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-gray-300">{name}</span>
-                  <span className={`text-xs ${perf.latestChange >= 0 ? 'text-red-400' : 'text-green-400'}`}>
-                    {perf.latestChange >= 0 ? '+' : ''}{perf.latestChange.toFixed(2)}%
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-gray-500">近5日</span>
-                  <span className={perf.fiveDayChange >= 0 ? 'text-red-400' : 'text-green-400'}>
-                    {perf.fiveDayChange >= 0 ? '+' : ''}{perf.fiveDayChange.toFixed(2)}%
-                  </span>
-                </div>
-                <p className="text-xs text-gray-500 mt-1 truncate">{perf.news}</p>
+          {mapping.overseas.map((name, i) => (
+            <div key={i} className="p-2 rounded bg-[#1a1a2e]">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs text-gray-300">{name}</span>
+                <span className="text-xs text-gray-500">暂无数据</span>
               </div>
-            );
-          })}
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-gray-500">近5日</span>
+                <span className="text-gray-500">暂无数据</span>
+              </div>
+            </div>
+          ))}
         </div>
 
         {/* 联动提示 */}
@@ -180,40 +137,17 @@ export default function OverseasMapping({ stockCode, stockName }: OverseasMappin
                   <Info className="w-3 h-3 text-orange-400/60 cursor-help" />
                 </TooltipTrigger>
                 <TooltipContent side="right" className="max-w-[250px] bg-[#0f0f1a] border-orange-500/30">
-                  <p className="text-xs text-gray-300">基于历史数据统计，海外龙头大涨/大跌后，A股相关标的的平均表现</p>
+                  <p className="text-xs text-gray-300">需要接入美股行情数据后方可显示联动分析</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
           </div>
-          <div className="text-xs text-gray-400 space-y-1">
-            <p>• 过去10次海外龙头大涨后，{stockName}平均涨幅 +2.3%</p>
-            <p>• 过去10次海外龙头大跌后，{stockName}平均跌幅 -1.8%</p>
+          <div className="text-xs text-gray-500 space-y-1">
+            <p>• 海外龙头涨跌数据：暂无数据</p>
+            <p>• 历史联动统计：暂无数据</p>
             <p>• 联动强度：{mapping.correlation}</p>
           </div>
         </div>
-
-        {/* 今日操作提示 */}
-        {mapping.overseas.some(name => {
-          const perf = OVERSEAS_PERFORMANCE[name];
-          return perf && Math.abs(perf.latestChange) > 2;
-        }) && (
-          <div className={`p-2 rounded ${
-            mapping.overseas.some(name => OVERSEAS_PERFORMANCE[name]?.latestChange > 2)
-              ? 'bg-red-500/5 border border-red-500/20'
-              : 'bg-green-500/5 border border-green-500/20'
-          }`}>
-            <span className="text-xs text-gray-400">今日操作提示</span>
-            <p className={`text-xs mt-1 ${
-              mapping.overseas.some(name => OVERSEAS_PERFORMANCE[name]?.latestChange > 2)
-                ? 'text-red-300'
-                : 'text-green-300'
-            }`}>
-              {mapping.overseas.some(name => OVERSEAS_PERFORMANCE[name]?.latestChange > 2)
-                ? '海外龙头昨晚大涨，今日A股相关标的可能有联动上涨机会'
-                : '海外龙头昨晚大跌，注意今日A股相关标的可能承压'}
-            </p>
-          </div>
-        )}
       </div>
     </div>
   );

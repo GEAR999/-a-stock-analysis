@@ -213,7 +213,7 @@ export function ChanlunCard({ visible }: ChanlunCardProps) {
                         'bg-green-500/10 border border-green-500/20'
                       }`}>
                         <div className="text-xs font-medium text-gray-300">{path.name}</div>
-                        <div className="text-lg font-bold text-purple-300">{path.probability}%</div>
+                        <div className="text-xs font-medium text-gray-500">暂无量化评估</div>
                       </div>
                     </TooltipTrigger>
                     <TooltipContent side="right" className="max-w-[280px] bg-[#0f0f1a] border-purple-500/30">

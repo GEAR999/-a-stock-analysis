@@ -29,11 +29,10 @@ interface TrendOutlookData {
   };
 }
 
-// Probability ring component
-function ProbabilityRing({ probability, color }: { probability: number; color: string }) {
+// Probability ring component - shows "暂无" since we don't have real probability data
+function ProbabilityRing({ color }: { probability: number; color: string }) {
   const radius = 28;
   const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (probability / 100) * circumference;
 
   return (
     <div className="relative w-16 h-16">
@@ -54,13 +53,13 @@ function ProbabilityRing({ probability, color }: { probability: number; color: s
           stroke={color}
           strokeWidth="4"
           strokeDasharray={circumference}
-          strokeDashoffset={offset}
+          strokeDashoffset={circumference}
           strokeLinecap="round"
           className="transition-all duration-500"
         />
       </svg>
       <div className="absolute inset-0 flex items-center justify-center">
-        <span className="text-sm font-bold font-mono-num" style={{ color }}>{probability}%</span>
+        <span className="text-[10px] text-gray-500">暂无</span>
       </div>
     </div>
   );
