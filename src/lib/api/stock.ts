@@ -283,6 +283,78 @@ export async function getKLineData(
   }
 }
 
+// Paginated K-line data fetching for large datasets
+export async function fetchKLineDataPaginated(
+  code: string,
+  period: KLinePeriod = 'daily',
+  startDate?: string,
+  endDate?: string,
+  onProgress?: (progress: number) => void
+): Promise<KLineData[]> {
+  const BATCH_SIZE = 800;
+  const allData: KLineData[] = [];
+  
+  // Estimate total bars needed based on period
+  const periodDaysMap: Record<KLinePeriod, number> = {
+    '5min': 48, // 48 5-min bars per day
+    '15min': 16,
+    '30min': 8,
+    '60min': 4,
+    'daily': 1,
+    'weekly': 0.2,
+    'monthly': 0.05,
+  };
+  
+  let totalBars = 1000; // default
+  if (startDate && endDate) {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const daysDiff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+    totalBars = Math.ceil(daysDiff * periodDaysMap[period]);
+  }
+  
+  const totalBatches = Math.ceil(totalBars / BATCH_SIZE);
+  let fetchedBars = 0;
+  
+  for (let batch = 0; batch < totalBatches; batch++) {
+    const limit = Math.min(BATCH_SIZE, totalBars - fetchedBars);
+    if (limit <= 0) break;
+    
+    const batchData = await getKLineData(code, period, limit);
+    if (batchData.length === 0) break;
+    
+    // Merge data, avoiding duplicates
+    for (const bar of batchData) {
+      if (!allData.find(d => d.date === bar.date)) {
+        allData.push(bar);
+      }
+    }
+    
+    fetchedBars += batchData.length;
+    onProgress?.(Math.min(100, Math.round((fetchedBars / totalBars) * 100)));
+    
+    // If we got fewer bars than requested, we've reached the end
+    if (batchData.length < limit) break;
+    
+    // Small delay to avoid rate limiting
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  
+  // Sort by date
+  allData.sort((a, b) => a.date.localeCompare(b.date));
+  
+  // Filter by date range if provided
+  let result = allData;
+  if (startDate) {
+    result = result.filter(d => d.date >= startDate);
+  }
+  if (endDate) {
+    result = result.filter(d => d.date <= endDate);
+  }
+  
+  return result;
+}
+
 // Get market sentiment data
 export async function getMarketSentiment(): Promise<MarketSentiment | null> {
   try {

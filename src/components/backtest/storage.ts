@@ -332,18 +332,18 @@ export function generateDemoEquityCurve(initialCapital: number = 1000000): Equit
 }
 
 // 检查是否可以买入
-export function canBuyStock(account: Account, code: string, amount: number): { can: boolean; reason: string } {
+export function canBuyStock(account: Account, code: string, buyBudget: number): { can: boolean; reason: string } {
   const limit = account.stockLimits[code];
   if (limit !== undefined) {
     const currentHolding = account.positions
       .filter((p) => p.stockCode === code)
       .reduce((sum, p) => sum + p.marketValue, 0);
-    if (currentHolding + amount > limit) {
+    if (currentHolding + buyBudget > limit) {
       return { can: false, reason: `该股票已达到买入上限(¥${limit.toLocaleString()})` };
     }
   }
 
-  if (account.currentCapital < amount) {
+  if (account.currentCapital < buyBudget) {
     return { can: false, reason: "账户资金不足" };
   }
 
@@ -351,14 +351,15 @@ export function canBuyStock(account: Account, code: string, amount: number): { c
 }
 
 // 执行买入
-export function executeBuy(account: Account, code: string, name: string, price: number, amount: number, reason: string, isAuto: boolean = false): Account {
+export function executeBuy(account: Account, code: string, name: string, price: number, buyBudget: number, reason: string, isAuto: boolean = false): Account {
   // 自动交易应用滑点
   const actualPrice = isAuto ? applySlippage(price, 'buy') : price;
-  const quantity = Math.floor(amount / actualPrice / 100) * 100; // A股100股整数倍
+  const quantity = Math.floor(buyBudget / actualPrice / 100) * 100; // A股100股整数倍
   if (quantity <= 0) return account;
 
-  const actualAmount = quantity * actualPrice;
-  if (actualAmount > account.currentCapital) return account;
+  // buyCost = 买入总花费（元）= price × quantity
+  const buyCost = quantity * actualPrice;
+  if (buyCost > account.currentCapital) return account;
 
   const trade: Trade = {
     id: `t_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
@@ -369,7 +370,7 @@ export function executeBuy(account: Account, code: string, name: string, price: 
     price: actualPrice,
     suggestedPrice: isAuto ? price : undefined,
     quantity,
-    amount: actualAmount,
+    amount: buyCost,
     reason,
     isAuto,
   };
@@ -379,7 +380,8 @@ export function executeBuy(account: Account, code: string, name: string, price: 
   let newPositions: Position[];
   if (existingPos) {
     const newQty = existingPos.quantity + quantity;
-    const newAvgCost = (existingPos.avgCost * existingPos.quantity + actualAmount) / newQty;
+    // 加仓均价 = (旧均价 × 旧数量 + 买入总花费) / 新数量
+    const newAvgCost = (existingPos.avgCost * existingPos.quantity + buyCost) / newQty;
     newPositions = account.positions.map((p) =>
       p.stockCode === code
         ? { ...p, quantity: newQty, avgCost: newAvgCost }
@@ -394,7 +396,7 @@ export function executeBuy(account: Account, code: string, name: string, price: 
         quantity,
         avgCost: price,
         currentPrice: price,
-        marketValue: actualAmount,
+        marketValue: buyCost,
         pnl: 0,
         pnlPercent: 0,
         positionPercent: 0,
@@ -407,13 +409,13 @@ export function executeBuy(account: Account, code: string, name: string, price: 
   if (totalMarketValue > 0) {
     newPositions = newPositions.map((p) => ({
       ...p,
-      positionPercent: Math.round((p.marketValue / (account.currentCapital - actualAmount + totalMarketValue)) * 10000) / 100,
+      positionPercent: Math.round((p.marketValue / (account.currentCapital - buyCost + totalMarketValue)) * 10000) / 100,
     }));
   }
 
   const updatedAccount: Account = {
     ...account,
-    currentCapital: account.currentCapital - actualAmount,
+    currentCapital: account.currentCapital - buyCost,
     positions: newPositions,
     trades: [...account.trades, trade],
   };

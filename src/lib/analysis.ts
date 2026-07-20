@@ -195,7 +195,8 @@ export function analyzeChanlun(data: KLineData[]): ChanlunResult {
   const buySignals: ChanlunResult['buySignals'] = [];
   const sellSignals: ChanlunResult['sellSignals'] = [];
 
-  // First buy: after downtrend, bottom fractal
+  // First buy: after downtrend, bottom fractal (一买)
+  // First sell: after uptrend, top fractal (一卖)
   for (let i = 1; i < filtered.length; i++) {
     if (filtered[i].type === 'bottom' && i >= 3) {
       const prevStroke = strokes[i - 1];
@@ -219,12 +220,129 @@ export function analyzeChanlun(data: KLineData[]): ChanlunResult {
     }
   }
 
+  // Second buy (二买): After a first buy, price goes up then pulls back but doesn't break the first buy low
+  // Second sell (二卖): After a first sell, price goes down then bounces but doesn't break the first sell high
+  for (let i = 0; i < buySignals.length; i++) {
+    const firstBuy = buySignals[i];
+    // Find the next bottom after this first buy
+    for (let j = 0; j < filtered.length; j++) {
+      if (filtered[j].index > firstBuy.index && filtered[j].type === 'bottom') {
+        // Check if this bottom is higher than the first buy (doesn't break the low)
+        const pullbackLow = data[filtered[j].index].low;
+        if (pullbackLow > firstBuy.price) {
+          // Check if there was an upward stroke before this pullback
+          const hasUpStroke = strokes.some(s => 
+            s.direction === 'up' && 
+            s.end > firstBuy.index && 
+            s.end < filtered[j].index
+          );
+          if (hasUpStroke) {
+            buySignals.push({
+              index: filtered[j].index,
+              type: 2,
+              price: pullbackLow,
+            });
+            break; // Only one second buy per first buy
+          }
+        }
+        break; // Stop after finding the first bottom after first buy
+      }
+    }
+  }
+
+  for (let i = 0; i < sellSignals.length; i++) {
+    const firstSell = sellSignals[i];
+    // Find the next top after this first sell
+    for (let j = 0; j < filtered.length; j++) {
+      if (filtered[j].index > firstSell.index && filtered[j].type === 'top') {
+        // Check if this top is lower than the first sell (doesn't break the high)
+        const bounceHigh = data[filtered[j].index].high;
+        if (bounceHigh < firstSell.price) {
+          // Check if there was a downward stroke before this bounce
+          const hasDownStroke = strokes.some(s => 
+            s.direction === 'down' && 
+            s.end > firstSell.index && 
+            s.end < filtered[j].index
+          );
+          if (hasDownStroke) {
+            sellSignals.push({
+              index: filtered[j].index,
+              type: 2,
+              price: bounceHigh,
+            });
+            break; // Only one second sell per first sell
+          }
+        }
+        break; // Stop after finding the first top after first sell
+      }
+    }
+  }
+
+  // Third buy (三买): After price leaves a center upward and pulls back, the pullback doesn't enter the center
+  // Third sell (三卖): After price leaves a center downward and bounces, the bounce doesn't enter the center
+  for (const center of centers) {
+    // Find strokes after this center
+    const afterCenterStrokes = strokes.filter(s => s.start >= center.end);
+    
+    // Look for third buy: upward breakout then pullback that stays above center.high
+    for (let i = 0; i < afterCenterStrokes.length - 1; i++) {
+      const stroke = afterCenterStrokes[i];
+      if (stroke.direction === 'up') {
+        // Check if this stroke broke above the center
+        const strokeHigh = Math.max(data[stroke.start].high, data[stroke.end].high);
+        if (strokeHigh > center.high) {
+          // Find the next downward stroke (pullback)
+          const nextDown = afterCenterStrokes[i + 1];
+          if (nextDown && nextDown.direction === 'down') {
+            const pullbackLow = Math.min(data[nextDown.start].low, data[nextDown.end].low);
+            // Third buy: pullback doesn't enter center (stays above center.high)
+            if (pullbackLow > center.high) {
+              buySignals.push({
+                index: nextDown.end,
+                type: 3,
+                price: pullbackLow,
+              });
+            }
+          }
+        }
+      }
+    }
+
+    // Look for third sell: downward breakout then bounce that stays below center.low
+    for (let i = 0; i < afterCenterStrokes.length - 1; i++) {
+      const stroke = afterCenterStrokes[i];
+      if (stroke.direction === 'down') {
+        // Check if this stroke broke below the center
+        const strokeLow = Math.min(data[stroke.start].low, data[stroke.end].low);
+        if (strokeLow < center.low) {
+          // Find the next upward stroke (bounce)
+          const nextUp = afterCenterStrokes[i + 1];
+          if (nextUp && nextUp.direction === 'up') {
+            const bounceHigh = Math.max(data[nextUp.start].high, data[nextUp.end].high);
+            // Third sell: bounce doesn't enter center (stays below center.low)
+            if (bounceHigh < center.low) {
+              sellSignals.push({
+                index: nextUp.end,
+                type: 3,
+                price: bounceHigh,
+              });
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Sort signals by index and deduplicate
+  buySignals.sort((a, b) => a.index - b.index);
+  sellSignals.sort((a, b) => a.index - b.index);
+
   return {
     strokes,
     segments: strokes.length > 3 ? [{ start: strokes[0].start, end: strokes[strokes.length - 1].end, direction: strokes[strokes.length - 1].direction }] : [],
     centers: centers.slice(0, 5),
-    buySignals: buySignals.slice(-5),
-    sellSignals: sellSignals.slice(-5),
+    buySignals: buySignals.slice(-10),
+    sellSignals: sellSignals.slice(-10),
   };
 }
 

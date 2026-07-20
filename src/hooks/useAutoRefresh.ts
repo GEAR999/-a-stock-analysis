@@ -6,7 +6,9 @@ interface AutoRefreshState {
   isActive: boolean;
   isTradingHours: boolean;
   countdown: number;
+  analysisCountdown: number;
   lastRefresh: number | null;
+  lastAnalysis: number | null;
 }
 
 /** Check if current time is within A-share trading hours (CST) */
@@ -30,12 +32,14 @@ function isTradingTime(): boolean {
   return (time >= morningStart && time <= morningEnd) || (time >= afternoonStart && time <= afternoonEnd);
 }
 
-export function useAutoRefresh(onRefresh: () => void, intervalSec = 60) {
+export function useAutoRefresh(onRefresh: () => void, intervalSec = 60, analysisIntervalSec = 30) {
   const [state, setState] = useState<AutoRefreshState>({
     isActive: true,
     isTradingHours: isTradingTime(),
     countdown: intervalSec,
+    analysisCountdown: analysisIntervalSec,
     lastRefresh: null,
+    lastAnalysis: null,
   });
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -86,6 +90,7 @@ export function useAutoRefresh(onRefresh: () => void, intervalSec = 60) {
       setState(prev => ({
         ...prev,
         countdown: Math.max(0, prev.countdown - 1),
+        analysisCountdown: Math.max(0, prev.analysisCountdown - 1),
       }));
     }, 1000);
 
