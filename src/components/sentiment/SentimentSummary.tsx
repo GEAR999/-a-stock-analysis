@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import type { ComprehensiveSentiment } from '@/services/sentiment/types';
+import { fetchWithRetry } from '@/lib/api-client';
 
 interface SentimentSummaryProps {
   stockCode?: string;
@@ -20,7 +21,7 @@ export function SentimentSummary({ stockCode, stockName, sectorName }: Sentiment
         const params = new URLSearchParams({ action: 'comprehensive_sentiment' });
         if (stockCode) params.set('code', stockCode);
         if (sectorName) params.set('sector', sectorName);
-        const res = await fetch(`/api/stock?${params}`);
+        const res = await fetchWithRetry(`/api/stock?${params}`);
         const json = await res.json();
         if (json.success) {
           setSentiment(json.data);

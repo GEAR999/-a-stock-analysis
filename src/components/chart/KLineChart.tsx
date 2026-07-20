@@ -6,6 +6,7 @@ import { useAppState } from '@/hooks/useAppState';
 import { calculateMA, calculateMACD, calculateKDJ, calculateRSI, calculateBOLL, analyzeChanlun, analyzeWaves } from '@/lib/analysis';
 import { getKLineData } from '@/lib/api/stock';
 import { getCachedKline, setCachedKline } from '@/lib/idb-cache';
+import { fetchWithRetry, onOnlineStatusChange } from '@/lib/api-client';
 import type { KLineData } from '@/lib/types';
 
 const PERIODS: Array<{ key: string; label: string }> = [
@@ -37,7 +38,7 @@ export function KLineChart() {
 
       // Step 2: Always fetch fresh data in background
       try {
-        const res = await fetch(`/api/stock?action=kline&code=${selectedStock.code}&period=${klinePeriod}&limit=250`);
+        const res = await fetchWithRetry(`/api/stock?action=kline&code=${selectedStock.code}&period=${klinePeriod}&limit=250`);
         const json = await res.json();
         if (json.success && !cancelled) {
           setKlineData(json.data);

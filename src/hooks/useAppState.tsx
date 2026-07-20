@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import type { StockInfo, StockQuote, WatchlistItem, AnalysisSettings, ChatMessage, KLineData, KLinePeriod } from '@/lib/types';
+import { fetchWithRetry, onOnlineStatusChange } from '@/lib/api-client';
 
 interface AppState {
   // Stock
@@ -96,7 +97,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return;
     }
     try {
-      const res = await fetch(`/api/stock?action=search&keyword=${encodeURIComponent(keyword)}`);
+      const res = await fetchWithRetry(`/api/stock?action=search&keyword=${encodeURIComponent(keyword)}`);
       const json = await res.json();
       if (json.success) setSearchResults(json.data);
       else setSearchResults([]);
@@ -108,7 +109,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const refreshQuote = useCallback(async () => {
     if (!selectedStock) return;
     try {
-      const res = await fetch(`/api/stock?action=quote&code=${selectedStock.code}`);
+      const res = await fetchWithRetry(`/api/stock?action=quote&code=${selectedStock.code}`);
       const json = await res.json();
       if (json.success) setCurrentQuote(json.data);
     } catch {

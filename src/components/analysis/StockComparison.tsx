@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { X, Plus, BarChart3, TrendingUp } from "lucide-react";
 import { useAppState } from "@/hooks/useAppState";
+import { fetchWithRetry } from "@/lib/api-client";
 import type { KLineData } from "@/lib/types";
 
 interface ComparisonStock {
@@ -47,7 +48,7 @@ export function StockComparison() {
 
     searchRef.current = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/stock?action=search&keyword=${encodeURIComponent(searchQuery)}`);
+        const res = await fetchWithRetry(`/api/stock?action=search&keyword=${encodeURIComponent(searchQuery)}`);
         const data = await res.json();
         if (data.success) {
           setSuggestions(data.data.filter((s: SearchSuggestion) => !stocks.find(st => st.code === s.code)).slice(0, 8));
@@ -64,7 +65,7 @@ export function StockComparison() {
   const loadStockData = async (code: string, name: string, market: string) => {
     setIsLoading(true);
     try {
-      const res = await fetch(`/api/stock?action=kline&code=${market}${code}&period=daily&limit=120`);
+      const res = await fetchWithRetry(`/api/stock?action=kline&code=${market}${code}&period=daily&limit=120`);
       const data = await res.json();
       if (data.success && data.data.length > 0) {
         const klineData: KLineData[] = data.data;

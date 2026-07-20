@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Search, TrendingUp, BarChart3, Settings, Zap, BookOpen, Activity } from "lucide-react";
 import { useAppState } from "@/hooks/useAppState";
+import { fetchWithRetry } from "@/lib/api-client";
 import { useTheme, type ThemeMode } from "@/hooks/useTheme";
 
 interface CommandItem {
@@ -73,7 +74,7 @@ export default function CommandPalette() {
     debounceRef.current = setTimeout(async () => {
       setIsSearching(true);
       try {
-        const res = await fetch(`/api/stock?action=search&keyword=${encodeURIComponent(query)}`);
+        const res = await fetchWithRetry(`/api/stock?action=search&keyword=${encodeURIComponent(query)}`);
         const data = await res.json();
         if (data.success && data.data) {
           setSearchResults(data.data.slice(0, 10));
