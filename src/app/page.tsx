@@ -15,6 +15,7 @@ import CommandPalette from '@/components/ui/CommandPalette';
 import NotificationCenter from '@/components/ui/NotificationCenter';
 import { AutoRefreshIndicator } from '@/components/chart/AutoRefreshIndicator';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
+import AIChatWidget from '@/components/ai/AIChatWidget';
 
 type MainTab = 'analysis' | 'backtest' | 'learning';
 
@@ -190,6 +191,9 @@ export default function Home() {
 
         {/* Auto Refresh Indicator */}
         <AutoRefreshIndicator onRefresh={() => window.dispatchEvent(new Event('auto-refresh'))} />
+
+        {/* AI Chat Widget */}
+        <AIChatWidget />
       </div>
     </AppProvider>
     </AuthGate>

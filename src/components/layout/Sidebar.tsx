@@ -57,29 +57,29 @@ export function Sidebar() {
 
   return (
     <div className={`${collapsed ? 'w-16' : 'w-[260px]'} shrink-0 bg-[var(--bg-primary)] border-r border-[var(--border-default)] flex flex-col h-full overflow-hidden transition-all duration-300 ease-in-out relative group`}>
-      {/* Collapse Button */}
-      <button
-        onClick={toggleCollapse}
-        className="absolute top-2 right-1 z-10 w-6 h-6 flex items-center justify-center rounded text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-colors"
-        title={collapsed ? '展开侧边栏' : '折叠侧边栏'}
-      >
-        <svg className={`w-4 h-4 transition-transform ${collapsed ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-        </svg>
-      </button>
-
-      {/* Logo + Theme Switcher */}
+      {/* Header: Logo + Collapse Button + Theme Switcher */}
       <div className="px-3 py-3 border-b border-[var(--border-default)]">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             <div className="w-6 h-6 rounded bg-[var(--accent-blue)] flex items-center justify-center shrink-0">
               <svg className="w-4 h-4 text-[var(--text-primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
               </svg>
             </div>
-            {!collapsed && <span className="text-sm font-bold text-[var(--text-primary)] whitespace-nowrap">A股智能分析</span>}
+            {!collapsed && <span className="text-sm font-bold text-[var(--text-primary)] whitespace-nowrap truncate">A股智能分析</span>}
           </div>
-          {!collapsed && <ThemeSwitcher />}
+          <div className="flex items-center gap-1 shrink-0">
+            {!collapsed && <ThemeSwitcher />}
+            <button
+              onClick={toggleCollapse}
+              className="w-6 h-6 flex items-center justify-center rounded text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-colors"
+              title={collapsed ? '展开侧边栏' : '折叠侧边栏'}
+            >
+              <svg className={`w-4 h-4 transition-transform ${collapsed ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+              </svg>
+            </button>
+          </div>
         </div>
         {/* View Tabs - only show when expanded */}
         {!collapsed && (
