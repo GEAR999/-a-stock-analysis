@@ -186,43 +186,139 @@ function calculateMaxDrawdown(account: Account): number {
   return maxDrawdown;
 }
 
-// 生成资金曲线
+// 生成资金曲线（基于真实交易数据）
 export function generateEquityCurve(account: Account): EquityPoint[] {
+  const points: EquityPoint[] = [];
+  
+  // 如果没有交易记录，返回空数组
+  if (!account.trades || account.trades.length === 0) {
+    return points;
+  }
+
+  // 按时间排序的交易
+  const sortedTrades = [...account.trades].sort((a, b) => a.timestamp - b.timestamp);
+  
+  // 确定时间范围：从第一笔交易到最后一笔交易（或今天）
+  const firstTradeTime = sortedTrades[0].timestamp;
+  const lastTradeTime = sortedTrades[sortedTrades.length - 1].timestamp;
+  
+  // 检查是否有未平仓持仓
+  const finalPositions: Record<string, { qty: number; cost: number; lastPrice: number }> = {};
+  let finalCash = account.initialCapital;
+  
+  for (const trade of sortedTrades) {
+    if (trade.direction === "buy") {
+      finalCash -= trade.amount;
+      const existing = finalPositions[trade.stockCode] || { qty: 0, cost: 0, lastPrice: trade.price };
+      const newQty = existing.qty + trade.quantity;
+      const newCost = newQty > 0 ? (existing.cost * existing.qty + trade.amount) / newQty : 0;
+      finalPositions[trade.stockCode] = { qty: newQty, cost: newCost, lastPrice: trade.price };
+    } else {
+      finalCash += trade.amount;
+      const existing = finalPositions[trade.stockCode];
+      if (existing) {
+        existing.qty -= trade.quantity;
+        existing.lastPrice = trade.price;
+        if (existing.qty <= 0) delete finalPositions[trade.stockCode];
+      }
+    }
+  }
+  
+  // 如果有未平仓持仓，结束日期为今天；否则为最后一笔交易日
+  const hasOpenPositions = Object.keys(finalPositions).length > 0;
+  const endTime = hasOpenPositions ? Date.now() : lastTradeTime;
+  
+  // 生成每日数据点
+  const MS_PER_DAY = 86400000;
+  const startDate = new Date(firstTradeTime);
+  startDate.setHours(0, 0, 0, 0);
+  const endDate = new Date(endTime);
+  endDate.setHours(23, 59, 59, 999);
+  
+  // 构建交易日列表（只包含有交易的日期 + 起始日期 + 结束日期）
+  const tradeDates = new Set<number>();
+  tradeDates.add(startDate.getTime());
+  for (const trade of sortedTrades) {
+    const tradeDate = new Date(trade.timestamp);
+    tradeDate.setHours(0, 0, 0, 0);
+    tradeDates.add(tradeDate.getTime());
+  }
+  tradeDates.add(endDate.getTime());
+  
+  const sortedDates = Array.from(tradeDates).sort((a, b) => a - b);
+  
+  // 对每个交易日计算资金状况
+  for (const dateTimestamp of sortedDates) {
+    const dayEnd = dateTimestamp + MS_PER_DAY - 1;
+    
+    // 计算到该日期为止的所有交易
+    const tradesBefore = sortedTrades.filter(t => t.timestamp <= dayEnd);
+    
+    let cash = account.initialCapital;
+    const positionsAtDay: Record<string, { qty: number; cost: number; lastPrice: number }> = {};
+    
+    for (const trade of tradesBefore) {
+      if (trade.direction === "buy") {
+        cash -= trade.amount;
+        const existing = positionsAtDay[trade.stockCode] || { qty: 0, cost: 0, lastPrice: trade.price };
+        const newQty = existing.qty + trade.quantity;
+        const newCost = newQty > 0 ? (existing.cost * existing.qty + trade.amount) / newQty : 0;
+        positionsAtDay[trade.stockCode] = { qty: newQty, cost: newCost, lastPrice: trade.price };
+      } else {
+        cash += trade.amount;
+        const existing = positionsAtDay[trade.stockCode];
+        if (existing) {
+          existing.qty -= trade.quantity;
+          existing.lastPrice = trade.price;
+          if (existing.qty <= 0) delete positionsAtDay[trade.stockCode];
+        }
+      }
+    }
+    
+    // 计算持仓市值（使用最后交易价格）
+    const marketValue = Object.values(positionsAtDay).reduce((sum, p) => {
+      return sum + p.qty * p.lastPrice;
+    }, 0);
+    
+    points.push({
+      timestamp: dateTimestamp,
+      totalAssets: cash + marketValue,
+      cash,
+      marketValue,
+    });
+  }
+
+  return points;
+}
+
+// 生成演示资金曲线（用于无交易记录时的展示）
+export function generateDemoEquityCurve(initialCapital: number = 1000000): EquityPoint[] {
   const points: EquityPoint[] = [];
   const now = Date.now();
   const days = 30;
 
-  // 按时间排序的交易
-  const sortedTrades = [...account.trades].sort((a, b) => a.timestamp - b.timestamp);
-
+  let cash = initialCapital;
+  let marketValue = 0;
+  
   for (let i = days; i >= 0; i--) {
     const timestamp = now - i * 86400000;
-    // 计算到该时间点为止的交易
-    const tradesBefore = sortedTrades.filter((t) => t.timestamp <= timestamp);
-    let cash = account.initialCapital;
-    const positionsAtTime: Record<string, { qty: number; cost: number }> = {};
-
-    for (const trade of tradesBefore) {
-      if (trade.direction === "buy") {
-        cash -= trade.amount;
-        const existing = positionsAtTime[trade.stockCode] || { qty: 0, cost: 0 };
-        const newQty = existing.qty + trade.quantity;
-        const newCost = newQty > 0 ? (existing.cost * existing.qty + trade.amount) / newQty : 0;
-        positionsAtTime[trade.stockCode] = { qty: newQty, cost: newCost };
-      } else {
-        cash += trade.amount;
-        const existing = positionsAtTime[trade.stockCode];
-        if (existing) {
-          existing.qty -= trade.quantity;
-          if (existing.qty <= 0) delete positionsAtTime[trade.stockCode];
-        }
-      }
+    
+    // 模拟每日波动
+    const dailyReturn = (Math.random() - 0.48) * 0.02; // 略微偏向上涨
+    marketValue = marketValue * (1 + dailyReturn);
+    
+    // 随机交易模拟
+    if (i === 25) {
+      cash -= 300000;
+      marketValue += 300000;
+    } else if (i === 15) {
+      cash += 50000;
+      marketValue -= 50000;
+    } else if (i === 5) {
+      cash -= 200000;
+      marketValue += 200000;
     }
-
-    const marketValue = Object.values(positionsAtTime).reduce((sum, p) => {
-      return sum + p.qty * p.cost * (1 + (Math.random() * 0.02 - 0.01)); // 模拟价格波动
-    }, 0);
-
+    
     points.push({
       timestamp,
       totalAssets: cash + marketValue,

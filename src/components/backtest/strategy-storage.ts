@@ -232,15 +232,64 @@ export function getAllAvailableStrategies(): Array<BuiltinStrategy | CustomStrat
 /**
  * 按置信度自动分配权重
  */
+/**
+ * 最大余数法分配权重（保证总和精确等于100）
+ * 算法：
+ * 1. 计算每个策略的精确权重（浮点数）
+ * 2. 取整数部分作为初始分配
+ * 3. 计算剩余百分点 = 100 - 所有整数部分之和
+ * 4. 按小数部分从大到小排序，把剩余百分点依次分配给小数部分最大的策略
+ */
+function largestRemainderAllocation(values: number[], total: number = 100): number[] {
+  if (values.length === 0) return [];
+  
+  const sum = values.reduce((a, b) => a + b, 0);
+  if (sum === 0) {
+    // 如果所有值都是0，均分
+    const base = Math.floor(total / values.length);
+    const remainder = total - base * values.length;
+    return values.map((_, i) => base + (i < remainder ? 1 : 0));
+  }
+  
+  // 计算精确权重和整数部分
+  const exactWeights = values.map(v => (v / sum) * total);
+  const floorWeights = exactWeights.map(w => Math.floor(w));
+  
+  // 计算剩余百分点
+  const currentSum = floorWeights.reduce((a, b) => a + b, 0);
+  let remainder = total - currentSum;
+  
+  // 计算小数部分并排序
+  const fractions = exactWeights.map((w, i) => ({
+    index: i,
+    fraction: w - Math.floor(w),
+  }));
+  
+  // 按小数部分从大到小排序
+  fractions.sort((a, b) => b.fraction - a.fraction);
+  
+  // 分配剩余百分点
+  const result = [...floorWeights];
+  for (let i = 0; i < remainder && i < fractions.length; i++) {
+    result[fractions[i].index] += 1;
+  }
+  
+  return result;
+}
+
+/**
+ * 根据置信度计算权重（使用最大余数法保证总和为100）
+ */
 export function calculateWeightsByConfidence(
   strategies: Array<{ id: string; confidence: number }>
 ): StrategyWeight[] {
-  const totalConfidence = strategies.reduce((sum, s) => sum + s.confidence, 0);
+  const confidences = strategies.map(s => s.confidence);
+  const weights = largestRemainderAllocation(confidences, 100);
   
-  return strategies.map(s => ({
+  return strategies.map((s, i) => ({
     strategyId: s.id,
     strategyName: '',
-    weight: totalConfidence > 0 ? Math.round((s.confidence / totalConfidence) * 100) : 0,
+    weight: weights[i],
     confidence: s.confidence,
     enabled: true,
     source: s.id.startsWith('builtin_') ? 'builtin' as const : 'custom' as const,
@@ -248,20 +297,90 @@ export function calculateWeightsByConfidence(
 }
 
 /**
- * 均分权重
+ * 均分权重（使用最大余数法保证总和为100）
  */
 export function calculateEqualWeights(strategyIds: string[]): StrategyWeight[] {
-  const weight = Math.floor(100 / strategyIds.length);
-  const remainder = 100 - weight * strategyIds.length;
+  const equalValues = strategyIds.map(() => 1); // 等置信度
+  const weights = largestRemainderAllocation(equalValues, 100);
   
   return strategyIds.map((id, index) => ({
     strategyId: id,
     strategyName: '',
-    weight: weight + (index < remainder ? 1 : 0),
+    weight: weights[index],
     confidence: 0,
     enabled: true,
     source: id.startsWith('builtin_') ? 'builtin' as const : 'custom' as const,
   }));
+}
+
+/**
+ * 手动调整权重：当用户修改某个策略权重时，按比例调整其他策略使总和保持100
+ * @param weights 当前权重数组
+ * @param changedIndex 被修改的策略索引
+ * @param newValue 新的权重值
+ * @returns 调整后的权重数组
+ */
+export function adjustWeightManually(
+  weights: StrategyWeight[],
+  changedIndex: number,
+  newValue: number
+): StrategyWeight[] {
+  if (changedIndex < 0 || changedIndex >= weights.length) return weights;
+  if (newValue < 0 || newValue > 100) return weights;
+  
+  const result = weights.map(w => ({ ...w }));
+  result[changedIndex].weight = newValue;
+  
+  // 计算剩余需要分配的权重
+  const remaining = 100 - newValue;
+  
+  // 获取其他启用的策略
+  const otherIndices = result
+    .map((w, i) => ({ index: i, weight: w.weight, enabled: w.enabled }))
+    .filter((_, i) => i !== changedIndex && result[i].enabled);
+  
+  if (otherIndices.length === 0) {
+    // 如果没有其他策略，直接返回
+    return result;
+  }
+  
+  const otherTotal = otherIndices.reduce((sum, o) => sum + o.weight, 0);
+  
+  if (otherTotal === 0) {
+    // 如果其他策略权重都是0，均分剩余权重
+    const base = Math.floor(remaining / otherIndices.length);
+    let extra = remaining - base * otherIndices.length;
+    
+    for (const o of otherIndices) {
+      result[o.index].weight = base + (extra > 0 ? 1 : 0);
+      if (extra > 0) extra--;
+    }
+  } else {
+    // 按比例缩放其他策略的权重
+    const scale = remaining / otherTotal;
+    const scaledWeights = otherIndices.map(o => o.weight * scale);
+    const flooredWeights = scaledWeights.map(w => Math.floor(w));
+    
+    // 使用最大余数法分配剩余
+    let currentSum = newValue + flooredWeights.reduce((a, b) => a + b, 0);
+    let remainder = 100 - currentSum;
+    
+    const fractions = scaledWeights.map((w, i) => ({
+      origIndex: otherIndices[i].index,
+      fraction: w - Math.floor(w),
+    }));
+    fractions.sort((a, b) => b.fraction - a.fraction);
+    
+    for (let i = 0; i < otherIndices.length; i++) {
+      result[otherIndices[i].index].weight = flooredWeights[i];
+    }
+    
+    for (let i = 0; i < remainder && i < fractions.length; i++) {
+      result[fractions[i].origIndex].weight += 1;
+    }
+  }
+  
+  return result;
 }
 
 /**
