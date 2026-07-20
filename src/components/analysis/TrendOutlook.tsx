@@ -59,7 +59,7 @@ function ProbabilityRing({ color }: { probability: number; color: string }) {
         />
       </svg>
       <div className="absolute inset-0 flex items-center justify-center">
-        <span className="text-[10px] text-gray-500">暂无</span>
+        <span className="text-[10px] text-[var(--text-secondary)]">暂无</span>
       </div>
     </div>
   );
@@ -265,7 +265,7 @@ export function TrendOutlook() {
 
   if (!selectedStock) {
     return (
-      <div className="px-3 py-4 text-xs text-[#94a3b8] text-center">
+      <div className="px-3 py-4 text-xs text-[var(--text-secondary)] text-center">
         选择股票后显示走势研判
       </div>
     );
@@ -273,7 +273,7 @@ export function TrendOutlook() {
 
   if (!outlook) {
     return (
-      <div className="px-3 py-4 text-xs text-[#94a3b8] text-center">
+      <div className="px-3 py-4 text-xs text-[var(--text-secondary)] text-center">
         数据加载中...
       </div>
     );
@@ -294,17 +294,17 @@ export function TrendOutlook() {
   };
 
   return (
-    <div className="border-b border-[#1e293b]">
-      <div className="px-3 py-2 text-xs font-medium text-[#d4a853] uppercase tracking-wider flex items-center gap-2">
-        <span className="w-1.5 h-1.5 rounded-full bg-[#d4a853]" />
+    <div className="border-b border-[var(--border-default)]">
+      <div className="px-3 py-2 text-xs font-medium text-[var(--accent-yellow)] uppercase tracking-wider flex items-center gap-2">
+        <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-yellow)]" />
         走势研判与操作展望
       </div>
 
       <div className="px-3 pb-3 space-y-3">
         {/* Current Phase */}
-        <div className="p-2.5 rounded bg-[#0a1628] border border-[#d4a853]/30">
+        <div className="p-2.5 rounded bg-[var(--bg-primary)] border border-[var(--accent-yellow)]/30">
           <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[10px] text-[#94a3b8]">当前走势定性</span>
+            <span className="text-[10px] text-[var(--text-secondary)]">当前走势定性</span>
             <span
               className="text-[10px] px-1.5 py-0.5 rounded"
               style={{
@@ -316,23 +316,23 @@ export function TrendOutlook() {
             </span>
           </div>
           <AnalysisTooltip data={phaseTooltip}>
-            <div className="text-sm font-medium text-[#e2e8f0] mb-1">
+            <div className="text-sm font-medium text-[var(--text-primary)] mb-1">
               {outlook.currentPhase}
             </div>
           </AnalysisTooltip>
-          <div className="text-[10px] text-[#94a3b8] leading-relaxed">
+          <div className="text-[10px] text-[var(--text-secondary)] leading-relaxed">
             {outlook.phaseBasis}
           </div>
         </div>
 
         {/* Multi-path Projection */}
         <div>
-          <div className="text-[10px] text-[#94a3b8] mb-2">多路径推演</div>
+          <div className="text-[10px] text-[var(--text-secondary)] mb-2">多路径推演</div>
           <div className="grid grid-cols-3 gap-1.5">
             {outlook.paths.map((path, i) => (
               <div
                 key={i}
-                className="p-2 rounded bg-[#0f0f1a] border border-[#1e293b] hover:border-[#2e394b] transition-colors cursor-pointer"
+                className="p-2 rounded bg-[var(--bg-primary)] border border-[var(--border-default)] hover:border-[var(--border-default)] transition-colors cursor-pointer"
                 onClick={() => setExpandedPath(expandedPath === i ? null : i)}
               >
                 <div className="flex flex-col items-center mb-1.5">
@@ -341,8 +341,8 @@ export function TrendOutlook() {
                     {path.name}
                   </div>
                 </div>
-                <div className="text-[9px] text-[#94a3b8] space-y-0.5">
-                  <div>目标: <span className="text-[#e2e8f0] font-mono-num">{path.target}</span></div>
+                <div className="text-[9px] text-[var(--text-secondary)] space-y-0.5">
+                  <div>目标: <span className="text-[var(--text-primary)] font-mono-num">{path.target}</span></div>
                   <div>窗口: {path.timeWindow}</div>
                 </div>
               </div>
@@ -351,41 +351,41 @@ export function TrendOutlook() {
 
           {/* Expanded Path Detail */}
           {expandedPath !== null && (
-            <div className="mt-2 p-2 rounded bg-[#0a1628] border border-[#1e293b] text-[10px] space-y-1.5">
-              <div className="font-medium text-[#e2e8f0]">{outlook.paths[expandedPath].name}详情</div>
+            <div className="mt-2 p-2 rounded bg-[var(--bg-primary)] border border-[var(--border-default)] text-[10px] space-y-1.5">
+              <div className="font-medium text-[var(--text-primary)]">{outlook.paths[expandedPath].name}详情</div>
               <div>
-                <span className="text-[#94a3b8]">触发条件: </span>
-                <span className="text-[#e2e8f0]">{outlook.paths[expandedPath].trigger}</span>
+                <span className="text-[var(--text-secondary)]">触发条件: </span>
+                <span className="text-[var(--text-primary)]">{outlook.paths[expandedPath].trigger}</span>
               </div>
               <div>
-                <span className="text-[#94a3b8]">预期目标: </span>
-                <span className="text-[#4ade80] font-mono-num">{outlook.paths[expandedPath].target}</span>
+                <span className="text-[var(--text-secondary)]">预期目标: </span>
+                <span className="text-[var(--accent-green)] font-mono-num">{outlook.paths[expandedPath].target}</span>
               </div>
               <div>
-                <span className="text-[#94a3b8]">时间窗口: </span>
-                <span className="text-[#e2e8f0]">{outlook.paths[expandedPath].timeWindow}</span>
+                <span className="text-[var(--text-secondary)]">时间窗口: </span>
+                <span className="text-[var(--text-primary)]">{outlook.paths[expandedPath].timeWindow}</span>
               </div>
               <div>
-                <span className="text-[#94a3b8]">应对策略: </span>
-                <span className="text-[#fbbf24]">{outlook.paths[expandedPath].strategy}</span>
+                <span className="text-[var(--text-secondary)]">应对策略: </span>
+                <span className="text-[var(--accent-yellow)]">{outlook.paths[expandedPath].strategy}</span>
               </div>
             </div>
           )}
         </div>
 
         {/* Optimal Strategy */}
-        <div className="p-2 rounded bg-[#0a1628] border border-[#3b82f6]/30">
-          <div className="text-[10px] text-[#3b82f6] mb-1 font-medium">当前最优策略</div>
-          <div className="text-[11px] text-[#e2e8f0] leading-relaxed">{outlook.optimalStrategy}</div>
+        <div className="p-2 rounded bg-[var(--bg-primary)] border border-[var(--accent-blue)]/30">
+          <div className="text-[10px] text-[var(--accent-blue)] mb-1 font-medium">当前最优策略</div>
+          <div className="text-[11px] text-[var(--text-primary)] leading-relaxed">{outlook.optimalStrategy}</div>
         </div>
 
         {/* Key Observations */}
         <div>
-          <div className="text-[10px] text-[#94a3b8] mb-1">关键观察点</div>
+          <div className="text-[10px] text-[var(--text-secondary)] mb-1">关键观察点</div>
           <div className="space-y-0.5">
             {outlook.keyObservations.map((obs, i) => (
-              <div key={i} className="text-[10px] text-[#94a3b8] flex items-start gap-1">
-                <span className="text-[#3b82f6] mt-0.5">&#x2022;</span>
+              <div key={i} className="text-[10px] text-[var(--text-secondary)] flex items-start gap-1">
+                <span className="text-[var(--accent-blue)] mt-0.5">&#x2022;</span>
                 <span>{obs}</span>
               </div>
             ))}
@@ -393,8 +393,8 @@ export function TrendOutlook() {
         </div>
 
         {/* Risk Warning */}
-        <div className="p-2 rounded bg-[#f8717110] border border-[#f87171]/30">
-          <div className="text-[10px] text-[#f87171] mb-1.5 font-medium flex items-center gap-1">
+        <div className="p-2 rounded bg-[var(--accent-red)]/10 border border-[var(--accent-red)]/30">
+          <div className="text-[10px] text-[var(--accent-red)] mb-1.5 font-medium flex items-center gap-1">
             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
@@ -402,17 +402,17 @@ export function TrendOutlook() {
           </div>
           <div className="space-y-1">
             <div className="text-[10px]">
-              <span className="text-[#94a3b8]">主要风险: </span>
-              <span className="text-[#e2e8f0]">{outlook.risks.main}</span>
+              <span className="text-[var(--text-secondary)]">主要风险: </span>
+              <span className="text-[var(--text-primary)]">{outlook.risks.main}</span>
             </div>
             <div className="text-[10px]">
-              <span className="text-[#94a3b8]">止损条件: </span>
-              <span className="text-[#f87171]">{outlook.risks.stopLoss}</span>
+              <span className="text-[var(--text-secondary)]">止损条件: </span>
+              <span className="text-[var(--accent-red)]">{outlook.risks.stopLoss}</span>
             </div>
             {outlook.risks.blackSwan && (
               <div className="text-[10px]">
-                <span className="text-[#94a3b8]">异常信号: </span>
-                <span className="text-[#fbbf24]">{outlook.risks.blackSwan}</span>
+                <span className="text-[var(--text-secondary)]">异常信号: </span>
+                <span className="text-[var(--accent-yellow)]">{outlook.risks.blackSwan}</span>
               </div>
             )}
           </div>

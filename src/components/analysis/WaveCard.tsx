@@ -88,14 +88,14 @@ export function WaveCard({ visible }: WaveCardProps) {
 
   if (!visible) return null;
 
-  const directionColor = analysis.trendAssessment.direction === '上升' ? 'text-red-400' :
-    analysis.trendAssessment.direction === '下降' ? 'text-green-400' : 'text-yellow-400';
+  const directionColor = analysis.trendAssessment.direction === '上升' ? 'text-[var(--accent-red)]' :
+    analysis.trendAssessment.direction === '下降' ? 'text-[var(--accent-green)]' : 'text-[var(--accent-yellow)]';
 
-  const confidenceColor = analysis.trendAssessment.confidence === '高' ? 'text-green-400' :
-    analysis.trendAssessment.confidence === '中' ? 'text-yellow-400' : 'text-red-400';
+  const confidenceColor = analysis.trendAssessment.confidence === '高' ? 'text-[var(--accent-green)]' :
+    analysis.trendAssessment.confidence === '中' ? 'text-[var(--accent-yellow)]' : 'text-[var(--accent-red)]';
 
   return (
-    <div className="rounded border border-blue-500/30 bg-[#0f0f1a] overflow-hidden">
+    <div className="rounded border border-blue-500/30 bg-[var(--bg-primary)] overflow-hidden">
       {/* 头部 */}
       <div className="flex items-center justify-between px-3 py-2 bg-blue-500/10 border-b border-blue-500/30">
         <div className="flex items-center gap-2">
@@ -104,17 +104,17 @@ export function WaveCard({ visible }: WaveCardProps) {
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Info className="w-3 h-3 text-blue-400/60 cursor-help" />
+                <Info className="w-3 h-3 text-[var(--accent-blue)]/60 cursor-help" />
               </TooltipTrigger>
-              <TooltipContent side="right" className="max-w-[300px] bg-[#0f0f1a] border-blue-500/30">
-                <p className="text-xs text-gray-300">基于艾略特波浪理论，识别推动浪(1-2-3-4-5)和调整浪(A-B-C)结构</p>
+              <TooltipContent side="right" className="max-w-[300px] bg-[var(--bg-primary)] border-blue-500/30">
+                <p className="text-xs text-[var(--text-primary)]">基于艾略特波浪理论，识别推动浪(1-2-3-4-5)和调整浪(A-B-C)结构</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
         </div>
         <button
           onClick={() => setExpanded(!expanded)}
-          className="text-xs text-blue-400/60 hover:text-blue-300"
+          className="text-xs text-[var(--accent-blue)]/60 hover:text-blue-300"
         >
           {expanded ? '收起' : '展开'}
         </button>
@@ -125,15 +125,15 @@ export function WaveCard({ visible }: WaveCardProps) {
           {/* 浪型结构 */}
           <div className="flex items-center gap-3 p-2 rounded bg-blue-500/5 border border-blue-500/20">
             <div className="text-center">
-              <div className="text-xs text-gray-400">浪型</div>
+              <div className="text-xs text-[var(--text-secondary)]">浪型</div>
               <div className="text-sm text-blue-300 font-medium">{analysis.waveStructure.type}</div>
             </div>
             <div className="text-center">
-              <div className="text-xs text-gray-400">当前</div>
+              <div className="text-xs text-[var(--text-secondary)]">当前</div>
               <div className="text-sm text-blue-200 font-bold">{analysis.waveStructure.current}</div>
             </div>
             <div className="text-center">
-              <div className="text-xs text-gray-400">进度</div>
+              <div className="text-xs text-[var(--text-secondary)]">进度</div>
               <div className="text-sm text-blue-300">{analysis.waveStructure.progress}</div>
             </div>
           </div>
@@ -141,14 +141,14 @@ export function WaveCard({ visible }: WaveCardProps) {
           {/* 当前结论 */}
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <span className="text-xs text-gray-400">当前位置</span>
+              <span className="text-xs text-[var(--text-secondary)]">当前位置</span>
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Info className="w-3 h-3 text-gray-500 cursor-help" />
+                    <Info className="w-3 h-3 text-[var(--text-secondary)] cursor-help" />
                   </TooltipTrigger>
-                  <TooltipContent side="right" className="max-w-[300px] bg-[#0f0f1a] border-blue-500/30">
-                    <p className="text-xs text-gray-300">{analysis.waveDescription}</p>
+                  <TooltipContent side="right" className="max-w-[300px] bg-[var(--bg-primary)] border-blue-500/30">
+                    <p className="text-xs text-[var(--text-primary)]">{analysis.waveDescription}</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -159,7 +159,7 @@ export function WaveCard({ visible }: WaveCardProps) {
           {/* 走势研判 */}
           <div className="p-2 rounded bg-blue-500/5 border border-blue-500/20">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-xs text-gray-400">走势研判</span>
+              <span className="text-xs text-[var(--text-secondary)]">走势研判</span>
               <div className="flex items-center gap-2">
                 <span className={`text-sm font-medium ${directionColor}`}>
                   {analysis.trendAssessment.direction}趋势
@@ -169,12 +169,12 @@ export function WaveCard({ visible }: WaveCardProps) {
                 </span>
               </div>
             </div>
-            <p className="text-xs text-gray-400">{analysis.trendAssessment.basis}</p>
+            <p className="text-xs text-[var(--text-secondary)]">{analysis.trendAssessment.basis}</p>
           </div>
 
           {/* 多路径推演 */}
           <div className="space-y-2">
-            <span className="text-xs text-gray-400">浪型推演</span>
+            <span className="text-xs text-[var(--text-secondary)]">浪型推演</span>
             <div className="grid grid-cols-3 gap-1.5">
               {analysis.paths.map((path, i) => (
                 <TooltipProvider key={i}>
@@ -185,16 +185,16 @@ export function WaveCard({ visible }: WaveCardProps) {
                         i === 1 ? 'bg-yellow-500/10 border border-yellow-500/20' :
                         'bg-green-500/10 border border-green-500/20'
                       }`}>
-                        <div className="text-xs font-medium text-gray-300">{path.name}</div>
-                        <div className="text-xs font-medium text-gray-500">暂无量化评估</div>
+                        <div className="text-xs font-medium text-[var(--text-primary)]">{path.name}</div>
+                        <div className="text-xs font-medium text-[var(--text-secondary)]">暂无量化评估</div>
                       </div>
                     </TooltipTrigger>
-                    <TooltipContent side="right" className="max-w-[280px] bg-[#0f0f1a] border-blue-500/30">
+                    <TooltipContent side="right" className="max-w-[280px] bg-[var(--bg-primary)] border-blue-500/30">
                       <div className="space-y-1.5">
-                        <p className="text-xs text-gray-300"><span className="text-gray-500">条件:</span> {path.condition}</p>
-                        <p className="text-xs text-gray-300"><span className="text-gray-500">目标:</span> {path.target}</p>
-                        <p className="text-xs text-gray-300"><span className="text-gray-500">时间:</span> {path.timeframe}</p>
-                        <p className="text-xs text-blue-300"><span className="text-gray-500">策略:</span> {path.strategy}</p>
+                        <p className="text-xs text-[var(--text-primary)]"><span className="text-[var(--text-secondary)]">条件:</span> {path.condition}</p>
+                        <p className="text-xs text-[var(--text-primary)]"><span className="text-[var(--text-secondary)]">目标:</span> {path.target}</p>
+                        <p className="text-xs text-[var(--text-primary)]"><span className="text-[var(--text-secondary)]">时间:</span> {path.timeframe}</p>
+                        <p className="text-xs text-blue-300"><span className="text-[var(--text-secondary)]">策略:</span> {path.strategy}</p>
                       </div>
                     </TooltipContent>
                   </Tooltip>
@@ -205,16 +205,16 @@ export function WaveCard({ visible }: WaveCardProps) {
 
           {/* 操作建议 */}
           <div className="p-2 rounded bg-blue-500/5 border border-blue-500/20">
-            <span className="text-xs text-gray-400">操作建议</span>
+            <span className="text-xs text-[var(--text-secondary)]">操作建议</span>
             <p className="text-xs text-blue-200 mt-1">{analysis.advice}</p>
           </div>
 
           {/* 风险提示 */}
           <div className="space-y-1">
-            <span className="text-xs text-red-400">风险提示</span>
+            <span className="text-xs text-[var(--accent-red)]">风险提示</span>
             {analysis.risks.map((risk, i) => (
               <div key={i} className="flex items-start gap-1.5 text-xs text-red-300/80">
-                <span className="text-red-500 mt-0.5">!</span>
+                <span className="text-[var(--accent-red)] mt-0.5">!</span>
                 <span>{risk}</span>
               </div>
             ))}

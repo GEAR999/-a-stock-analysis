@@ -17,7 +17,7 @@ export function AdvicePanel() {
 
   if (!selectedStock) {
     return (
-      <div className="px-3 py-4 text-xs text-[#94a3b8] text-center">
+      <div className="px-3 py-4 text-xs text-[var(--text-secondary)] text-center">
         选择股票后显示综合分析
       </div>
     );
@@ -25,7 +25,7 @@ export function AdvicePanel() {
 
   if (!advice) {
     return (
-      <div className="px-3 py-4 text-xs text-[#94a3b8] text-center">
+      <div className="px-3 py-4 text-xs text-[var(--text-secondary)] text-center">
         数据加载中...
       </div>
     );
@@ -43,7 +43,7 @@ export function AdvicePanel() {
       {/* Score + Confidence */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-xs text-[#94a3b8]">综合评分</span>
+          <span className="text-xs text-[var(--text-secondary)]">综合评分</span>
           <span className="text-lg font-bold font-mono-num" style={{ color: scoreColor }}>{advice.score}</span>
         </div>
         {/* 信号强度条 */}
@@ -68,7 +68,7 @@ export function AdvicePanel() {
 
       {/* Overall */}
       <div className="flex items-center justify-between">
-        <span className="text-xs text-[#94a3b8]">综合建议</span>
+        <span className="text-xs text-[var(--text-secondary)]">综合建议</span>
         <span className="text-sm font-bold px-2 py-0.5 rounded" style={{ color: overallColor, backgroundColor: `${overallColor}15` }}>
           {advice.overall}
         </span>
@@ -76,42 +76,42 @@ export function AdvicePanel() {
 
       {/* Percentile */}
       {advice.percentile !== null && (
-        <div className="flex items-center justify-between text-[10px] text-[#94a3b8]">
+        <div className="flex items-center justify-between text-[10px] text-[var(--text-secondary)]">
           <span>百分位排名</span>
-          <span>高于近60天中 <span className="text-[#e2e8f0] font-mono-num">{advice.percentile}%</span> 的交易日</span>
+          <span>高于近60天中 <span className="text-[var(--text-primary)] font-mono-num">{advice.percentile}%</span> 的交易日</span>
         </div>
       )}
 
       {/* Volume summary */}
       {advice.volumeAnalysis && (
         <div className="flex items-center justify-between text-[10px]">
-          <span className="text-[#94a3b8]">量价关系</span>
+          <span className="text-[var(--text-secondary)]">量价关系</span>
           <span className={
-            advice.volumeAnalysis.priceVolumeRelation === '量价齐升' ? 'text-[#ef4444]' :
-            advice.volumeAnalysis.priceVolumeRelation === '量价齐跌' ? 'text-[#22c55e]' :
-            'text-[#f59e0b]'
+            advice.volumeAnalysis.priceVolumeRelation === '量价齐升' ? 'text-[var(--accent-red)]' :
+            advice.volumeAnalysis.priceVolumeRelation === '量价齐跌' ? 'text-[var(--accent-green)]' :
+            'text-[var(--accent-yellow)]'
           }>
             {advice.volumeAnalysis.priceVolumeRelation}
-            <span className="text-[#94a3b8] ml-1">(量比{advice.volumeAnalysis.volumeRatio.toFixed(1)})</span>
+            <span className="text-[var(--text-secondary)] ml-1">(量比{advice.volumeAnalysis.volumeRatio.toFixed(1)})</span>
           </span>
         </div>
       )}
 
       {/* Details */}
       <div className="space-y-1">
-        <div className="text-xs text-[#94a3b8] mb-1">分析详情</div>
+        <div className="text-xs text-[var(--text-secondary)] mb-1">分析详情</div>
         {advice.details.map((detail, i) => (
-          <div key={i} className="text-xs text-[#e2e8f0] py-0.5 border-l-2 border-[#1e293b] pl-2">
+          <div key={i} className="text-xs text-[var(--text-primary)] py-0.5 border-l-2 border-[var(--border-default)] pl-2">
             {detail}
           </div>
         ))}
       </div>
 
       {/* Risk */}
-      <div className="mt-2 p-2 rounded bg-[#f59e0b10] border border-[#f59e0b30]">
-        <div className="text-xs text-[#f59e0b] mb-1 font-medium">风险提示</div>
+      <div className="mt-2 p-2 rounded bg-[var(--accent-yellow)]/10 border border-[var(--accent-yellow)]/30">
+        <div className="text-xs text-[var(--accent-yellow)] mb-1 font-medium">风险提示</div>
         {advice.risk.map((r, i) => (
-          <div key={i} className="text-[10px] text-[#94a3b8] leading-relaxed">{r}</div>
+          <div key={i} className="text-[10px] text-[var(--text-secondary)] leading-relaxed">{r}</div>
         ))}
       </div>
     </div>

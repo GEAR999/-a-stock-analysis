@@ -122,25 +122,25 @@ export default function MultiTimeframePanel({ stockCode }: MultiTimeframePanelPr
 
   if (loading) {
     return (
-      <div className="bg-[#111827] border border-[#1e293b] rounded p-3">
-        <div className="text-xs text-gray-500">多周期分析加载中...</div>
+      <div className="bg-[var(--bg-panel)] border border-[var(--border-default)] rounded p-3">
+        <div className="text-xs text-[var(--text-secondary)]">多周期分析加载中...</div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-[#111827] border border-[#1e293b] rounded p-3">
-        <div className="text-xs text-gray-500">暂无多周期数据</div>
+      <div className="bg-[var(--bg-panel)] border border-[var(--border-default)] rounded p-3">
+        <div className="text-xs text-[var(--text-secondary)]">暂无多周期数据</div>
       </div>
     );
   }
 
   const getSignalIcon = (signal: TimeframeSignal) => {
     switch (signal) {
-      case 'bullish': return <span className="text-red-400">↑</span>;
-      case 'bearish': return <span className="text-green-400">↓</span>;
-      default: return <span className="text-gray-500">→</span>;
+      case 'bullish': return <span className="text-[var(--accent-red)]">↑</span>;
+      case 'bearish': return <span className="text-[var(--accent-green)]">↓</span>;
+      default: return <span className="text-[var(--text-secondary)]">→</span>;
     }
   };
 
@@ -153,16 +153,16 @@ export default function MultiTimeframePanel({ stockCode }: MultiTimeframePanelPr
   };
 
   const resonanceColors = {
-    '多头共振': 'text-red-400 border-red-400/30 bg-red-400/5',
-    '空头共振': 'text-green-400 border-green-400/30 bg-green-400/5',
-    '分歧': 'text-gray-400 border-gray-400/30 bg-gray-400/5',
+    '多头共振': 'text-[var(--accent-red)] border-red-400/30 bg-red-400/5',
+    '空头共振': 'text-[var(--accent-green)] border-green-400/30 bg-green-400/5',
+    '分歧': 'text-[var(--text-secondary)] border-[var(--text-muted)]/30 bg-[var(--text-muted)]/5',
   };
 
   return (
-    <div className="bg-[#111827] border border-[#1e293b] rounded p-3">
+    <div className="bg-[var(--bg-panel)] border border-[var(--border-default)] rounded p-3">
       {/* 标题 + 共振状态 */}
       <div className="flex items-center justify-between mb-3">
-        <span className="text-xs font-medium text-gray-300">多周期共振</span>
+        <span className="text-xs font-medium text-[var(--text-primary)]">多周期共振</span>
         {resonance && (
           <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded border text-xs ${resonanceColors[resonance.direction]}`}>
             <span className="font-bold">{resonance.direction}</span>
@@ -183,8 +183,8 @@ export default function MultiTimeframePanel({ stockCode }: MultiTimeframePanelPr
             )}
             className={`text-[10px] px-2 py-0.5 rounded transition-colors ${
               selectedPeriods.includes(period)
-                ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                : 'bg-[#0a0e17] text-gray-500 border border-[#1e293b]'
+                ? 'bg-blue-500/20 text-[var(--accent-blue)] border border-blue-500/30'
+                : 'bg-[var(--bg-primary)] text-[var(--text-secondary)] border border-[var(--border-default)]'
             }`}
           >
             {PERIOD_LABELS[period]}
@@ -196,7 +196,7 @@ export default function MultiTimeframePanel({ stockCode }: MultiTimeframePanelPr
       <div className="overflow-x-auto">
         <table className="w-full text-[10px]">
           <thead>
-            <tr className="text-gray-500 border-b border-[#1e293b]">
+            <tr className="text-[var(--text-secondary)] border-b border-[var(--border-default)]">
               <th className="text-left py-1 pr-2">周期</th>
               <th className="text-center py-1 px-1">MACD</th>
               <th className="text-center py-1 px-1">KDJ</th>
@@ -214,8 +214,8 @@ export default function MultiTimeframePanel({ stockCode }: MultiTimeframePanelPr
 
               const dims = result.advice.dimensions;
               return (
-                <tr key={period} className="border-b border-[#1e293b]/50">
-                  <td className="py-1.5 pr-2 text-gray-400">{PERIOD_LABELS[period]}</td>
+                <tr key={period} className="border-b border-[var(--border-default)]/50">
+                  <td className="py-1.5 pr-2 text-[var(--text-secondary)]">{PERIOD_LABELS[period]}</td>
                   <td className="text-center py-1.5 px-1">{getSignalIcon(dims.macd?.signal || 'neutral')}</td>
                   <td className="text-center py-1.5 px-1">{getSignalIcon(dims.kdj?.signal || 'neutral')}</td>
                   <td className="text-center py-1.5 px-1">{getSignalIcon(dims.rsi?.signal || 'neutral')}</td>
@@ -223,7 +223,7 @@ export default function MultiTimeframePanel({ stockCode }: MultiTimeframePanelPr
                   <td className="text-center py-1.5 px-1">{getSignalIcon(dims.chanlun?.signal || 'neutral')}</td>
                   <td className="text-center py-1.5 px-1">{getSignalIcon(dims.wave?.signal || 'neutral')}</td>
                   <td className="text-center py-1.5 pl-2">
-                    <span className={`font-mono ${result.advice.score >= 60 ? 'text-red-400' : result.advice.score <= 40 ? 'text-green-400' : 'text-gray-400'}`}>
+                    <span className={`font-mono ${result.advice.score >= 60 ? 'text-[var(--accent-red)]' : result.advice.score <= 40 ? 'text-[var(--accent-green)]' : 'text-[var(--text-secondary)]'}`}>
                       {result.advice.score}
                     </span>
                   </td>
@@ -236,7 +236,7 @@ export default function MultiTimeframePanel({ stockCode }: MultiTimeframePanelPr
 
       {/* 共振详情 */}
       {resonance && (
-        <div className="mt-2 text-[10px] text-gray-500">
+        <div className="mt-2 text-[10px] text-[var(--text-secondary)]">
           {resonance.direction === '分歧'
             ? `各周期信号分歧，${resonance.bullishCount}个看多/${resonance.bearishCount}个看空`
             : `${resonance.direction}，${resonance.bullishCount}个看多/${resonance.bearishCount}个看空，${resonance.strength}共振`

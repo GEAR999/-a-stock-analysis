@@ -51,66 +51,66 @@ export default function MoneyFlowCard({ stockCode, stockName }: MoneyFlowCardPro
 
   if (loading) {
     return (
-      <div className="bg-[#111827] border border-[#1e293b] rounded p-3">
-        <div className="text-xs text-gray-500">资金流向加载中...</div>
+      <div className="bg-[var(--bg-panel)] border border-[var(--border-default)] rounded p-3">
+        <div className="text-xs text-[var(--text-secondary)]">资金流向加载中...</div>
       </div>
     );
   }
 
   if (error || !data) {
     return (
-      <div className="bg-[#111827] border border-[#1e293b] rounded p-3">
-        <div className="text-xs text-gray-500">暂无资金流向数据</div>
+      <div className="bg-[var(--bg-panel)] border border-[var(--border-default)] rounded p-3">
+        <div className="text-xs text-[var(--text-secondary)]">暂无资金流向数据</div>
       </div>
     );
   }
 
   const ratingColors: Record<string, string> = {
-    '强力吸筹': 'text-red-400 bg-red-400/10',
+    '强力吸筹': 'text-[var(--accent-red)] bg-red-400/10',
     '温和吸筹': 'text-red-300 bg-red-300/10',
-    '资金平衡': 'text-gray-300 bg-gray-300/10',
+    '资金平衡': 'text-[var(--text-primary)] bg-[var(--text-secondary)]/10',
     '温和流出': 'text-green-300 bg-green-300/10',
-    '主力出逃': 'text-green-400 bg-green-400/10',
+    '主力出逃': 'text-[var(--accent-green)] bg-green-400/10',
   };
 
   const maxBarValue = Math.max(...data.flows.slice(-20).map(f => Math.abs(f.mainNetInflow)), 1);
 
   return (
-    <div className="bg-[#111827] border border-[#1e293b] rounded p-3">
+    <div className="bg-[var(--bg-panel)] border border-[var(--border-default)] rounded p-3">
       {/* 标题 */}
       <div className="flex items-center justify-between mb-3">
-        <span className="text-xs font-medium text-gray-300">资金流向</span>
-        <span className={`text-xs px-2 py-0.5 rounded ${ratingColors[data.rating] || 'text-gray-400 bg-gray-400/10'}`}>
+        <span className="text-xs font-medium text-[var(--text-primary)]">资金流向</span>
+        <span className={`text-xs px-2 py-0.5 rounded ${ratingColors[data.rating] || 'text-[var(--text-secondary)] bg-[var(--text-muted)]/10'}`}>
           {data.rating}
         </span>
       </div>
 
       {/* 今日主力净流入 */}
       <div className="mb-3">
-        <div className="text-xs text-gray-500 mb-1">今日主力净流入</div>
-        <div className={`text-lg font-bold font-mono ${data.todayMainInflow > 0 ? 'text-red-400' : data.todayMainInflow < 0 ? 'text-green-400' : 'text-gray-400'}`}>
+        <div className="text-xs text-[var(--text-secondary)] mb-1">今日主力净流入</div>
+        <div className={`text-lg font-bold font-mono ${data.todayMainInflow > 0 ? 'text-[var(--accent-red)]' : data.todayMainInflow < 0 ? 'text-[var(--accent-green)]' : 'text-[var(--text-secondary)]'}`}>
           {formatMoneyFlow(data.todayMainInflow)}
         </div>
-        <div className="text-xs text-gray-500 mt-1">{data.ratingDesc}</div>
+        <div className="text-xs text-[var(--text-secondary)] mt-1">{data.ratingDesc}</div>
       </div>
 
       {/* 多日汇总 */}
       <div className="grid grid-cols-3 gap-2 mb-3">
         <div className="text-center">
-          <div className="text-xs text-gray-500">5日</div>
-          <div className={`text-xs font-mono ${data.fiveDayMainInflow > 0 ? 'text-red-400' : 'text-green-400'}`}>
+          <div className="text-xs text-[var(--text-secondary)]">5日</div>
+          <div className={`text-xs font-mono ${data.fiveDayMainInflow > 0 ? 'text-[var(--accent-red)]' : 'text-[var(--accent-green)]'}`}>
             {formatMoneyFlow(data.fiveDayMainInflow)}
           </div>
         </div>
         <div className="text-center">
-          <div className="text-xs text-gray-500">10日</div>
-          <div className={`text-xs font-mono ${data.tenDayMainInflow > 0 ? 'text-red-400' : 'text-green-400'}`}>
+          <div className="text-xs text-[var(--text-secondary)]">10日</div>
+          <div className={`text-xs font-mono ${data.tenDayMainInflow > 0 ? 'text-[var(--accent-red)]' : 'text-[var(--accent-green)]'}`}>
             {formatMoneyFlow(data.tenDayMainInflow)}
           </div>
         </div>
         <div className="text-center">
-          <div className="text-xs text-gray-500">20日</div>
-          <div className={`text-xs font-mono ${data.twentyDayMainInflow > 0 ? 'text-red-400' : 'text-green-400'}`}>
+          <div className="text-xs text-[var(--text-secondary)]">20日</div>
+          <div className={`text-xs font-mono ${data.twentyDayMainInflow > 0 ? 'text-[var(--accent-red)]' : 'text-[var(--accent-green)]'}`}>
             {formatMoneyFlow(data.twentyDayMainInflow)}
           </div>
         </div>
@@ -136,9 +136,9 @@ export default function MoneyFlowCard({ stockCode, stockName }: MoneyFlowCardPro
         })}
       </div>
       <div className="flex justify-between mt-1">
-        <span className="text-[10px] text-gray-600">{data.flows[Math.max(0, data.flows.length - 20)]?.date?.slice(5) || ''}</span>
-        <span className="text-[10px] text-gray-600">近20日主力净流入</span>
-        <span className="text-[10px] text-gray-600">{data.flows[data.flows.length - 1]?.date?.slice(5) || ''}</span>
+        <span className="text-[10px] text-[var(--text-muted)]">{data.flows[Math.max(0, data.flows.length - 20)]?.date?.slice(5) || ''}</span>
+        <span className="text-[10px] text-[var(--text-muted)]">近20日主力净流入</span>
+        <span className="text-[10px] text-[var(--text-muted)]">{data.flows[data.flows.length - 1]?.date?.slice(5) || ''}</span>
       </div>
     </div>
   );

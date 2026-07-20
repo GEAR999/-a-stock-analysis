@@ -100,14 +100,14 @@ export function ChanlunCard({ visible }: ChanlunCardProps) {
 
   if (!visible) return null;
 
-  const directionColor = analysis.trendAssessment.direction === '上升' ? 'text-red-400' :
-    analysis.trendAssessment.direction === '下降' ? 'text-green-400' : 'text-yellow-400';
+  const directionColor = analysis.trendAssessment.direction === '上升' ? 'text-[var(--accent-red)]' :
+    analysis.trendAssessment.direction === '下降' ? 'text-[var(--accent-green)]' : 'text-[var(--accent-yellow)]';
 
-  const confidenceColor = analysis.trendAssessment.confidence === '高' ? 'text-green-400' :
-    analysis.trendAssessment.confidence === '中' ? 'text-yellow-400' : 'text-red-400';
+  const confidenceColor = analysis.trendAssessment.confidence === '高' ? 'text-[var(--accent-green)]' :
+    analysis.trendAssessment.confidence === '中' ? 'text-[var(--accent-yellow)]' : 'text-[var(--accent-red)]';
 
   return (
-    <div className="rounded border border-purple-500/30 bg-[#0f0f1a] overflow-hidden">
+    <div className="rounded border border-purple-500/30 bg-[var(--bg-primary)] overflow-hidden">
       {/* 头部 */}
       <div className="flex items-center justify-between px-3 py-2 bg-purple-500/10 border-b border-purple-500/30">
         <div className="flex items-center gap-2">
@@ -118,8 +118,8 @@ export function ChanlunCard({ visible }: ChanlunCardProps) {
               <TooltipTrigger asChild>
                 <Info className="w-3 h-3 text-purple-400/60 cursor-help" />
               </TooltipTrigger>
-              <TooltipContent side="right" className="max-w-[300px] bg-[#0f0f1a] border-purple-500/30">
-                <p className="text-xs text-gray-300">基于缠论理论，自动识别笔、线段、中枢，判断当前走势阶段</p>
+              <TooltipContent side="right" className="max-w-[300px] bg-[var(--bg-primary)] border-purple-500/30">
+                <p className="text-xs text-[var(--text-primary)]">基于缠论理论，自动识别笔、线段、中枢，判断当前走势阶段</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -137,14 +137,14 @@ export function ChanlunCard({ visible }: ChanlunCardProps) {
           {/* 当前结论 */}
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <span className="text-xs text-gray-400">当前阶段</span>
+              <span className="text-xs text-[var(--text-secondary)]">当前阶段</span>
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Info className="w-3 h-3 text-gray-500 cursor-help" />
+                    <Info className="w-3 h-3 text-[var(--text-secondary)] cursor-help" />
                   </TooltipTrigger>
-                  <TooltipContent side="right" className="max-w-[300px] bg-[#0f0f1a] border-purple-500/30">
-                    <p className="text-xs text-gray-300">{analysis.stageDescription}</p>
+                  <TooltipContent side="right" className="max-w-[300px] bg-[var(--bg-primary)] border-purple-500/30">
+                    <p className="text-xs text-[var(--text-primary)]">{analysis.stageDescription}</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -155,7 +155,7 @@ export function ChanlunCard({ visible }: ChanlunCardProps) {
           {/* 走势研判 */}
           <div className="p-2 rounded bg-purple-500/5 border border-purple-500/20">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-xs text-gray-400">走势研判</span>
+              <span className="text-xs text-[var(--text-secondary)]">走势研判</span>
               <div className="flex items-center gap-2">
                 <span className={`text-sm font-medium ${directionColor}`}>
                   {analysis.trendAssessment.direction}趋势
@@ -165,18 +165,18 @@ export function ChanlunCard({ visible }: ChanlunCardProps) {
                 </span>
               </div>
             </div>
-            <p className="text-xs text-gray-400">{analysis.trendAssessment.basis}</p>
+            <p className="text-xs text-[var(--text-secondary)]">{analysis.trendAssessment.basis}</p>
           </div>
 
           {/* 信号列表 */}
           <div className="space-y-1">
-            <span className="text-xs text-gray-400">关键信号</span>
+            <span className="text-xs text-[var(--text-secondary)]">关键信号</span>
             {analysis.signals.map((signal, i) => (
-              <div key={i} className="flex items-start gap-2 p-1.5 rounded bg-[#1a1a2e]">
+              <div key={i} className="flex items-start gap-2 p-1.5 rounded bg-[var(--bg-panel)]">
                 <span className={`text-xs px-1.5 py-0.5 rounded ${
-                  signal.type === 'buy' ? 'bg-red-500/20 text-red-400' :
-                  signal.type === 'sell' ? 'bg-green-500/20 text-green-400' :
-                  'bg-yellow-500/20 text-yellow-400'
+                  signal.type === 'buy' ? 'bg-red-500/20 text-[var(--accent-red)]' :
+                  signal.type === 'sell' ? 'bg-green-500/20 text-[var(--accent-green)]' :
+                  'bg-yellow-500/20 text-[var(--accent-yellow)]'
                 }`}>
                   {signal.type === 'buy' ? '多' : signal.type === 'sell' ? '空' : '中'}
                 </span>
@@ -184,12 +184,12 @@ export function ChanlunCard({ visible }: ChanlunCardProps) {
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <span className="text-xs text-gray-300 cursor-help border-b border-dashed border-gray-600">
+                        <span className="text-xs text-[var(--text-primary)] cursor-help border-b border-dashed border-[var(--border-default)]">
                           {signal.name}
                         </span>
                       </TooltipTrigger>
-                      <TooltipContent side="right" className="max-w-[300px] bg-[#0f0f1a] border-purple-500/30">
-                        <p className="text-xs text-gray-300 mb-1">{signal.description}</p>
+                      <TooltipContent side="right" className="max-w-[300px] bg-[var(--bg-primary)] border-purple-500/30">
+                        <p className="text-xs text-[var(--text-primary)] mb-1">{signal.description}</p>
                         <p className="text-xs text-purple-300">依据: {signal.basis}</p>
                       </TooltipContent>
                     </Tooltip>
@@ -201,7 +201,7 @@ export function ChanlunCard({ visible }: ChanlunCardProps) {
 
           {/* 多路径推演 */}
           <div className="space-y-2">
-            <span className="text-xs text-gray-400">走势推演</span>
+            <span className="text-xs text-[var(--text-secondary)]">走势推演</span>
             <div className="grid grid-cols-3 gap-1.5">
               {analysis.paths.map((path, i) => (
                 <TooltipProvider key={i}>
@@ -212,16 +212,16 @@ export function ChanlunCard({ visible }: ChanlunCardProps) {
                         i === 1 ? 'bg-yellow-500/10 border border-yellow-500/20' :
                         'bg-green-500/10 border border-green-500/20'
                       }`}>
-                        <div className="text-xs font-medium text-gray-300">{path.name}</div>
-                        <div className="text-xs font-medium text-gray-500">暂无量化评估</div>
+                        <div className="text-xs font-medium text-[var(--text-primary)]">{path.name}</div>
+                        <div className="text-xs font-medium text-[var(--text-secondary)]">暂无量化评估</div>
                       </div>
                     </TooltipTrigger>
-                    <TooltipContent side="right" className="max-w-[280px] bg-[#0f0f1a] border-purple-500/30">
+                    <TooltipContent side="right" className="max-w-[280px] bg-[var(--bg-primary)] border-purple-500/30">
                       <div className="space-y-1.5">
-                        <p className="text-xs text-gray-300"><span className="text-gray-500">条件:</span> {path.condition}</p>
-                        <p className="text-xs text-gray-300"><span className="text-gray-500">目标:</span> {path.target}</p>
-                        <p className="text-xs text-gray-300"><span className="text-gray-500">时间:</span> {path.timeframe}</p>
-                        <p className="text-xs text-purple-300"><span className="text-gray-500">策略:</span> {path.strategy}</p>
+                        <p className="text-xs text-[var(--text-primary)]"><span className="text-[var(--text-secondary)]">条件:</span> {path.condition}</p>
+                        <p className="text-xs text-[var(--text-primary)]"><span className="text-[var(--text-secondary)]">目标:</span> {path.target}</p>
+                        <p className="text-xs text-[var(--text-primary)]"><span className="text-[var(--text-secondary)]">时间:</span> {path.timeframe}</p>
+                        <p className="text-xs text-purple-300"><span className="text-[var(--text-secondary)]">策略:</span> {path.strategy}</p>
                       </div>
                     </TooltipContent>
                   </Tooltip>
@@ -232,16 +232,16 @@ export function ChanlunCard({ visible }: ChanlunCardProps) {
 
           {/* 操作建议 */}
           <div className="p-2 rounded bg-blue-500/5 border border-blue-500/20">
-            <span className="text-xs text-gray-400">操作建议</span>
+            <span className="text-xs text-[var(--text-secondary)]">操作建议</span>
             <p className="text-xs text-blue-200 mt-1">{analysis.advice}</p>
           </div>
 
           {/* 风险提示 */}
           <div className="space-y-1">
-            <span className="text-xs text-red-400">风险提示</span>
+            <span className="text-xs text-[var(--accent-red)]">风险提示</span>
             {analysis.risks.map((risk, i) => (
               <div key={i} className="flex items-start gap-1.5 text-xs text-red-300/80">
-                <span className="text-red-500 mt-0.5">!</span>
+                <span className="text-[var(--accent-red)] mt-0.5">!</span>
                 <span>{risk}</span>
               </div>
             ))}
