@@ -449,3 +449,37 @@ export const api = {
       apiRequest(`/api/positions${accountId ? `?accountId=${accountId}` : ''}`),
   },
 };
+
+// ============================================================
+// 数据校验集成
+// ============================================================
+
+import { validateKLineData, validateStockQuote, validateSearchResult, withValidation } from './data-validator';
+
+/**
+ * 带数据校验的API请求
+ * 自动校验返回数据的结构完整性
+ */
+export async function fetchWithValidation<T>(
+  url: string,
+  validator: (raw: unknown) => T,
+  fallback: T,
+  options?: { maxRetries?: number; timeout?: number; cacheKey?: string }
+): Promise<T> {
+  try {
+    const response = await fetchWithRetry(url, options);
+    const json = await response.json();
+
+    if (json.success && json.data !== undefined) {
+      return withValidation(json.data, validator, fallback);
+    }
+
+    return fallback;
+  } catch (error) {
+    console.warn('[API] fetchWithValidation error:', url, error);
+    return fallback;
+  }
+}
+
+// 导出校验函数供直接使用
+export { validateKLineData, validateStockQuote, validateSearchResult };

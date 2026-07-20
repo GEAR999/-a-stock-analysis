@@ -69,27 +69,91 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatMode, setChatMode] = useState<'analysis' | 'debug'>('analysis');
 
-  // Load watchlist and chat from localStorage
-  useEffect(() => {
+  // localStorage 安全写入工具
+  const safeSetItem = useCallback((key: string, value: unknown) => {
     try {
-      const savedWatchlist = localStorage.getItem('stock-watchlist');
-      if (savedWatchlist) setWatchlist(JSON.parse(savedWatchlist));
-      const savedChat = localStorage.getItem('stock-chat-messages');
-      if (savedChat) setChatMessages(JSON.parse(savedChat));
-    } catch {
-      // ignore
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch (e: unknown) {
+      if (e instanceof DOMException && e.name === 'QuotaExceededError') {
+        console.warn('[AppState] localStorage 存储空间不足，尝试清理旧缓存...');
+        // 清理最旧的缓存数据
+        try {
+          const keysToCheck = ['stock-kline-cache', 'stock-chat-messages', 'score-history'];
+          for (const k of keysToCheck) {
+            localStorage.removeItem(k);
+          }
+          // 重试写入
+          localStorage.setItem(key, JSON.stringify(value));
+        } catch {
+          console.error('[AppState] 清理后仍无法写入，放弃保存:', key);
+        }
+      } else {
+        console.warn('[AppState] localStorage 写入失败:', key, e);
+      }
     }
   }, []);
 
-  // Save watchlist to localStorage
-  useEffect(() => {
-    localStorage.setItem('stock-watchlist', JSON.stringify(watchlist));
-  }, [watchlist]);
+  // 带版本标记的状态读取
+  const safeGetItem = useCallback(<T,>(key: string, fallback: T, version?: number): T => {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return fallback;
+      const parsed = JSON.parse(raw);
+      // 版本检查
+      if (version !== undefined && parsed._version !== undefined && parsed._version !== version) {
+        console.warn(`[AppState] ${key} 版本不匹配 (${parsed._version} → ${version})，使用默认值`);
+        return fallback;
+      }
+      return parsed._version !== undefined ? parsed.data : parsed;
+    } catch {
+      console.warn(`[AppState] ${key} 解析失败，使用默认值`);
+      return fallback;
+    }
+  }, []);
 
-  // Save chat to localStorage
+  // Load watchlist and chat from localStorage
   useEffect(() => {
-    localStorage.setItem('stock-chat-messages', JSON.stringify(chatMessages));
-  }, [chatMessages]);
+    const savedWatchlist = safeGetItem<WatchlistItem[]>('stock-watchlist', []);
+    if (savedWatchlist.length > 0) setWatchlist(savedWatchlist);
+    const savedChat = safeGetItem<ChatMessage[]>('stock-chat-messages', []);
+    if (savedChat.length > 0) setChatMessages(savedChat);
+  }, [safeGetItem]);
+
+  // Save watchlist to localStorage (with version)
+  useEffect(() => {
+    safeSetItem('stock-watchlist', { _version: 1, data: watchlist });
+  }, [watchlist, safeSetItem]);
+
+  // Save chat to localStorage (with version)
+  useEffect(() => {
+    safeSetItem('stock-chat-messages', { _version: 1, data: chatMessages });
+  }, [chatMessages, safeSetItem]);
+
+  // 多标签页同步：监听 storage 事件
+  useEffect(() => {
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'stock-watchlist' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          const data = parsed._version !== undefined ? parsed.data : parsed;
+          if (Array.isArray(data)) {
+            setWatchlist(data);
+          }
+        } catch { /* ignore */ }
+      }
+      if (e.key === 'stock-chat-messages' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          const data = parsed._version !== undefined ? parsed.data : parsed;
+          if (Array.isArray(data)) {
+            setChatMessages(data);
+          }
+        } catch { /* ignore */ }
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
 
   const searchStocksAction = useCallback(async (keyword: string) => {
     if (!keyword.trim()) {

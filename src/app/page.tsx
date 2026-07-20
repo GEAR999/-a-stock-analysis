@@ -14,6 +14,7 @@ import ThemeSwitcher from '@/components/ui/ThemeSwitcher';
 import CommandPalette from '@/components/ui/CommandPalette';
 import NotificationCenter from '@/components/ui/NotificationCenter';
 import { AutoRefreshIndicator } from '@/components/chart/AutoRefreshIndicator';
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 
 type MainTab = 'analysis' | 'backtest' | 'learning';
 
@@ -79,7 +80,9 @@ export default function Home() {
   return (
     <AuthGate>
     <AppProvider>
-      <CommandPalette />
+      <ErrorBoundary moduleName="全局搜索">
+        <CommandPalette />
+      </ErrorBoundary>
       <div
         ref={containerRef}
         className={`flex h-screen w-screen overflow-hidden bg-[#0a0e17] text-[#e2e8f0] ${isDragging ? 'cursor-col-resize select-none' : ''}`}
@@ -123,7 +126,9 @@ export default function Home() {
             </button>
             <div className="ml-auto flex items-center gap-2 pr-3">
               {/* 消息通知 */}
-              <NotificationCenter />
+              <ErrorBoundary moduleName="通知中心">
+                <NotificationCenter />
+              </ErrorBoundary>
               {/* 右侧面板收起/展开按钮 */}
               <button
                 onClick={() => setRightPanelCollapsed(!rightPanelCollapsed)}
@@ -144,11 +149,15 @@ export default function Home() {
           {mainTab === 'analysis' ? (
             <>
               <QuoteHeader />
-              <KLineChart />
+              <ErrorBoundary moduleName="K线图">
+                <KLineChart />
+              </ErrorBoundary>
             </>
           ) : mainTab === 'backtest' ? (
             <div className="flex-1 overflow-hidden">
-              <BacktestPanel />
+              <ErrorBoundary moduleName="模拟回测">
+                <BacktestPanel />
+              </ErrorBoundary>
             </div>
           ) : (
             <div className="flex-1 overflow-hidden">
@@ -170,7 +179,9 @@ export default function Home() {
         {/* Right Panel - Collapsible */}
         {!rightPanelCollapsed && mainTab === 'analysis' && (
           <div style={{ width: rightPanelWidth }} className="shrink-0 h-full overflow-hidden">
-            <RightPanel />
+            <ErrorBoundary moduleName="分析面板">
+              <RightPanel />
+            </ErrorBoundary>
           </div>
         )}
 
