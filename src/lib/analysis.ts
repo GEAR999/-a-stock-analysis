@@ -112,63 +112,145 @@ export function calculateBOLL(data: KLineData[], period = 20, multiplier = 2) {
   });
 }
 
+// 包含关系处理 - 缠论第一步
+// 合并后每根K线记录原始index映射（用于买卖点定位回原始K线位置）
+interface MergedKLine extends KLineData {
+  originalIndex: number; // 映射到原始K线数组的index
+}
+
+export function mergeInclusiveKLines(data: KLineData[]): MergedKLine[] {
+  if (data.length < 2) {
+    return data.map((d, i) => ({ ...d, originalIndex: i }));
+  }
+
+  const result: MergedKLine[] = [{ ...data[0], originalIndex: 0 }];
+
+  for (let i = 1; i < data.length; i++) {
+    const curr = data[i];
+    const prev = result[result.length - 1];
+
+    // 检查包含关系: curr包含prev 或 prev包含curr
+    const isInclusive =
+      (curr.high <= prev.high && curr.low >= prev.low) ||
+      (curr.high >= prev.high && curr.low <= prev.low);
+
+    if (isInclusive) {
+      // 确定方向：看prev之前的一根K线
+      let direction: 'up' | 'down' = 'up'; // 默认上涨
+      if (result.length >= 2) {
+        const prevPrev = result[result.length - 2];
+        if (prev.high < prevPrev.high) {
+          direction = 'down';
+        } else {
+          direction = 'up';
+        }
+      }
+
+      if (direction === 'up') {
+        // 上涨方向：取高的高低的高（取大值）
+        result[result.length - 1] = {
+          date: prev.date,
+          open: prev.open,
+          close: curr.close,
+          high: Math.max(prev.high, curr.high),
+          low: Math.max(prev.low, curr.low),
+          volume: prev.volume + curr.volume,
+          amount: prev.amount + curr.amount,
+          originalIndex: prev.originalIndex, // 保留较早的原始index
+        };
+      } else {
+        // 下跌方向：取低的高的低（取小值）
+        result[result.length - 1] = {
+          date: prev.date,
+          open: prev.open,
+          close: curr.close,
+          high: Math.min(prev.high, curr.high),
+          low: Math.min(prev.low, curr.low),
+          volume: prev.volume + curr.volume,
+          amount: prev.amount + curr.amount,
+          originalIndex: prev.originalIndex,
+        };
+      }
+      // 合并后继续与下一根比较（递归合并）
+    } else {
+      result.push({ ...curr, originalIndex: i });
+    }
+  }
+
+  return result;
+}
+
 // Simplified Chanlun Analysis
 export function analyzeChanlun(data: KLineData[]): ChanlunResult {
   if (data.length < 10) {
     return { strokes: [], segments: [], centers: [], buySignals: [], sellSignals: [] };
   }
 
-  // Find fractals (顶底分型)
+  // Step 1: 包含关系处理
+  const merged = mergeInclusiveKLines(data);
+  if (merged.length < 5) {
+    return { strokes: [], segments: [], centers: [], buySignals: [], sellSignals: [] };
+  }
+
+  // Step 2: 在合并后数据上识别顶底分型
   const tops: number[] = [];
   const bottoms: number[] = [];
 
-  for (let i = 2; i < data.length - 2; i++) {
-    if (data[i].high > data[i - 1].high && data[i].high > data[i + 1].high &&
-        data[i].high > data[i - 2].high && data[i].high > data[i + 2].high) {
+  for (let i = 1; i < merged.length - 1; i++) {
+    // 顶分型：中间K线的高点 > 左右两根的高点
+    if (merged[i].high > merged[i - 1].high && merged[i].high > merged[i + 1].high) {
       tops.push(i);
     }
-    if (data[i].low < data[i - 1].low && data[i].low < data[i + 1].low &&
-        data[i].low < data[i - 2].low && data[i].low < data[i + 2].low) {
+    // 底分型：中间K线的低点 < 左右两根的低点
+    if (merged[i].low < merged[i - 1].low && merged[i].low < merged[i + 1].low) {
       bottoms.push(i);
     }
   }
 
-  // Build strokes from alternating tops and bottoms
-  const strokes: ChanlunResult['strokes'] = [];
+  // Step 3: 构建笔 - 交替筛选 + 最少5根K线距离校验
   const points: Array<{ index: number; type: 'top' | 'bottom' }> = [];
-
   tops.forEach(t => points.push({ index: t, type: 'top' }));
   bottoms.forEach(b => points.push({ index: b, type: 'bottom' }));
   points.sort((a, b) => a.index - b.index);
 
-  // Alternate top-bottom
   const filtered: typeof points = [];
   for (const p of points) {
     if (filtered.length === 0) {
       filtered.push(p);
     } else {
       const last = filtered[filtered.length - 1];
+      const distance = p.index - last.index;
+
       if (last.type !== p.type) {
-        filtered.push(p);
-      } else if (p.type === 'top' && data[p.index].high > data[last.index].high) {
-        filtered[filtered.length - 1] = p;
-      } else if (p.type === 'bottom' && data[p.index].low < data[last.index].low) {
-        filtered[filtered.length - 1] = p;
+        // 不同类型：检查距离 >= 4（一笔至少5根合并K线）
+        if (distance >= 4) {
+          filtered.push(p);
+        }
+        // 距离不够则跳过此分型
+      } else {
+        // 同类型取极值
+        if (p.type === 'top' && merged[p.index].high > merged[last.index].high) {
+          filtered[filtered.length - 1] = p;
+        } else if (p.type === 'bottom' && merged[p.index].low < merged[last.index].low) {
+          filtered[filtered.length - 1] = p;
+        }
       }
     }
   }
 
+  // Step 4: 构建笔（index映射回原始K线）
+  const strokes: ChanlunResult['strokes'] = [];
   for (let i = 0; i < filtered.length - 1; i++) {
     const start = filtered[i];
     const end = filtered[i + 1];
     strokes.push({
-      start: start.index,
-      end: end.index,
+      start: merged[start.index].originalIndex,
+      end: merged[end.index].originalIndex,
       direction: start.type === 'bottom' ? 'up' : 'down',
     });
   }
 
-  // Identify centers (中枢) - at least 3 overlapping strokes
+  // Step 5: 中枢识别（使用原始K线数据获取价格）
   const centers: ChanlunResult['centers'] = [];
   for (let i = 0; i < strokes.length - 2; i++) {
     const s1 = strokes[i];
@@ -191,111 +273,103 @@ export function analyzeChanlun(data: KLineData[]): ChanlunResult {
     }
   }
 
-  // Generate buy/sell signals
+  // Step 6: 买卖点信号（index已经是原始K线位置）
   const buySignals: ChanlunResult['buySignals'] = [];
   const sellSignals: ChanlunResult['sellSignals'] = [];
 
-  // First buy: after downtrend, bottom fractal (一买)
-  // First sell: after uptrend, top fractal (一卖)
+  // 一买：下跌笔后的底分型
   for (let i = 1; i < filtered.length; i++) {
     if (filtered[i].type === 'bottom' && i >= 3) {
       const prevStroke = strokes[i - 1];
       if (prevStroke && prevStroke.direction === 'down') {
+        const origIdx = merged[filtered[i].index].originalIndex;
         buySignals.push({
-          index: filtered[i].index,
+          index: origIdx,
           type: 1,
-          price: data[filtered[i].index].low,
+          price: data[origIdx].low,
         });
       }
     }
+    // 一卖：上涨笔后的顶分型
     if (filtered[i].type === 'top' && i >= 3) {
       const prevStroke = strokes[i - 1];
       if (prevStroke && prevStroke.direction === 'up') {
+        const origIdx = merged[filtered[i].index].originalIndex;
         sellSignals.push({
-          index: filtered[i].index,
+          index: origIdx,
           type: 1,
-          price: data[filtered[i].index].high,
+          price: data[origIdx].high,
         });
       }
     }
   }
 
-  // Second buy (二买): After a first buy, price goes up then pulls back but doesn't break the first buy low
-  // Second sell (二卖): After a first sell, price goes down then bounces but doesn't break the first sell high
+  // 二买：一买后回调不破一买低点
   for (let i = 0; i < buySignals.length; i++) {
     const firstBuy = buySignals[i];
-    // Find the next bottom after this first buy
     for (let j = 0; j < filtered.length; j++) {
-      if (filtered[j].index > firstBuy.index && filtered[j].type === 'bottom') {
-        // Check if this bottom is higher than the first buy (doesn't break the low)
-        const pullbackLow = data[filtered[j].index].low;
+      const fIdx = merged[filtered[j].index].originalIndex;
+      if (fIdx > firstBuy.index && filtered[j].type === 'bottom') {
+        const pullbackLow = data[fIdx].low;
         if (pullbackLow > firstBuy.price) {
-          // Check if there was an upward stroke before this pullback
-          const hasUpStroke = strokes.some(s => 
-            s.direction === 'up' && 
-            s.end > firstBuy.index && 
-            s.end < filtered[j].index
+          const hasUpStroke = strokes.some(s =>
+            s.direction === 'up' &&
+            s.end > firstBuy.index &&
+            s.start < fIdx
           );
           if (hasUpStroke) {
             buySignals.push({
-              index: filtered[j].index,
+              index: fIdx,
               type: 2,
               price: pullbackLow,
             });
-            break; // Only one second buy per first buy
+            break;
           }
         }
-        break; // Stop after finding the first bottom after first buy
+        break;
       }
     }
   }
 
+  // 二卖：一卖后反弹不破一卖高点
   for (let i = 0; i < sellSignals.length; i++) {
     const firstSell = sellSignals[i];
-    // Find the next top after this first sell
     for (let j = 0; j < filtered.length; j++) {
-      if (filtered[j].index > firstSell.index && filtered[j].type === 'top') {
-        // Check if this top is lower than the first sell (doesn't break the high)
-        const bounceHigh = data[filtered[j].index].high;
+      const fIdx = merged[filtered[j].index].originalIndex;
+      if (fIdx > firstSell.index && filtered[j].type === 'top') {
+        const bounceHigh = data[fIdx].high;
         if (bounceHigh < firstSell.price) {
-          // Check if there was a downward stroke before this bounce
-          const hasDownStroke = strokes.some(s => 
-            s.direction === 'down' && 
-            s.end > firstSell.index && 
-            s.end < filtered[j].index
+          const hasDownStroke = strokes.some(s =>
+            s.direction === 'down' &&
+            s.end > firstSell.index &&
+            s.start < fIdx
           );
           if (hasDownStroke) {
             sellSignals.push({
-              index: filtered[j].index,
+              index: fIdx,
               type: 2,
               price: bounceHigh,
             });
-            break; // Only one second sell per first sell
+            break;
           }
         }
-        break; // Stop after finding the first top after first sell
+        break;
       }
     }
   }
 
-  // Third buy (三买): After price leaves a center upward and pulls back, the pullback doesn't enter the center
-  // Third sell (三卖): After price leaves a center downward and bounces, the bounce doesn't enter the center
+  // 三买：离开中枢向上后回调不进入中枢
   for (const center of centers) {
-    // Find strokes after this center
     const afterCenterStrokes = strokes.filter(s => s.start >= center.end);
-    
-    // Look for third buy: upward breakout then pullback that stays above center.high
+
     for (let i = 0; i < afterCenterStrokes.length - 1; i++) {
       const stroke = afterCenterStrokes[i];
       if (stroke.direction === 'up') {
-        // Check if this stroke broke above the center
         const strokeHigh = Math.max(data[stroke.start].high, data[stroke.end].high);
         if (strokeHigh > center.high) {
-          // Find the next downward stroke (pullback)
           const nextDown = afterCenterStrokes[i + 1];
           if (nextDown && nextDown.direction === 'down') {
             const pullbackLow = Math.min(data[nextDown.start].low, data[nextDown.end].low);
-            // Third buy: pullback doesn't enter center (stays above center.high)
             if (pullbackLow > center.high) {
               buySignals.push({
                 index: nextDown.end,
@@ -308,18 +382,15 @@ export function analyzeChanlun(data: KLineData[]): ChanlunResult {
       }
     }
 
-    // Look for third sell: downward breakout then bounce that stays below center.low
+    // 三卖：离开中枢向下后反弹不进入中枢
     for (let i = 0; i < afterCenterStrokes.length - 1; i++) {
       const stroke = afterCenterStrokes[i];
       if (stroke.direction === 'down') {
-        // Check if this stroke broke below the center
         const strokeLow = Math.min(data[stroke.start].low, data[stroke.end].low);
         if (strokeLow < center.low) {
-          // Find the next upward stroke (bounce)
           const nextUp = afterCenterStrokes[i + 1];
           if (nextUp && nextUp.direction === 'up') {
             const bounceHigh = Math.max(data[nextUp.start].high, data[nextUp.end].high);
-            // Third sell: bounce doesn't enter center (stays below center.low)
             if (bounceHigh < center.low) {
               sellSignals.push({
                 index: nextUp.end,
