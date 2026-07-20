@@ -1,5 +1,16 @@
 import type { KLineData, ChanlunResult, WaveResult, TechnicalIndicators } from '@/lib/types';
 
+// 多周期分析类型
+export type TimeframeSignal = 'bullish' | 'bearish' | 'neutral';
+
+export interface MultiTimeframeResult {
+  period: string;
+  indicators: TechnicalIndicators;
+  chanlun: ChanlunResult;
+  wave: WaveResult;
+  advice: ReturnType<typeof generateAdvice>;
+}
+
 // Calculate MA (Moving Average)
 export function calculateMA(data: KLineData[], periods: number[]): Record<number, number[]> {
   const result: Record<number, number[]> = {};
@@ -722,6 +733,7 @@ export function generateAdvice(
   confidenceScore: number;
   percentile: number | null;
   volumeAnalysis: VolumeAnalysis | null;
+  dimensions: Record<string, { score: number; maxScore: number; signal: TimeframeSignal }>;
   details: string[];
   risk: string[];
 } {
@@ -731,6 +743,11 @@ export function generateAdvice(
 
   // 维度方向追踪（用于置信度计算）
   const dimensionDirections: Array<'bull' | 'neutral' | 'bear'> = [];
+
+  // 维度评分追踪（用于多周期分析）
+  const dimensions: Record<string, { score: number; maxScore: number; signal: TimeframeSignal }> = {};
+  let finalMacdScore = 7, finalKdjScore = 7, finalRsiScore = 7, finalBollScore = 7;
+  let finalChanlunScore = 8, finalWaveScore = 0, finalVolumeScore = 0;
 
   // === MACD analysis (权重14) - 区分零轴位置 ===
   const lastMACD = indicators.macd[indicators.macd.length - 1];
@@ -771,6 +788,7 @@ export function generateAdvice(
       dimensionDirections.push('neutral');
     }
     bullScore += macdScore;
+    finalMacdScore = macdScore;
     details.push(macdDetail);
   }
 
@@ -778,46 +796,53 @@ export function generateAdvice(
   const lastKDJ = indicators.kdj[indicators.kdj.length - 1];
   if (lastKDJ) {
     totalScore += 14;
+    let kdjDimScore = 7;
     if (lastKDJ.isWarmup) {
       // 预热期给中性分
-      bullScore += 7;
+      kdjDimScore = 7;
       details.push('KDJ: 数据不足（预热期），中性评估');
       dimensionDirections.push('neutral');
     } else if (lastKDJ.j < 20) {
-      bullScore += 12;
+      kdjDimScore = 12;
       details.push('KDJ: J值超卖区，存在反弹机会');
       dimensionDirections.push('bull');
     } else if (lastKDJ.j > 80) {
-      bullScore += 3;
+      kdjDimScore = 3;
       details.push('KDJ: J值超买区，注意回调风险');
       dimensionDirections.push('bear');
     } else {
-      bullScore += 7;
+      kdjDimScore = 7;
       details.push('KDJ: 中性区间');
       dimensionDirections.push('neutral');
     }
+    bullScore += kdjDimScore;
+    finalKdjScore = kdjDimScore;
   }
 
   // === RSI analysis (权重14) ===
   const lastRSI = indicators.rsi[indicators.rsi.length - 1];
   if (lastRSI && !isNaN(lastRSI.rsi) && isFinite(lastRSI.rsi)) {
     totalScore += 14;
+    let rsiDimScore = 7;
     if (lastRSI.rsi < 30) {
-      bullScore += 11;
+      rsiDimScore = 11;
       details.push('RSI: 超卖区域，关注反弹信号');
       dimensionDirections.push('bull');
     } else if (lastRSI.rsi > 70) {
-      bullScore += 3;
+      rsiDimScore = 3;
       details.push('RSI: 超买区域，谨慎追高');
       dimensionDirections.push('bear');
     } else {
-      bullScore += 7;
+      rsiDimScore = 7;
       details.push(`RSI: ${lastRSI.rsi.toFixed(1)}，处于中性区间`);
       dimensionDirections.push('neutral');
     }
+    bullScore += rsiDimScore;
+    finalRsiScore = rsiDimScore;
   } else {
     totalScore += 14;
     bullScore += 7;
+    finalRsiScore = 7;
     details.push('RSI: 数据异常，中性评估');
     dimensionDirections.push('neutral');
   }
@@ -827,45 +852,55 @@ export function generateAdvice(
   const lastClose = data[data.length - 1]?.close || 0;
   if (lastBOLL && lastClose) {
     totalScore += 14;
+    let bollDimScore = 7;
     if (lastClose < lastBOLL.lower) {
-      bullScore += 11;
+      bollDimScore = 11;
       details.push('BOLL: 价格跌破下轨，超卖状态');
       dimensionDirections.push('bull');
     } else if (lastClose > lastBOLL.upper) {
-      bullScore += 3;
+      bollDimScore = 3;
       details.push('BOLL: 价格突破上轨，注意回调');
       dimensionDirections.push('bear');
     } else {
-      bullScore += 7;
+      bollDimScore = 7;
       details.push('BOLL: 价格在通道内运行');
       dimensionDirections.push('neutral');
     }
+    bullScore += bollDimScore;
+    finalBollScore = bollDimScore;
   }
 
   // === Chanlun analysis (权重16) ===
   totalScore += 16;
+  let chanlunDimScore = 8;
   if (chanlun.buySignals.length > 0 && chanlun.sellSignals.length === 0) {
+    chanlunDimScore = 14;
     bullScore += 14;
     details.push(`缠论: ${chanlun.buySignals.length}个买点信号`);
     dimensionDirections.push('bull');
   } else if (chanlun.sellSignals.length > 0 && chanlun.buySignals.length === 0) {
+    chanlunDimScore = 3;
     bullScore += 3;
     details.push(`缠论: ${chanlun.sellSignals.length}个卖点信号`);
     dimensionDirections.push('bear');
   } else if (chanlun.buySignals.length > 0 && chanlun.sellSignals.length > 0) {
+    chanlunDimScore = 8;
     bullScore += 8;
     details.push(`缠论: ${chanlun.buySignals.length}买+${chanlun.sellSignals.length}卖，信号分歧`);
     dimensionDirections.push('neutral');
   } else {
+    chanlunDimScore = 8;
     bullScore += 8;
     details.push('缠论: 暂无明确买卖点');
     dimensionDirections.push('neutral');
   }
+  finalChanlunScore = chanlunDimScore;
 
   // === Wave analysis (权重16) ===
   totalScore += 16;
   const waveScore = calculateWaveScore(data, wave);
   bullScore += waveScore.score;
+  finalWaveScore = waveScore.score;
   if (waveScore.detail) details.push(waveScore.detail);
   // 波浪维度方向
   if (waveScore.score >= 12) dimensionDirections.push('bull');
@@ -877,6 +912,7 @@ export function generateAdvice(
   totalScore += 14;
   const volumeScoreResult = calculateVolumeScore(data, volumeAnalysis);
   bullScore += volumeScoreResult.score;
+  finalVolumeScore = volumeScoreResult.score;
   details.push(volumeScoreResult.detail);
   if (volumeScoreResult.score >= 10) dimensionDirections.push('bull');
   else if (volumeScoreResult.score <= 5) dimensionDirections.push('bear');
@@ -937,6 +973,22 @@ export function generateAdvice(
     '技术指标存在滞后性，请结合基本面综合判断',
   ];
 
+  // 填充维度评分（用于多周期分析面板）
+  const dimConfigs: Array<{ key: string; score: number; maxScore: number }> = [
+    { key: 'macd', score: finalMacdScore, maxScore: 14 },
+    { key: 'kdj', score: finalKdjScore, maxScore: 14 },
+    { key: 'rsi', score: finalRsiScore, maxScore: 14 },
+    { key: 'boll', score: finalBollScore, maxScore: 14 },
+    { key: 'chanlun', score: finalChanlunScore, maxScore: 16 },
+    { key: 'wave', score: finalWaveScore, maxScore: 18 },
+    { key: 'volume', score: finalVolumeScore, maxScore: 14 },
+  ];
+  for (const dc of dimConfigs) {
+    const ratio = dc.maxScore > 0 ? dc.score / dc.maxScore : 0.5;
+    const signal: TimeframeSignal = ratio > 0.6 ? 'bullish' : ratio < 0.4 ? 'bearish' : 'neutral';
+    dimensions[dc.key] = { score: dc.score, maxScore: dc.maxScore, signal };
+  }
+
   return {
     overall,
     score: rawScore,
@@ -944,6 +996,7 @@ export function generateAdvice(
     confidenceScore,
     percentile,
     volumeAnalysis,
+    dimensions,
     details,
     risk,
   };
