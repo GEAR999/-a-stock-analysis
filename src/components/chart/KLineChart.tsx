@@ -101,7 +101,7 @@ export function KLineChart() {
     const rsiData = analysisSettings.rsi ? calculateRSI(klineData) : [];
     const bollData = analysisSettings.boll ? calculateBOLL(klineData) : [];
     const chanlunData = analysisSettings.chanlun ? analyzeChanlun(klineData) : null;
-    const waveData = analysisSettings.wave ? analyzeWaves(klineData) : null;
+    const waveData = analysisSettings.wave ? analyzeWaves(klineData, analysisSettings.waveSensitivity) : null;
 
     // Count sub-chart grids
     const subCharts: string[] = [];

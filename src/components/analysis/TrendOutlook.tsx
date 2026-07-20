@@ -70,7 +70,7 @@ function generateTrendOutlook(klineData: ReturnType<typeof useAppState>['klineDa
 
   const indicators = getAllIndicators(klineData);
   const chanlun = analysisSettings.chanlun ? analyzeChanlun(klineData) : null;
-  const wave = analysisSettings.wave ? analyzeWaves(klineData) : null;
+  const wave = analysisSettings.wave ? analyzeWaves(klineData, analysisSettings.waveSensitivity) : null;
 
   const lastPrice = klineData[klineData.length - 1].close;
   const lastIdx = klineData.length - 1;

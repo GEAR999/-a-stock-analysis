@@ -174,7 +174,7 @@ export function SignalSummaryBar() {
 
 function calculateSignalSummary(
   klineData: KLineData[],
-  settings: { chanlun: boolean; wave: boolean; technical: boolean }
+  settings: { chanlun: boolean; wave: boolean; technical: boolean; waveSensitivity?: 'high' | 'medium' | 'low' }
 ): SignalSummary {
   let chanlunSignal: Signal = 'neutral';
   let chanlunText = '未开启';
@@ -204,7 +204,7 @@ function calculateSignalSummary(
 
   // 波浪信号
   if (settings.wave && klineData.length > 10) {
-    const waveData = analyzeWaves(klineData);
+    const waveData = analyzeWaves(klineData, settings.waveSensitivity);
     const lastWave = waveData.waves[waveData.waves.length - 1];
     if (lastWave) {
       if (lastWave.label === '3' || lastWave.label === '5') {

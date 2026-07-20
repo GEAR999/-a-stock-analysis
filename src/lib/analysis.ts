@@ -38,10 +38,12 @@ export function calculateMACD(data: KLineData[], short = 12, long = 26, signal =
   }));
 }
 
-// Calculate KDJ
+// Calculate KDJ (with warmup period detection)
 export function calculateKDJ(data: KLineData[], period = 9) {
+  const KDJ_WARMUP = 8; // 前8根为预热期
   return data.map((_, i) => {
-    if (i < period - 1) return { k: 50, d: 50, j: 50 };
+    const isWarmup = i < KDJ_WARMUP;
+    if (i < period - 1) return { k: 50, d: 50, j: 50, isWarmup: true };
     const slice = data.slice(i - period + 1, i + 1);
     const high = Math.max(...slice.map(d => d.high));
     const low = Math.min(...slice.map(d => d.low));
@@ -58,6 +60,7 @@ export function calculateKDJ(data: KLineData[], period = 9) {
       k: Math.round(k * 100) / 100,
       d: Math.round(d * 100) / 100,
       j: Math.round(j * 100) / 100,
+      isWarmup,
     };
   });
 }
@@ -602,117 +605,331 @@ export function getAllIndicators(data: KLineData[]): TechnicalIndicators {
   };
 }
 
+// 成交量分析
+export interface VolumeAnalysis {
+  volumeMA5: number;
+  volumeMA10: number;
+  volumeRatio: number;
+  trend: '放量' | '缩量' | '平量';
+  priceVolumeRelation: '量价齐升' | '量价齐跌' | '量跌价升' | '量缩价跌' | '无明显关系';
+}
+
+export function analyzeVolume(data: KLineData[]): VolumeAnalysis {
+  if (data.length < 6) {
+    return { volumeMA5: 0, volumeMA10: 0, volumeRatio: 1, trend: '平量', priceVolumeRelation: '无明显关系' };
+  }
+
+  const last = data[data.length - 1];
+  const prev5 = data.slice(-6, -1);
+  const prev10 = data.slice(-11, -1);
+
+  const volumeMA5 = prev5.reduce((s, d) => s + d.volume, 0) / prev5.length;
+  const volumeMA10 = prev10.length > 0 ? prev10.reduce((s, d) => s + d.volume, 0) / prev10.length : volumeMA5;
+  const volumeRatio = volumeMA5 > 0 ? last.volume / volumeMA5 : 1;
+
+  let trend: '放量' | '缩量' | '平量';
+  if (volumeRatio > 1.5) trend = '放量';
+  else if (volumeRatio < 0.7) trend = '缩量';
+  else trend = '平量';
+
+  const priceUp = last.close > data[data.length - 2].close;
+  let priceVolumeRelation: VolumeAnalysis['priceVolumeRelation'];
+  if (priceUp && volumeRatio > 1.2) {
+    priceVolumeRelation = '量价齐升';
+  } else if (!priceUp && volumeRatio > 1.2) {
+    priceVolumeRelation = '量价齐跌';
+  } else if (priceUp && volumeRatio < 0.8) {
+    priceVolumeRelation = '量跌价升';
+  } else if (!priceUp && volumeRatio < 0.8) {
+    priceVolumeRelation = '量缩价跌';
+  } else {
+    priceVolumeRelation = '无明显关系';
+  }
+
+  return { volumeMA5, volumeMA10, volumeRatio, trend, priceVolumeRelation };
+}
+
+// 成交量维度评分
+function calculateVolumeScore(data: KLineData[], volume: VolumeAnalysis): { score: number; detail: string } {
+  const maxWeight = 14;
+  const last = data[data.length - 1];
+  if (!last) return { score: 7, detail: '成交量: 数据不足' };
+
+  // 放量突破检测
+  const recent20High = Math.max(...data.slice(-20).map(d => d.high));
+  const isBreakout = volume.volumeRatio > 2 && last.close >= recent20High * 0.98;
+
+  switch (volume.priceVolumeRelation) {
+    case '量价齐升':
+      if (isBreakout) {
+        return { score: maxWeight, detail: `成交量: 放量突破(量比${volume.volumeRatio.toFixed(1)})，强势看多` };
+      }
+      return { score: maxWeight, detail: `成交量: 量价齐升(量比${volume.volumeRatio.toFixed(1)})，健康上涨` };
+    case '量缩价跌':
+      return { score: 10, detail: `成交量: 量缩价跌(量比${volume.volumeRatio.toFixed(1)})，下跌动能减弱，可能见底` };
+    case '量跌价升':
+      return { score: 5, detail: `成交量: 量跌价升(量比${volume.volumeRatio.toFixed(1)})，上涨乏力，警告信号` };
+    case '量价齐跌':
+      return { score: 3, detail: `成交量: 量价齐跌(量比${volume.volumeRatio.toFixed(1)})，恐慌抛售` };
+    default:
+      return { score: 7, detail: `成交量: 量价关系不明显(量比${volume.volumeRatio.toFixed(1)})` };
+  }
+}
+
+// 评分历史管理（百分位自适应）
+const SCORE_HISTORY_KEY = 'advice_score_history';
+const SCORE_HISTORY_MAX = 60;
+
+function getScoreHistory(): number[] {
+  try {
+    const raw = localStorage.getItem(SCORE_HISTORY_KEY);
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr.slice(-SCORE_HISTORY_MAX) : [];
+  } catch {
+    return [];
+  }
+}
+
+function addToScoreHistory(score: number): void {
+  try {
+    const history = getScoreHistory();
+    history.push(score);
+    if (history.length > SCORE_HISTORY_MAX) history.splice(0, history.length - SCORE_HISTORY_MAX);
+    localStorage.setItem(SCORE_HISTORY_KEY, JSON.stringify(history));
+  } catch {
+    // localStorage不可用时静默失败
+  }
+}
+
+function calculatePercentile(score: number): number | null {
+  const history = getScoreHistory();
+  if (history.length < 20) return null; // 不足20天降级为固定阈值
+  const below = history.filter(s => s < score).length;
+  return Math.round((below / history.length) * 100);
+}
+
 // Generate comprehensive advice
 export function generateAdvice(
   data: KLineData[],
   indicators: TechnicalIndicators,
   chanlun: ChanlunResult,
   wave: WaveResult
-): { overall: string; score: number; details: string[]; risk: string[] } {
+): {
+  overall: string;
+  score: number;
+  confidence: '高' | '中' | '低';
+  confidenceScore: number;
+  percentile: number | null;
+  volumeAnalysis: VolumeAnalysis | null;
+  details: string[];
+  risk: string[];
+} {
   const details: string[] = [];
   let bullScore = 0;
   let totalScore = 0;
 
-  // MACD analysis (权重16)
+  // 维度方向追踪（用于置信度计算）
+  const dimensionDirections: Array<'bull' | 'neutral' | 'bear'> = [];
+
+  // === MACD analysis (权重14) - 区分零轴位置 ===
   const lastMACD = indicators.macd[indicators.macd.length - 1];
+  const prevMACD = indicators.macd.length >= 2 ? indicators.macd[indicators.macd.length - 2] : null;
   if (lastMACD) {
-    totalScore += 16;
-    if (lastMACD.dif > lastMACD.dea && lastMACD.histogram > 0) {
-      bullScore += 12;
-      details.push('MACD: 金叉状态，多头动能增强');
-    } else if (lastMACD.dif < lastMACD.dea && lastMACD.histogram < 0) {
-      bullScore += 4;
-      details.push('MACD: 死叉状态，空头占优');
+    totalScore += 14;
+    const isGoldenCross = lastMACD.dif > lastMACD.dea;
+    const isDeathCross = lastMACD.dif < lastMACD.dea;
+    const isAboveZero = lastMACD.dif > 0 && lastMACD.dea > 0;
+    const isBelowZero = lastMACD.dif < 0 && lastMACD.dea < 0;
+    const histExpanding = prevMACD ? Math.abs(lastMACD.histogram) > Math.abs(prevMACD.histogram) : false;
+
+    let macdScore: number;
+    let macdDetail: string;
+
+    if (isGoldenCross && lastMACD.histogram > 0) {
+      if (isAboveZero && histExpanding) {
+        macdScore = 14; macdDetail = 'MACD: 零轴上方金叉+红柱放大（强势多头）';
+      } else if (isAboveZero) {
+        macdScore = 12; macdDetail = 'MACD: 零轴上方金叉+红柱缩小（多头减弱）';
+      } else {
+        macdScore = 8; macdDetail = 'MACD: 零轴下方金叉（弱势反弹，可能假信号）';
+      }
+      dimensionDirections.push('bull');
+    } else if (isDeathCross && lastMACD.histogram < 0) {
+      if (isBelowZero && histExpanding) {
+        macdScore = 1; macdDetail = 'MACD: 零轴下方死叉+绿柱放大（强势空头）';
+        dimensionDirections.push('bear');
+      } else if (isBelowZero) {
+        macdScore = 6; macdDetail = 'MACD: 零轴下方死叉+绿柱缩小（空头减弱，可能见底）';
+        dimensionDirections.push('bear');
+      } else {
+        macdScore = 4; macdDetail = 'MACD: 零轴上方死叉（高位回落）';
+        dimensionDirections.push('bear');
+      }
     } else {
-      bullScore += 8;
-      details.push('MACD: 信号不明确，观望为主');
+      macdScore = 7; macdDetail = 'MACD: 信号不明确，观望';
+      dimensionDirections.push('neutral');
     }
+    bullScore += macdScore;
+    details.push(macdDetail);
   }
 
-  // KDJ analysis (权重16)
+  // === KDJ analysis (权重14) - 预热期处理 ===
   const lastKDJ = indicators.kdj[indicators.kdj.length - 1];
   if (lastKDJ) {
-    totalScore += 16;
-    if (lastKDJ.j < 20) {
-      bullScore += 14;
+    totalScore += 14;
+    if (lastKDJ.isWarmup) {
+      // 预热期给中性分
+      bullScore += 7;
+      details.push('KDJ: 数据不足（预热期），中性评估');
+      dimensionDirections.push('neutral');
+    } else if (lastKDJ.j < 20) {
+      bullScore += 12;
       details.push('KDJ: J值超卖区，存在反弹机会');
+      dimensionDirections.push('bull');
     } else if (lastKDJ.j > 80) {
-      bullScore += 4;
+      bullScore += 3;
       details.push('KDJ: J值超买区，注意回调风险');
+      dimensionDirections.push('bear');
     } else {
-      bullScore += 8;
+      bullScore += 7;
       details.push('KDJ: 中性区间');
+      dimensionDirections.push('neutral');
     }
   }
 
-  // RSI analysis (权重16) - 增加NaN/undefined防护
+  // === RSI analysis (权重14) ===
   const lastRSI = indicators.rsi[indicators.rsi.length - 1];
   if (lastRSI && !isNaN(lastRSI.rsi) && isFinite(lastRSI.rsi)) {
-    totalScore += 16;
+    totalScore += 14;
     if (lastRSI.rsi < 30) {
-      bullScore += 13;
+      bullScore += 11;
       details.push('RSI: 超卖区域，关注反弹信号');
+      dimensionDirections.push('bull');
     } else if (lastRSI.rsi > 70) {
       bullScore += 3;
       details.push('RSI: 超买区域，谨慎追高');
+      dimensionDirections.push('bear');
     } else {
-      bullScore += 8;
+      bullScore += 7;
       details.push(`RSI: ${lastRSI.rsi.toFixed(1)}，处于中性区间`);
+      dimensionDirections.push('neutral');
     }
   } else {
-    // RSI为NaN/undefined时给中性分
-    totalScore += 16;
-    bullScore += 8;
+    totalScore += 14;
+    bullScore += 7;
     details.push('RSI: 数据异常，中性评估');
+    dimensionDirections.push('neutral');
   }
 
-  // BOLL analysis (权重16)
+  // === BOLL analysis (权重14) ===
   const lastBOLL = indicators.boll[indicators.boll.length - 1];
   const lastClose = data[data.length - 1]?.close || 0;
   if (lastBOLL && lastClose) {
-    totalScore += 16;
+    totalScore += 14;
     if (lastClose < lastBOLL.lower) {
-      bullScore += 12;
+      bullScore += 11;
       details.push('BOLL: 价格跌破下轨，超卖状态');
+      dimensionDirections.push('bull');
     } else if (lastClose > lastBOLL.upper) {
-      bullScore += 4;
+      bullScore += 3;
       details.push('BOLL: 价格突破上轨，注意回调');
+      dimensionDirections.push('bear');
     } else {
-      bullScore += 8;
+      bullScore += 7;
       details.push('BOLL: 价格在通道内运行');
+      dimensionDirections.push('neutral');
     }
   }
 
-  // Chanlun analysis (权重18)
-  if (chanlun.buySignals.length > 0) {
-    totalScore += 18;
+  // === Chanlun analysis (权重16) ===
+  totalScore += 16;
+  if (chanlun.buySignals.length > 0 && chanlun.sellSignals.length === 0) {
     bullScore += 14;
-    details.push(`缠论: 发现${chanlun.buySignals.length}个买点信号`);
-  }
-  if (chanlun.sellSignals.length > 0) {
-    totalScore += 18;
-    bullScore += 4;
-    details.push(`缠论: 发现${chanlun.sellSignals.length}个卖点信号`);
-  }
-  if (chanlun.buySignals.length === 0 && chanlun.sellSignals.length === 0) {
-    totalScore += 18;
-    bullScore += 9;
+    details.push(`缠论: ${chanlun.buySignals.length}个买点信号`);
+    dimensionDirections.push('bull');
+  } else if (chanlun.sellSignals.length > 0 && chanlun.buySignals.length === 0) {
+    bullScore += 3;
+    details.push(`缠论: ${chanlun.sellSignals.length}个卖点信号`);
+    dimensionDirections.push('bear');
+  } else if (chanlun.buySignals.length > 0 && chanlun.sellSignals.length > 0) {
+    bullScore += 8;
+    details.push(`缠论: ${chanlun.buySignals.length}买+${chanlun.sellSignals.length}卖，信号分歧`);
+    dimensionDirections.push('neutral');
+  } else {
+    bullScore += 8;
     details.push('缠论: 暂无明确买卖点');
+    dimensionDirections.push('neutral');
   }
 
-  // Wave analysis (权重18) - 新增波浪维度
-  totalScore += 18;
+  // === Wave analysis (权重16) ===
+  totalScore += 16;
   const waveScore = calculateWaveScore(data, wave);
   bullScore += waveScore.score;
-  if (waveScore.detail) {
-    details.push(waveScore.detail);
+  if (waveScore.detail) details.push(waveScore.detail);
+  // 波浪维度方向
+  if (waveScore.score >= 12) dimensionDirections.push('bull');
+  else if (waveScore.score <= 6) dimensionDirections.push('bear');
+  else dimensionDirections.push('neutral');
+
+  // === Volume analysis (权重14) - 新增 ===
+  const volumeAnalysis = analyzeVolume(data);
+  totalScore += 14;
+  const volumeScoreResult = calculateVolumeScore(data, volumeAnalysis);
+  bullScore += volumeScoreResult.score;
+  details.push(volumeScoreResult.detail);
+  if (volumeScoreResult.score >= 10) dimensionDirections.push('bull');
+  else if (volumeScoreResult.score <= 5) dimensionDirections.push('bear');
+  else dimensionDirections.push('neutral');
+
+  // === 计算最终得分 ===
+  const rawScore = totalScore > 0 ? Math.round((bullScore / totalScore) * 100) : 50;
+
+  // 记录评分历史
+  addToScoreHistory(rawScore);
+
+  // 百分位自适应阈值
+  const percentile = calculatePercentile(rawScore);
+  let overall: string;
+  if (percentile !== null) {
+    if (percentile >= 80) overall = '强烈看多';
+    else if (percentile >= 60) overall = '看多';
+    else if (percentile >= 40) overall = '中性';
+    else if (percentile >= 20) overall = '看空';
+    else overall = '强烈看空';
+  } else {
+    // 降级为固定阈值
+    if (rawScore >= 65) overall = '看多';
+    else if (rawScore <= 35) overall = '看空';
+    else overall = '中性';
   }
 
-  const score = totalScore > 0 ? Math.round((bullScore / totalScore) * 100) : 50;
-  let overall: string;
-  if (score >= 65) overall = '看多';
-  else if (score <= 35) overall = '看空';
-  else overall = '中性';
+  // === 置信度计算 ===
+  const bullCount = dimensionDirections.filter(d => d === 'bull').length;
+  const bearCount = dimensionDirections.filter(d => d === 'bear').length;
+  const neutralCount = dimensionDirections.filter(d => d === 'neutral').length;
+  const maxSameDir = Math.max(bullCount, bearCount);
+  const totalDims = dimensionDirections.length;
+
+  let confidenceScore: number;
+  let confidence: '高' | '中' | '低';
+  if (totalDims <= 1) {
+    confidenceScore = 50;
+    confidence = '中';
+  } else {
+    const ratio = maxSameDir / totalDims;
+    if (ratio >= 0.85) { confidenceScore = 100; confidence = '高'; }
+    else if (ratio >= 0.7) { confidenceScore = 75; confidence = '高'; }
+    else if (ratio >= 0.55) { confidenceScore = 50; confidence = '中'; }
+    else if (ratio >= 0.4) { confidenceScore = 25; confidence = '低'; }
+    else { confidenceScore = 10; confidence = '低'; }
+  }
+
+  // 如果有大量中性，降低置信度
+  if (neutralCount > totalDims * 0.4) {
+    confidenceScore = Math.min(confidenceScore, 40);
+    confidence = '低';
+  }
 
   const risk: string[] = [
     '以上分析仅供参考，不构成投资建议',
@@ -720,13 +937,22 @@ export function generateAdvice(
     '技术指标存在滞后性，请结合基本面综合判断',
   ];
 
-  return { overall, score, details, risk };
+  return {
+    overall,
+    score: rawScore,
+    confidence,
+    confidenceScore,
+    percentile,
+    volumeAnalysis,
+    details,
+    risk,
+  };
 }
 
 // 波浪维度评分计算
 function calculateWaveScore(data: KLineData[], wave: WaveResult): { score: number; detail: string } {
   if (!wave.waves || wave.waves.length === 0) {
-    return { score: 9, detail: '波浪: 未检测到明确波浪模式' };
+    return { score: 8, detail: '波浪: 未检测到明确波浪模式' };
   }
 
   const impulseWaves = wave.waves.filter(w => w.type === 'impulse');
@@ -745,22 +971,22 @@ function calculateWaveScore(data: KLineData[], wave: WaveResult): { score: numbe
     if (isUpward) {
       // 上升推动浪
       if (currentWavePosition === '3' || currentWavePosition === '5') {
-        return { score: 18, detail: '波浪: 上升推动浪第' + currentWavePosition + '浪，强势看多' };
+        return { score: 16, detail: '波浪: 上升推动浪第' + currentWavePosition + '浪，强势看多' };
       } else if (currentWavePosition === '4') {
-        return { score: 12, detail: '波浪: 上升推动浪第4浪回调中，中性偏多' };
+        return { score: 11, detail: '波浪: 上升推动浪第4浪回调中，中性偏多' };
       } else if (currentWavePosition === '2') {
-        return { score: 12, detail: '波浪: 上升推动浪第2浪回调中，蓄势待发' };
+        return { score: 11, detail: '波浪: 上升推动浪第2浪回调中，蓄势待发' };
       } else {
-        return { score: 14, detail: '波浪: 上升推动浪结构中，偏多' };
+        return { score: 12, detail: '波浪: 上升推动浪结构中，偏多' };
       }
     } else {
       // 下降推动浪
       if (currentWavePosition === '3' || currentWavePosition === '5') {
-        return { score: 3, detail: '波浪: 下降推动浪第' + currentWavePosition + '浪，强势看空' };
+        return { score: 2, detail: '波浪: 下降推动浪第' + currentWavePosition + '浪，强势看空' };
       } else if (currentWavePosition === '4') {
-        return { score: 8, detail: '波浪: 下降推动浪第4浪反弹中，中性偏空' };
+        return { score: 7, detail: '波浪: 下降推动浪第4浪反弹中，中性偏空' };
       } else {
-        return { score: 6, detail: '波浪: 下降推动浪结构中，偏空' };
+        return { score: 5, detail: '波浪: 下降推动浪结构中，偏空' };
       }
     }
   }
@@ -769,12 +995,12 @@ function calculateWaveScore(data: KLineData[], wave: WaveResult): { score: numbe
   if (correctiveWaves.length >= 2) {
     const lastCorrective = correctiveWaves[correctiveWaves.length - 1];
     if (lastCorrective.label === 'C') {
-      return { score: 14, detail: '波浪: A-B-C调整浪C浪末端，调整将结束偏多' };
+      return { score: 12, detail: '波浪: A-B-C调整浪C浪末端，调整将结束偏多' };
     }
-    return { score: 10, detail: '波浪: 调整浪结构中，观望为主' };
+    return { score: 8, detail: '波浪: 调整浪结构中，观望为主' };
   }
 
-  return { score: 9, detail: '波浪: 波浪模式不明确' };
+  return { score: 8, detail: '波浪: 波浪模式不明确' };
 }
 
 // 判断当前处于推动浪的第几浪

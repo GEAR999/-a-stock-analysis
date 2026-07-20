@@ -61,7 +61,7 @@ export interface WaveResult {
 
 export interface TechnicalIndicators {
   macd: Array<{ dif: number; dea: number; histogram: number }>;
-  kdj: Array<{ k: number; d: number; j: number }>;
+  kdj: Array<{ k: number; d: number; j: number; isWarmup?: boolean }>;
   rsi: Array<{ rsi: number }>;
   boll: Array<{ upper: number; middle: number; lower: number }>;
   ma: Record<number, number[]>;
