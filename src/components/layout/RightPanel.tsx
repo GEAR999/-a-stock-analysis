@@ -274,7 +274,7 @@ export function RightPanel() {
           icon="💰"
           summary="多账户管理"
         >
-          <BacktestPanel externalAddStock={externalAddStock} />
+          <BacktestPanel />
         </AccordionSection>
 
         {/* 7. 多股对比 - 手风琴模式 */}

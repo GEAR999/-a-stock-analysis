@@ -16,6 +16,13 @@ const STRATEGY_OPTIONS: { value: StrategyType; label: string; group: string }[] 
   { value: "boll_upper_touch", label: "布林上轨压力", group: "BOLL" },
   { value: "ma_golden_cross", label: "均线金叉(5/20)", group: "MA" },
   { value: "ma_death_cross", label: "均线死叉(5/20)", group: "MA" },
+  // 分析引擎策略
+  { value: "chanlun_buy", label: "缠论买点", group: "分析引擎" },
+  { value: "chanlun_sell", label: "缠论卖点", group: "分析引擎" },
+  { value: "wave_buy", label: "波浪起点买入", group: "分析引擎" },
+  { value: "wave_sell", label: "波浪终点卖出", group: "分析引擎" },
+  { value: "tech_resonance_buy", label: "指标共振买入", group: "分析引擎" },
+  { value: "tech_resonance_sell", label: "指标共振卖出", group: "分析引擎" },
 ];
 
 const TIME_RANGES = [
@@ -32,6 +39,7 @@ export function HistoryBacktestPanel() {
   const [timeRange, setTimeRange] = useState(252);
   const [initialCapital, setInitialCapital] = useState(1000000);
   const [isRunning, setIsRunning] = useState(false);
+  const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [result, setResult] = useState<BacktestResult | null>(null);
 
   const toggleStrategy = (strategy: StrategyType) => {
@@ -47,6 +55,7 @@ export function HistoryBacktestPanel() {
     
     setIsRunning(true);
     setResult(null);
+    setProgress({ current: 0, total: 0 });
 
     // 使用 setTimeout 避免阻塞UI
     setTimeout(() => {
@@ -61,6 +70,9 @@ export function HistoryBacktestPanel() {
           commission: 0.0003,
           slippage: 0.001,
           positionSize: 0.95,
+          onProgress: (current, total) => {
+            setProgress({ current, total });
+          },
         };
 
         const backtestResult = runBacktest(filteredKline, config);
@@ -117,8 +129,9 @@ export function HistoryBacktestPanel() {
             <Settings className="w-3 h-3" />
             选择策略（可多选）
           </div>
-          <div className="flex flex-wrap gap-1">
-            {STRATEGY_OPTIONS.map(opt => (
+          {/* 基础策略 */}
+          <div className="flex flex-wrap gap-1 mb-1">
+            {STRATEGY_OPTIONS.filter(o => o.group !== "分析引擎").map(opt => (
               <button
                 key={opt.value}
                 onClick={() => toggleStrategy(opt.value)}
@@ -131,6 +144,25 @@ export function HistoryBacktestPanel() {
                 {opt.label}
               </button>
             ))}
+          </div>
+          {/* 分析引擎策略 */}
+          <div className="flex items-center gap-1 mb-1">
+            <span className="text-[10px] text-purple-400 font-medium">分析引擎:</span>
+            <div className="flex flex-wrap gap-1">
+              {STRATEGY_OPTIONS.filter(o => o.group === "分析引擎").map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => toggleStrategy(opt.value)}
+                  className={`px-2 py-1 text-[10px] rounded transition-colors ${
+                    strategies.includes(opt.value)
+                      ? "bg-purple-500/20 text-purple-400 border border-purple-500/30"
+                      : "bg-gray-800/50 text-gray-500 hover:text-gray-300 border border-transparent"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -178,7 +210,9 @@ export function HistoryBacktestPanel() {
           {isRunning ? (
             <>
               <div className="w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
-              回测中...
+              {progress.total > 0
+                ? `回测中... ${Math.round((progress.current / progress.total) * 100)}%`
+                : "回测中..."}
             </>
           ) : (
             <>

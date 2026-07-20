@@ -40,8 +40,18 @@ src/
 │   ├── industry/IndustryMappingPanel.tsx # 产业链映射分析 (美股/日韩产业链映射)
 │   ├── backtest/
 │   │   ├── types.ts           # 回测类型定义 (Account/Trade/Position/StrategyMetrics等)
-│   │   ├── storage.ts         # 数据持久化层 (localStorage CRUD + 业务逻辑)
-│   │   └── BacktestPanel.tsx  # 模拟回测面板 (多账户+跟踪+额度+交易+资金曲线+设置)
+│   │   ├── storage.ts         # 数据持久化层 (IndexedDB CRUD + 业务逻辑)
+│   │   ├── idb-account-storage.ts # IndexedDB迁移层 (localStorage→IDB)
+│   │   ├── strategy-storage.ts # 策略存储与权重计算 (最大余数法)
+│   │   ├── BacktestPanel.tsx  # 模拟回测主面板 (Tab切换+子组件编排, ~194行)
+│   │   ├── AccountOverview.tsx # 账户概览子组件 (总资产/盈亏/持仓/资金曲线)
+│   │   ├── ManualTradePanel.tsx # 手动买卖子组件 (买入/卖出对话框)
+│   │   ├── QuantAutoTradePanel.tsx # 量化自动交易子组件 (策略配置/自动交易)
+│   │   ├── TradeHistoryPanel.tsx # 交易记录子组件 (筛选/排序/CSV导出)
+│   │   ├── HistoryBacktestPanel.tsx # 历史回测面板 (策略选择/回测执行/结果展示)
+│   │   ├── TradingStatusIndicator.tsx # 交易时段状态指示器
+│   │   ├── hooks/useAccountManager.ts # 账户管理Hook
+│   │   └── utils.ts           # 回测公共工具函数
 │   ├── sidebar/
 │   │   ├── StockSearch.tsx    # 股票搜索组件
 │   │   └── WatchList.tsx      # 自选股列表 (拖拽排序)
@@ -49,8 +59,12 @@ src/
 ├── hooks/
 │   └── useAppState.tsx        # 全局状态管理 (Context)
 ├── lib/
-│   ├── api/stock.ts           # 数据获取层 (东方财富API)
+│   ├── api/stock.ts           # 数据获取层 (东方财富API, 含分页拉取)
 │   ├── analysis.ts            # 分析引擎 (缠论/波浪/技术指标)
+│   ├── backtest-engine.ts     # 历史回测引擎 (基础策略+分析引擎策略适配器+进度回调)
+│   ├── idb-cache.ts           # IndexedDB K线缓存 (24h有效期, LRU清理)
+│   ├── trading-time.ts        # A股交易时间判断
+│   ├── slippage.ts            # 滑点模拟
 │   ├── types.ts               # 类型定义
 │   └── utils.ts               # 工具函数
 └── services/
@@ -100,11 +114,16 @@ K线周期: daily/weekly/monthly/60min/30min/15min/5min
 - 股票买入额度：每只股票可单独设置买入上限，超额自动拒绝
 - 跟踪机制：只有加入跟踪列表的股票才能触发自动操作
 - 自动操作流程：检查跟踪列表 → 检查买入额度 → 检查资金 → 执行买入
-- 数据持久化：所有数据通过 localStorage 持久化存储
+- 数据持久化：所有数据通过 IndexedDB 持久化存储（自动从 localStorage 迁移）
 - 数据清理：支持清理垃圾数据（已平仓30天+记录）和重置账户（保留跟踪列表和额度设置）
 - 手动交易：支持手动买入/卖出操作
-- 资金曲线：SVG 绘制的30天资金走势曲线
+- 资金曲线：SVG 绘制的30天资金走势曲线（基于真实交易数据计算）
 - 策略指标：累计收益率、年化收益率、最大回撤、夏普比率、胜率、盈亏比
+- 滑点模拟：买入上浮0.1%-0.3%，卖出下调0.1%-0.3%
+- 交易时段控制：自动判断A股交易时间（工作日9:30-11:30, 13:00-15:00）
+- 历史回测引擎：支持10种基础技术指标策略 + 6种分析引擎策略（缠论买卖点、波浪起点/终点、指标共振买卖）
+- 分析引擎策略互通：历史回测复用 analysis.ts 的 analyzeChanlun/analyzeWaves/getAllIndicators
+- 回测进度回调：onProgress(current, total) 实时显示回测进度
 
 ## 开发命令
 - `pnpm dev` - 启动开发服务

@@ -1,7 +1,18 @@
 // 历史回测引擎 - Web Worker
+import type { KLineData as AnalysisKLineData } from '@/lib/types';
+import { getAllIndicators, analyzeChanlun, analyzeWaves } from '@/lib/analysis';
 
 // 策略类型
-export type StrategyType = "macd_golden_cross" | "macd_death_cross" | "kdj_oversold" | "kdj_overbought" | "rsi_oversold" | "rsi_overbought" | "boll_lower_touch" | "boll_upper_touch" | "ma_golden_cross" | "ma_death_cross";
+export type StrategyType =
+  | "macd_golden_cross" | "macd_death_cross"
+  | "kdj_oversold" | "kdj_overbought"
+  | "rsi_oversold" | "rsi_overbought"
+  | "boll_lower_touch" | "boll_upper_touch"
+  | "ma_golden_cross" | "ma_death_cross"
+  // 分析引擎策略
+  | "chanlun_buy" | "chanlun_sell"
+  | "wave_buy" | "wave_sell"
+  | "tech_resonance_buy" | "tech_resonance_sell";
 
 export interface BacktestConfig {
   strategies: StrategyType[];
@@ -9,6 +20,7 @@ export interface BacktestConfig {
   commission: number; // 手续费率
   slippage: number; // 滑点（百分比）
   positionSize: number; // 每次交易仓位比例（0-1）
+  onProgress?: (current: number, total: number) => void; // 进度回调
 }
 
 export interface BacktestTrade {
@@ -157,6 +169,96 @@ function calcBoll(closes: number[], period = 20, multiplier = 2): { upper: numbe
   return { upper, middle, lower };
 }
 
+// 分析引擎策略适配器 - 复用 analysis.ts 中的分析函数
+// 批量生成信号（只运行一次分析引擎，避免逐bar重复计算）
+function generateAnalysisEngineSignals(kline: KLineData[], strategies: StrategyType[]): { index: number; signal: "buy" | "sell"; strategy: StrategyType }[] {
+  const signals: { index: number; signal: "buy" | "sell"; strategy: StrategyType }[] = [];
+  if (kline.length < 30) return signals;
+
+  const analysisData: AnalysisKLineData[] = kline.map(k => ({
+    date: k.date,
+    open: k.open,
+    close: k.close,
+    high: k.high,
+    low: k.low,
+    volume: k.volume,
+    amount: k.volume * k.close,
+  }));
+
+  const hasChanlun = strategies.includes("chanlun_buy") || strategies.includes("chanlun_sell");
+  const hasWave = strategies.includes("wave_buy") || strategies.includes("wave_sell");
+  const hasTechResonance = strategies.includes("tech_resonance_buy") || strategies.includes("tech_resonance_sell");
+
+  // 缠论信号
+  if (hasChanlun) {
+    const chanlun = analyzeChanlun(analysisData);
+    for (const bs of chanlun.buySignals) {
+      if (strategies.includes("chanlun_buy")) {
+        signals.push({ index: bs.index, signal: "buy", strategy: "chanlun_buy" });
+      }
+    }
+    for (const ss of chanlun.sellSignals) {
+      if (strategies.includes("chanlun_sell")) {
+        signals.push({ index: ss.index, signal: "sell", strategy: "chanlun_sell" });
+      }
+    }
+  }
+
+  // 波浪理论信号 - 在推动浪第1浪起点买入，第5浪终点卖出
+  if (hasWave) {
+    const waveResult = analyzeWaves(analysisData);
+    for (const wave of waveResult.waves) {
+      if (wave.type === "impulse") {
+        if (wave.label === "1" && strategies.includes("wave_buy")) {
+          signals.push({ index: wave.start, signal: "buy", strategy: "wave_buy" });
+        }
+        if (wave.label === "5" && strategies.includes("wave_sell")) {
+          signals.push({ index: wave.end, signal: "sell", strategy: "wave_sell" });
+        }
+      }
+    }
+  }
+
+  // 技术指标共振信号 - 基于 getAllIndicators 结果检测多指标共振
+  if (hasTechResonance) {
+    const indicators = getAllIndicators(analysisData);
+
+    for (let i = 1; i < kline.length; i++) {
+      const currMACD = indicators.macd[i];
+      const prevMACD = indicators.macd[i - 1];
+      const currKDJ = indicators.kdj[i];
+      const prevKDJ = indicators.kdj[i - 1];
+      const currRSI = indicators.rsi[i];
+      const prevRSI = indicators.rsi[i - 1];
+      const currBOLL = indicators.boll[i];
+
+      // 买入共振：MACD金叉 + KDJ金叉 + RSI超卖回升 + 布林下轨支撑
+      let buyCount = 0;
+      if (currMACD.dif > currMACD.dea && prevMACD.dif <= prevMACD.dea) buyCount++;
+      if (currKDJ.k > currKDJ.d && prevKDJ.k <= prevKDJ.d && currKDJ.k < 50) buyCount++;
+      if (currRSI.rsi < 40 && prevRSI.rsi <= currRSI.rsi) buyCount++;
+      if (kline[i].close <= currBOLL.lower) buyCount++;
+
+      if (buyCount >= 2 && strategies.includes("tech_resonance_buy")) {
+        signals.push({ index: i, signal: "buy", strategy: "tech_resonance_buy" });
+      }
+
+      // 卖出共振：MACD死叉 + KDJ死叉 + RSI超买回落 + 布林上轨压力
+      let sellCount = 0;
+      if (currMACD.dif < currMACD.dea && prevMACD.dif >= prevMACD.dea) sellCount++;
+      if (currKDJ.k < currKDJ.d && prevKDJ.k >= prevKDJ.d && currKDJ.k > 50) sellCount++;
+      if (currRSI.rsi > 60 && prevRSI.rsi >= currRSI.rsi) sellCount++;
+      if (kline[i].close >= currBOLL.upper) sellCount++;
+
+      if (sellCount >= 2 && strategies.includes("tech_resonance_sell")) {
+        signals.push({ index: i, signal: "sell", strategy: "tech_resonance_sell" });
+      }
+    }
+  }
+
+  return signals;
+}
+
 // 生成交易信号
 function generateSignals(kline: KLineData[], strategies: StrategyType[]): { index: number; signal: "buy" | "sell"; strategy: StrategyType }[] {
   const signals: { index: number; signal: "buy" | "sell"; strategy: StrategyType }[] = [];
@@ -227,6 +329,18 @@ function generateSignals(kline: KLineData[], strategies: StrategyType[]): { inde
       }
     }
   }
+
+  // 分析引擎策略 - 批量生成信号（只运行一次分析引擎）
+  const hasAnalysisStrategy = strategies.some(s =>
+    s === "chanlun_buy" || s === "chanlun_sell" ||
+    s === "wave_buy" || s === "wave_sell" ||
+    s === "tech_resonance_buy" || s === "tech_resonance_sell"
+  );
+
+  if (hasAnalysisStrategy) {
+    const analysisSignals = generateAnalysisEngineSignals(kline, strategies);
+    signals.push(...analysisSignals);
+  }
   
   return signals.sort((a, b) => a.index - b.index);
 }
@@ -245,6 +359,11 @@ export function runBacktest(kline: KLineData[], config: BacktestConfig): Backtes
   
   for (let i = 0; i < kline.length; i++) {
     const bar = kline[i];
+
+    // 进度回调
+    if (config.onProgress && i % 50 === 0) {
+      config.onProgress(i, kline.length);
+    }
     
     // 处理当天的信号
     while (signalIdx < signals.length && signals[signalIdx].index === i) {
