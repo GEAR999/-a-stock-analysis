@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import { Info } from "lucide-react";
+import { Info, Download, Upload, Plus, Search, X } from "lucide-react";
 import type { Account, AccountSummary, ToastMessage, BuySignal, Trade, Position, SingleStrategyStats, FailureStats, FailureReason, StrategySource } from "./types";
 import {
   getAllAccountSummaries, loadAccount, createAccount, deleteAccount,
@@ -13,6 +13,7 @@ import {
   calculateBenchmarkComparison, calculateConsecutiveLosses,
   calculateMaxDrawdownPeriod, calculateMaxDailyLoss, calculateSlippageStats,
 } from "./storage";
+import { useAppState } from "@/hooks/useAppState";
 
 // ===== 失败原因标签配置 =====
 const FAILURE_REASON_CONFIG: Record<FailureReason, { label: string; color: string; bg: string }> = {
@@ -392,7 +393,7 @@ function TradeDecisionDetail({ trade }: { trade: Trade }) {
 }
 
 // ===== 主面板 =====
-export function BacktestPanel() {
+export function BacktestPanel({ externalAddStock }: { externalAddStock?: { code: string; name: string } | null }) {
   const [accounts, setAccounts] = useState<AccountSummary[]>([]);
   const [activeAccountId, setActiveAccountIdState] = useState<string | null>(null);
   const [account, setAccount] = useState<Account | null>(null);
@@ -404,6 +405,16 @@ export function BacktestPanel() {
   const [showConfirmDialog, setShowConfirmDialog] = useState<{ title: string; message: string; confirmText?: string; onConfirm: () => void } | null>(null);
   const [showLimitDialog, setShowLimitDialog] = useState<{ code: string; name: string; limit?: number } | null>(null);
   const [showTradeDialog, setShowTradeDialog] = useState<{ code: string; name: string; price: number; direction: "buy" | "sell" } | null>(null);
+  
+  // 新增：股票搜索和添加
+  const [addStockInput, setAddStockInput] = useState("");
+  const [addStockName, setAddStockName] = useState("");
+  const [searchResults, setSearchResults] = useState<Array<{ code: string; name: string }>>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // 获取全局状态用于联动
+  const { selectedStock } = useAppState();
 
   const refreshAccounts = useCallback(() => {
     const summaries = getAllAccountSummaries();
@@ -510,6 +521,108 @@ export function BacktestPanel() {
     setExpandedTrades((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
   };
 
+  // ===== 新增：股票搜索功能 =====
+  const searchStockForAdd = useCallback(async (keyword: string) => {
+    if (!keyword.trim()) { setSearchResults([]); return; }
+    setIsSearching(true);
+    try {
+      const res = await fetch(`/api/stock?action=search&keyword=${encodeURIComponent(keyword.trim())}`);
+      const data = await res.json();
+      if (data.stocks) {
+        setSearchResults(data.stocks.slice(0, 8).map((s: { code: string; name: string }) => ({ code: s.code, name: s.name })));
+      } else {
+        setSearchResults([]);
+      }
+    } catch {
+      setSearchResults([]);
+    }
+    setIsSearching(false);
+  }, []);
+
+  // 添加跟踪股票（手动输入）
+  const handleAddTrackingStock = (code: string, name: string) => {
+    if (!account) return;
+    if (account.trackingList.includes(code)) {
+      addToast("warning", `${name || code}已在跟踪列表中`);
+      return;
+    }
+    const updated = { ...account };
+    updated.trackingList = [...updated.trackingList, code];
+    saveAccount(updated);
+    setAccount({ ...updated });
+    setAddStockInput("");
+    setAddStockName("");
+    setSearchResults([]);
+    addToast("success", `已添加 ${name || code} 到跟踪列表`);
+  };
+
+  // ===== 新增：数据导出功能 =====
+  const handleExportData = () => {
+    if (!account) return;
+    const exportData = {
+      version: "1.0",
+      exportTime: new Date().toISOString(),
+      account: account,
+    };
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `backtest_${account.name}_${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    addToast("success", "数据已导出");
+  };
+
+  // ===== 新增：数据导入功能 =====
+  const handleImportData = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !account) return;
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target?.result as string);
+        if (data.account && data.account.id) {
+          const importedAccount = data.account as Account;
+          // 保留当前账户ID，但导入其他数据
+          const updated: Account = {
+            ...account,
+            positions: importedAccount.positions || [],
+            trades: importedAccount.trades || [],
+            trackingList: importedAccount.trackingList || [],
+            stockLimits: importedAccount.stockLimits || {},
+            equityCurve: importedAccount.equityCurve || [],
+          };
+          saveAccount(updated);
+          setAccount({ ...updated });
+          setAccounts(getAllAccountSummaries());
+          addToast("success", `数据导入成功：${importedAccount.positions?.length || 0}个持仓，${importedAccount.trades?.length || 0}条交易`);
+        } else {
+          addToast("error", "导入文件格式不正确");
+        }
+      } catch {
+        addToast("error", "导入文件解析失败");
+      }
+    };
+    reader.readAsText(file);
+    // 重置input
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  // ===== 新增：处理外部添加股票（分析面板联动） =====
+  useEffect(() => {
+    if (externalAddStock && account) {
+      handleAddTrackingStock(externalAddStock.code, externalAddStock.name);
+    }
+  }, [externalAddStock]);
+
+  // ===== 新增：添加当前选中股票到跟踪 =====
+  const handleAddCurrentStockToTracking = () => {
+    if (!selectedStock || !account) return;
+    handleAddTrackingStock(selectedStock.code, selectedStock.name);
+  };
+
   const metrics = account ? calculateMetrics(account) : null;
   const totalAssets = account ? getTotalAssets(account) : 0;
   const totalPnl = account ? totalAssets - account.initialCapital : 0;
@@ -599,12 +712,88 @@ export function BacktestPanel() {
             {/* 跟踪列表 */}
             {activeTab === "tracking" && (
               <div className="p-2">
+                {/* 添加股票输入框 */}
+                <div className="mb-3 bg-[#0a0e17] rounded p-2 border border-gray-800">
+                  <div className="text-[10px] text-gray-500 mb-1.5 flex items-center gap-1">
+                    <Plus className="w-3 h-3" />
+                    添加跟踪股票
+                  </div>
+                  <div className="flex gap-1.5">
+                    <div className="flex-1 relative">
+                      <input
+                        type="text"
+                        value={addStockInput}
+                        onChange={(e) => { setAddStockInput(e.target.value); searchStockForAdd(e.target.value); }}
+                        placeholder="输入股票代码或名称"
+                        className="w-full px-2 py-1.5 bg-[#111827] border border-gray-700 rounded text-xs text-gray-200 focus:outline-none focus:border-blue-500 pr-6"
+                      />
+                      {addStockInput && (
+                        <button onClick={() => { setAddStockInput(""); setSearchResults([]); }} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-400">
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => {
+                        if (addStockInput.trim()) {
+                          // 如果搜索结果存在，使用第一个；否则直接添加输入的代码
+                          if (searchResults.length > 0) {
+                            handleAddTrackingStock(searchResults[0].code, searchResults[0].name);
+                          } else {
+                            handleAddTrackingStock(addStockInput.trim(), addStockName || addStockInput.trim());
+                          }
+                        }
+                      }}
+                      disabled={!addStockInput.trim()}
+                      className="px-2.5 py-1.5 text-xs bg-blue-500/20 text-blue-400 rounded hover:bg-blue-500/30 disabled:opacity-40 whitespace-nowrap"
+                    >
+                      添加
+                    </button>
+                  </div>
+                  {/* 搜索结果下拉 */}
+                  {searchResults.length > 0 && (
+                    <div className="mt-1.5 bg-[#111827] border border-gray-700 rounded max-h-32 overflow-y-auto">
+                      {searchResults.map((s) => (
+                        <button
+                          key={s.code}
+                          onClick={() => handleAddTrackingStock(s.code, s.name)}
+                          className="w-full px-2 py-1.5 text-left text-[10px] hover:bg-[#1a2332] flex items-center justify-between border-b border-gray-800 last:border-0"
+                        >
+                          <span className="text-gray-200">{s.name}</span>
+                          <span className="text-gray-500">{s.code}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {isSearching && <div className="text-[10px] text-gray-600 mt-1">搜索中...</div>}
+                  {/* 快捷添加当前选中股票 */}
+                  {selectedStock && !account?.trackingList.includes(selectedStock.code) && (
+                    <button
+                      onClick={handleAddCurrentStockToTracking}
+                      className="mt-1.5 w-full px-2 py-1 text-[10px] text-left bg-blue-500/5 border border-blue-500/20 rounded text-blue-400 hover:bg-blue-500/10"
+                    >
+                      + 添加当前分析股票：{selectedStock.name} ({selectedStock.code})
+                    </button>
+                  )}
+                </div>
+
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[10px] text-gray-500">跟踪列表 ({account.trackingList.length})</span>
                   {account.positions.length > 0 && <button onClick={trackAllPositions} className="text-[10px] text-blue-400 hover:text-blue-300">跟踪所有持仓</button>}
                 </div>
                 {account.trackingList.length === 0 ? (
-                  <div className="text-center py-8"><p className="text-xs text-gray-600 mb-2">暂无跟踪股票</p><p className="text-[10px] text-gray-700">在持仓中点击"跟踪"添加</p></div>
+                  <div className="text-center py-6">
+                    <div className="w-10 h-10 mx-auto mb-2 rounded-full bg-gray-800/50 flex items-center justify-center">
+                      <Search className="w-5 h-5 text-gray-600" />
+                    </div>
+                    <p className="text-xs text-gray-500 mb-1">暂无跟踪股票</p>
+                    <p className="text-[10px] text-gray-600 mb-2">在上方输入框添加股票，或从分析面板一键加入</p>
+                    <div className="text-[10px] text-gray-700 space-y-0.5">
+                      <p>• 输入股票代码或名称搜索添加</p>
+                      <p>• 点击"添加当前分析股票"快速加入</p>
+                      <p>• 点击"跟踪所有持仓"批量添加</p>
+                    </div>
+                  </div>
                 ) : (
                   <div className="space-y-1">
                     {account.trackingList.map((code) => {
@@ -927,6 +1116,30 @@ export function BacktestPanel() {
                 <div className="bg-[#111827] rounded p-2">
                   <div className="text-[10px] text-gray-500 mb-2">数据管理</div>
                   <div className="space-y-2">
+                    {/* 导出/导入功能 */}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleExportData}
+                        className="flex-1 px-2 py-1.5 text-[10px] bg-green-500/10 text-green-400 rounded hover:bg-green-500/20 flex items-center justify-center gap-1"
+                      >
+                        <Download className="w-3 h-3" />
+                        导出数据
+                      </button>
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="flex-1 px-2 py-1.5 text-[10px] bg-blue-500/10 text-blue-400 rounded hover:bg-blue-500/20 flex items-center justify-center gap-1"
+                      >
+                        <Upload className="w-3 h-3" />
+                        导入数据
+                      </button>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".json"
+                        onChange={handleImportData}
+                        className="hidden"
+                      />
+                    </div>
                     <button onClick={handleCleanGarbage} className="w-full px-2 py-1.5 text-[10px] text-left bg-[#0a0e17] rounded hover:bg-[#1a2332]">
                       <div className="flex items-center justify-between"><span className="text-yellow-400">清理垃圾数据</span><span className="text-gray-600">删除已平仓30天+</span></div>
                     </button>

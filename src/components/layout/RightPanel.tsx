@@ -65,6 +65,15 @@ function AccordionSection({
 export function RightPanel() {
   const { analysisSettings, selectedStock } = useAppState();
   const [activeAnalysisTab, setActiveAnalysisTab] = useState<'summary' | 'chanlun' | 'wave' | 'technical'>('summary');
+  const [externalAddStock, setExternalAddStock] = useState<{ code: string; name: string } | null>(null);
+
+  // 一键加入回测跟踪
+  const handleAddToBacktest = () => {
+    if (selectedStock) {
+      setExternalAddStock({ code: selectedStock.code, name: selectedStock.name });
+      setTimeout(() => setExternalAddStock(null), 100);
+    }
+  };
 
   return (
     <div className="w-full h-full flex flex-col overflow-hidden bg-[#0a0e17]">
@@ -77,6 +86,14 @@ export function RightPanel() {
             </div>
             <div className="text-xs text-gray-500">{selectedStock?.code}</div>
           </div>
+          <button
+            onClick={handleAddToBacktest}
+            disabled={!selectedStock}
+            className="px-2 py-1 text-xs bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded hover:bg-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            title="将当前股票加入回测跟踪列表"
+          >
+            + 加入回测
+          </button>
         </div>
       </div>
 
@@ -215,7 +232,7 @@ export function RightPanel() {
           icon="💰"
           summary="多账户管理"
         >
-          <BacktestPanel />
+          <BacktestPanel externalAddStock={externalAddStock} />
         </AccordionSection>
       </div>
     </div>

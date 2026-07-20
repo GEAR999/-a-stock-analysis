@@ -81,6 +81,7 @@ export interface Account {
   trades: Trade[];
   trackingList: string[];
   stockLimits: Record<string, number>;
+  equityCurve?: EquityPoint[];  // 资金曲线
   createdAt: number;
   updatedAt: number;
 }
