@@ -1,44 +1,74 @@
-import { NextRequest } from 'next/server';
-import { query, execute } from '@/lib/db';
-import { hashPassword } from '@/lib/auth';
-import { withAuth, apiSuccess, apiError, type AuthRequest } from '@/lib/api-utils';
+import { NextRequest, NextResponse } from 'next/server';
+import { query } from '@/lib/db';
 
-// GET /api/accounts - 获取当前用户所有账户
-export const GET = withAuth(async (req: AuthRequest) => {
+// GET /api/accounts - 获取所有账户列表
+export async function GET() {
   try {
-    const rows = await query<{
-      id: string; name: string; type: string; initial_capital: string;
-      current_capital: string; quant_threshold: string; auto_trade: boolean;
-      max_position_ratio: string; stop_loss_ratio: string; take_profit_ratio: string;
-      created_at: string; updated_at: string;
-    }>`SELECT * FROM accounts WHERE user_id = ${req.user.userId} ORDER BY updated_at DESC`;
-
-    return apiSuccess(rows);
-  } catch (e) {
-    console.error('GET /api/accounts error:', e);
-    return apiError('获取账户列表失败', 'DB_ERROR', 500);
+    const accounts = await query`
+      SELECT id, user_id, name, type, initial_capital, current_capital, 
+             run_mode, strategy_config, status, created_at, updated_at
+      FROM accounts
+      ORDER BY created_at DESC
+    `;
+    return NextResponse.json({ success: true, data: accounts });
+  } catch (error) {
+    console.error('Failed to fetch accounts:', error);
+    return NextResponse.json(
+      { success: false, error: '获取账户列表失败' },
+      { status: 500 }
+    );
   }
-});
+}
 
 // POST /api/accounts - 创建新账户
-export const POST = withAuth(async (req: AuthRequest) => {
+export async function POST(request: NextRequest) {
   try {
-    const body = await req.json();
-    const { name, type = 'manual', initialCapital = 1000000 } = body;
+    const body = await request.json();
+    const { user_id, name, type, initial_capital, run_mode, strategy_config } = body;
 
-    if (!name || typeof name !== 'string') {
-      return apiError('账户名称不能为空');
+    if (!name || !type || !initial_capital) {
+      return NextResponse.json(
+        { success: false, error: '缺少必填字段' },
+        { status: 400 }
+      );
     }
 
-    const rows = await execute<{ id: string }>`
-      INSERT INTO accounts (user_id, name, type, initial_capital, current_capital)
-      VALUES (${req.user.userId}, ${name}, ${type}, ${initialCapital}, ${initialCapital})
-      RETURNING id
+    const result = await query`
+      INSERT INTO accounts (user_id, name, type, initial_capital, current_capital, run_mode, strategy_config)
+      VALUES (${user_id || null}, ${name}, ${type}, ${initial_capital}, ${initial_capital}, ${run_mode || 'realtime'}, ${JSON.stringify(strategy_config || {})})
+      RETURNING *
     `;
 
-    return apiSuccess({ id: rows[0].id, name, type, initialCapital, currentCapital: initialCapital });
-  } catch (e) {
-    console.error('POST /api/accounts error:', e);
-    return apiError('创建账户失败', 'DB_ERROR', 500);
+    return NextResponse.json({ success: true, data: result[0] });
+  } catch (error) {
+    console.error('Failed to create account:', error);
+    return NextResponse.json(
+      { success: false, error: '创建账户失败' },
+      { status: 500 }
+    );
   }
-});
+}
+
+// DELETE /api/accounts - 删除账户
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const accountId = searchParams.get('id');
+
+    if (!accountId) {
+      return NextResponse.json(
+        { success: false, error: '缺少账户ID' },
+        { status: 400 }
+      );
+    }
+
+    await query`DELETE FROM accounts WHERE id = ${accountId}`;
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Failed to delete account:', error);
+    return NextResponse.json(
+      { success: false, error: '删除账户失败' },
+      { status: 500 }
+    );
+  }
+}

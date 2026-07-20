@@ -1,53 +1,77 @@
-import { query, execute } from '@/lib/db';
-import { withAuth, apiSuccess, apiError, type AuthRequest } from '@/lib/api-utils';
+import { NextRequest, NextResponse } from 'next/server';
+import { query } from '@/lib/db';
 
-// GET /api/accounts/[id]
-export const GET = withAuth(async (req: AuthRequest, { params }: { params: Promise<Record<string, string>> }) => {
+type RouteContext = { params: Promise<{ id: string }> };
+
+// GET /api/accounts/[id] - 获取单个账户完整信息
+export async function GET(request: NextRequest, context: RouteContext) {
   try {
-    const { id } = await params;
-    const rows = await query`SELECT * FROM accounts WHERE id = ${id} AND user_id = ${req.user.userId}`;
-    if (rows.length === 0) return apiError('账户不存在', 'NOT_FOUND', 404);
-    return apiSuccess(rows[0]);
-  } catch (e) {
-    console.error('GET /api/accounts/[id] error:', e);
-    return apiError('获取账户失败', 'DB_ERROR', 500);
-  }
-});
+    const { id } = await context.params;
 
-// PUT /api/accounts/[id]
-export const PUT = withAuth(async (req: AuthRequest, { params }: { params: Promise<Record<string, string>> }) => {
-  try {
-    const { id } = await params;
-    const body = await req.json();
-    const { name, current_capital, quant_threshold, auto_trade, max_position_ratio, stop_loss_ratio, take_profit_ratio } = body;
-
-    await execute`
-      UPDATE accounts SET
-        name = COALESCE(${name}, name),
-        current_capital = COALESCE(${current_capital}, current_capital),
-        quant_threshold = COALESCE(${quant_threshold}, quant_threshold),
-        auto_trade = COALESCE(${auto_trade}, auto_trade),
-        max_position_ratio = COALESCE(${max_position_ratio}, max_position_ratio),
-        stop_loss_ratio = COALESCE(${stop_loss_ratio}, stop_loss_ratio),
-        take_profit_ratio = COALESCE(${take_profit_ratio}, take_profit_ratio),
-        updated_at = NOW()
-      WHERE id = ${id} AND user_id = ${req.user.userId}
+    const accounts = await query`
+      SELECT * FROM accounts WHERE id = ${id}
     `;
-    return apiSuccess({ id });
-  } catch (e) {
-    console.error('PUT /api/accounts/[id] error:', e);
-    return apiError('更新账户失败', 'DB_ERROR', 500);
-  }
-});
 
-// DELETE /api/accounts/[id]
-export const DELETE = withAuth(async (req: AuthRequest, { params }: { params: Promise<Record<string, string>> }) => {
-  try {
-    const { id } = await params;
-    await execute`DELETE FROM accounts WHERE id = ${id} AND user_id = ${req.user.userId}`;
-    return apiSuccess({ deleted: true });
-  } catch (e) {
-    console.error('DELETE /api/accounts/[id] error:', e);
-    return apiError('删除账户失败', 'DB_ERROR', 500);
+    if (accounts.length === 0) {
+      return NextResponse.json(
+        { success: false, error: '账户不存在' },
+        { status: 404 }
+      );
+    }
+
+    const account = accounts[0];
+
+    // 获取持仓
+    const positions = await query`
+      SELECT * FROM positions WHERE account_id = ${id} AND quantity > 0
+    `;
+
+    // 获取交易记录
+    const transactions = await query`
+      SELECT * FROM transactions WHERE account_id = ${id} ORDER BY trade_time DESC LIMIT 100
+    `;
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        ...account,
+        positions,
+        transactions,
+      },
+    });
+  } catch (error) {
+    console.error('Failed to fetch account:', error);
+    return NextResponse.json(
+      { success: false, error: '获取账户详情失败' },
+      { status: 500 }
+    );
   }
-});
+}
+
+// PUT /api/accounts/[id] - 更新账户信息
+export async function PUT(request: NextRequest, context: RouteContext) {
+  try {
+    const { id } = await context.params;
+    const body = await request.json();
+    const { name, strategy_config, status } = body;
+
+    // 构建更新字段
+    const account = await query`
+      UPDATE accounts SET 
+        name = COALESCE(${name}, name),
+        strategy_config = COALESCE(${JSON.stringify(strategy_config)}, strategy_config),
+        status = COALESCE(${status}, status),
+        updated_at = NOW()
+      WHERE id = ${id}
+      RETURNING *
+    `;
+
+    return NextResponse.json({ success: true, data: account[0] });
+  } catch (error) {
+    console.error('Failed to update account:', error);
+    return NextResponse.json(
+      { success: false, error: '更新账户失败' },
+      { status: 500 }
+    );
+  }
+}

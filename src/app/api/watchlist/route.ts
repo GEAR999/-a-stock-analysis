@@ -1,54 +1,94 @@
+import { NextRequest, NextResponse } from 'next/server';
 import { query, execute } from '@/lib/db';
-import { withAuth, apiSuccess, apiError, type AuthRequest } from '@/lib/api-utils';
 
-// GET /api/watchlist
-export const GET = withAuth(async (req: AuthRequest) => {
+// GET /api/watchlist - 获取自选股列表
+export async function GET(request: NextRequest) {
   try {
-    const rows = await query`
-      SELECT * FROM watchlist WHERE user_id = ${req.user.userId} ORDER BY sort_order, added_at DESC
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get('userId') || 'default';
+
+    const watchlist = await query`
+      SELECT * FROM watchlist WHERE user_id = ${userId} ORDER BY sort_order, created_at
     `;
-    return apiSuccess(rows);
-  } catch (e) {
-    console.error('GET /api/watchlist error:', e);
-    return apiError('获取自选股失败', 'DB_ERROR', 500);
+
+    return NextResponse.json({ success: true, data: watchlist });
+  } catch (error) {
+    console.error('Failed to fetch watchlist:', error);
+    return NextResponse.json(
+      { success: false, error: '获取自选股列表失败' },
+      { status: 500 }
+    );
   }
-});
+}
 
 // POST /api/watchlist - 添加自选股
-export const POST = withAuth(async (req: AuthRequest) => {
+export async function POST(request: NextRequest) {
   try {
-    const body = await req.json();
-    const { stock_code, stock_name, group_name = '默认', alert_price_high, alert_price_low, note, sort_order = 0 } = body;
+    const body = await request.json();
+    const { userId, stockCode, stockName, notes } = body;
+    const uid = userId || 'default';
 
-    if (!stock_code || !stock_name) return apiError('缺少股票代码或名称');
+    if (!stockCode) {
+      return NextResponse.json(
+        { success: false, error: '缺少股票代码' },
+        { status: 400 }
+      );
+    }
 
-    const rows = await execute<{ id: string }>`
-      INSERT INTO watchlist (user_id, stock_code, stock_name, group_name, alert_price_high, alert_price_low, note, sort_order)
-      VALUES (${req.user.userId}, ${stock_code}, ${stock_name}, ${group_name}, ${alert_price_high || null}, ${alert_price_low || null}, ${note || null}, ${sort_order})
-      ON CONFLICT (user_id, stock_code, group_name) DO NOTHING
-      RETURNING id
+    // 检查是否已存在
+    const existing = await query`
+      SELECT * FROM watchlist WHERE user_id = ${uid} AND stock_code = ${stockCode}
     `;
-    return apiSuccess({ id: rows[0]?.id || null });
-  } catch (e) {
-    console.error('POST /api/watchlist error:', e);
-    return apiError('添加自选股失败', 'DB_ERROR', 500);
+    if (existing.length > 0) {
+      return NextResponse.json({ success: false, error: '已在自选股中' }, { status: 400 });
+    }
+
+    // 获取最大排序号
+    const maxSort = await query`
+      SELECT COALESCE(MAX(sort_order), 0) as max_sort FROM watchlist WHERE user_id = ${uid}
+    `;
+    const sortOrder = Number(maxSort[0].max_sort) + 1;
+
+    const result = await query`
+      INSERT INTO watchlist (user_id, stock_code, stock_name, notes, sort_order)
+      VALUES (${uid}, ${stockCode}, ${stockName || ''}, ${notes || null}, ${sortOrder})
+      RETURNING *
+    `;
+
+    return NextResponse.json({ success: true, data: result[0] });
+  } catch (error) {
+    console.error('Failed to add watchlist:', error);
+    return NextResponse.json(
+      { success: false, error: '添加自选股失败' },
+      { status: 500 }
+    );
   }
-});
+}
 
 // DELETE /api/watchlist - 删除自选股
-export const DELETE = withAuth(async (req: AuthRequest) => {
+export async function DELETE(request: NextRequest) {
   try {
-    const stockCode = req.nextUrl.searchParams.get('stock_code');
-    const groupName = req.nextUrl.searchParams.get('group_name') || '默认';
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get('userId') || 'default';
+    const stockCode = searchParams.get('stockCode');
 
-    if (!stockCode) return apiError('缺少股票代码');
+    if (!stockCode) {
+      return NextResponse.json(
+        { success: false, error: '缺少股票代码' },
+        { status: 400 }
+      );
+    }
 
     await execute`
-      DELETE FROM watchlist WHERE user_id = ${req.user.userId} AND stock_code = ${stockCode} AND group_name = ${groupName}
+      DELETE FROM watchlist WHERE user_id = ${userId} AND stock_code = ${stockCode}
     `;
-    return apiSuccess({ deleted: true });
-  } catch (e) {
-    console.error('DELETE /api/watchlist error:', e);
-    return apiError('删除自选股失败', 'DB_ERROR', 500);
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Failed to delete watchlist:', error);
+    return NextResponse.json(
+      { success: false, error: '删除自选股失败' },
+      { status: 500 }
+    );
   }
-});
+}
