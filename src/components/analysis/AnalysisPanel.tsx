@@ -1,11 +1,16 @@
 'use client';
 
+import { useState } from 'react';
 import { useAppState } from '@/hooks/useAppState';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Info } from 'lucide-react';
+import { Info, Settings, Plus } from 'lucide-react';
+import CustomStrategyPanel from '@/components/strategy/CustomStrategyPanel';
+import { getAllCustomStrategies } from '@/components/backtest/strategy-storage';
 
 export function AnalysisPanel() {
   const { analysisSettings, setAnalysisSettings } = useAppState();
+  const [showCustomStrategy, setShowCustomStrategy] = useState(false);
+  const customStrategies = getAllCustomStrategies();
 
   return (
     <div className="rounded border border-border bg-[#111827] p-3">
@@ -53,6 +58,44 @@ export function AnalysisPanel() {
           <div className="w-2 h-2 rounded-full bg-emerald-500" />
           <span className="text-xs text-gray-400 group-hover:text-gray-300">技术指标</span>
         </label>
+        
+        {/* 自定义策略 */}
+        <div className="pt-2 mt-2 border-t border-gray-800">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-amber-500" />
+              <span className="text-xs text-gray-400">自定义策略</span>
+              {customStrategies.length > 0 && (
+                <span className="text-[10px] text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded">
+                  {customStrategies.length}个
+                </span>
+              )}
+            </div>
+            <button
+              onClick={() => setShowCustomStrategy(!showCustomStrategy)}
+              className="flex items-center gap-1 text-[10px] text-amber-500 hover:text-amber-400 transition-colors"
+            >
+              <Settings className="w-3 h-3" />
+              {showCustomStrategy ? '收起' : '管理'}
+            </button>
+          </div>
+          
+          {showCustomStrategy && (
+            <div className="mt-2">
+              <CustomStrategyPanel />
+            </div>
+          )}
+          
+          {!showCustomStrategy && customStrategies.length === 0 && (
+            <button
+              onClick={() => setShowCustomStrategy(true)}
+              className="mt-2 w-full flex items-center justify-center gap-1 text-[10px] text-gray-500 hover:text-amber-500 border border-dashed border-gray-800 hover:border-amber-500/30 rounded py-1.5 transition-colors"
+            >
+              <Plus className="w-3 h-3" />
+              创建自定义策略
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

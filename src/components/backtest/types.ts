@@ -195,3 +195,97 @@ export interface RiskAlert {
   message: string;
   timestamp: number;
 }
+
+// ===== 自定义策略类型 =====
+
+// 价格条件类型
+export type PriceConditionType = 
+  | "above_ma"        // 突破均线
+  | "below_ma"        // 跌破均线
+  | "above_price"     // 突破价位
+  | "below_price"     // 跌破价位
+  | "above_high"      // 突破新高
+  | "below_low";      // 跌破新低
+
+// 成交量条件类型
+export type VolumeConditionType = 
+  | "above_avg"       // 放量到均量倍数
+  | "below_avg"       // 缩量到均量倍数
+  | "volume_surge";   // 成交量突增
+
+// 指标条件
+export interface IndicatorCondition {
+  indicator: "macd" | "kdj" | "rsi" | "boll" | "ma";
+  condition: "golden_cross" | "death_cross" | "above" | "below" | "divergence_up" | "divergence_down";
+  value?: number;
+  period?: number;
+}
+
+// 形态条件
+export type PatternCondition = 
+  | "hammer"          // 锤子线
+  | "engulfing_bull"  // 看涨吞没
+  | "engulfing_bear"  // 看跌吞没
+  | "doji"            // 十字星
+  | "morning_star"    // 晨星
+  | "evening_star"    // 暮星
+  | "double_bottom"   // 双底
+  | "double_top";     // 双顶
+
+// 买卖条件
+export interface TradeConditions {
+  priceCondition?: {
+    type: PriceConditionType;
+    value: number;
+    maPeriod?: number;
+  };
+  volumeCondition?: {
+    type: VolumeConditionType;
+    multiplier: number;
+  };
+  indicatorConditions?: IndicatorCondition[];
+  patternConditions?: PatternCondition[];
+}
+
+// 自定义策略
+export interface CustomStrategy {
+  id: string;
+  name: string;
+  description?: string;
+  theories: StrategySource[];  // 使用的理论组合
+  buyConditions: TradeConditions;
+  sellConditions: TradeConditions;
+  positionRatio: number;       // 仓位比例 0-1
+  stopLoss: number;            // 止损比例 0-1
+  takeProfit: number;          // 止盈比例 0-1
+  createdAt: number;
+  updatedAt: number;
+}
+
+// 策略权重配置
+export interface StrategyWeight {
+  strategyId: string;
+  strategyName: string;
+  weight: number;              // 权重百分比 0-100
+  confidence: number;          // 置信度 0-100
+  enabled: boolean;
+  source: "builtin" | "custom"; // 来源：内置或自定义
+}
+
+// 策略模板
+export interface StrategyTemplate {
+  id: string;
+  name: string;
+  description?: string;
+  weights: StrategyWeight[];
+  tradeThreshold: number;      // 交易阈值（综合评分达到多少分才执行）
+  createdAt: number;
+  updatedAt: number;
+}
+
+// 量化账户多策略配置
+export interface QuantMultiStrategy {
+  weights: StrategyWeight[];
+  tradeThreshold: number;      // 交易阈值
+  templateId?: string;         // 使用的模板ID
+}

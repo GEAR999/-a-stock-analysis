@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Info, Download, Upload, Plus, Search, X } from "lucide-react";
-import type { Account, AccountSummary, ToastMessage, BuySignal, Trade, Position, SingleStrategyStats, FailureStats, FailureReason, StrategySource, AccountType } from "./types";
+import type { Account, AccountSummary, ToastMessage, BuySignal, Trade, Position, SingleStrategyStats, FailureStats, FailureReason, StrategySource, AccountType, StrategyWeight } from "./types";
+import { StrategySelector } from "./StrategySelector";
 import {
   getAllAccountSummaries, loadAccount, createAccount, deleteAccount,
   getActiveAccountId, setActiveAccountId, saveAccount,
@@ -509,6 +510,10 @@ export function BacktestPanel({ externalAddStock }: { externalAddStock?: { code:
   const [showConfirmDialog, setShowConfirmDialog] = useState<{ title: string; message: string; confirmText?: string; onConfirm: () => void } | null>(null);
   const [showLimitDialog, setShowLimitDialog] = useState<{ code: string; name: string; limit?: number } | null>(null);
   const [showTradeDialog, setShowTradeDialog] = useState<{ code: string; name: string; price: number; direction: "buy" | "sell" } | null>(null);
+  
+  // 量化策略配置
+  const [strategyWeights, setStrategyWeights] = useState<StrategyWeight[]>([]);
+  const [tradeThreshold, setTradeThreshold] = useState(70);
   
   // 新增：股票搜索和添加
   const [addStockInput, setAddStockInput] = useState("");
@@ -1198,6 +1203,15 @@ export function BacktestPanel({ externalAddStock }: { externalAddStock?: { code:
                     <div className="flex justify-between"><span className="text-gray-600">额度</span><span className="text-yellow-400">{Object.keys(account.stockLimits).length}只</span></div>
                   </div>
                 </div>
+                {/* 量化策略配置 */}
+                {account.type === 'quant' && (
+                  <StrategySelector
+                    selectedStrategies={strategyWeights}
+                    onChange={setStrategyWeights}
+                    tradeThreshold={tradeThreshold}
+                    onThresholdChange={setTradeThreshold}
+                  />
+                )}
                 <div className="bg-[#111827] rounded p-2">
                   <div className="text-[10px] text-gray-500 mb-2">额度管理</div>
                   {Object.keys(account.stockLimits).length === 0 ? <p className="text-[10px] text-gray-600">暂未设置</p> : (
