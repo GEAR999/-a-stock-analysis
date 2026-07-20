@@ -47,39 +47,11 @@ interface BacktestResultItem {
   result: BacktestResult;
 }
 
-// 生成模拟K线数据（用于API不可用时的测试）
-function generateMockKlineData(code: string): KLineData[] {
-  const data: KLineData[] = [];
-  const basePrice = 10 + Math.random() * 50; // 10-60元
-  let price = basePrice;
-  const startDate = new Date();
-  startDate.setFullYear(startDate.getFullYear() - 1);
-
-  for (let i = 0; i < 250; i++) {
-    const date = new Date(startDate);
-    date.setDate(date.getDate() + i);
-    // 跳过周末
-    if (date.getDay() === 0 || date.getDay() === 6) continue;
-
-    const change = (Math.random() - 0.48) * 0.05; // 略微偏向上涨
-    price = price * (1 + change);
-    const open = price * (1 + (Math.random() - 0.5) * 0.02);
-    const close = price;
-    const high = Math.max(open, close) * (1 + Math.random() * 0.015);
-    const low = Math.min(open, close) * (1 - Math.random() * 0.015);
-    const volume = Math.floor(50000 + Math.random() * 200000);
-
-    data.push({
-      date: date.toISOString().split('T')[0],
-      open: Math.round(open * 100) / 100,
-      close: Math.round(close * 100) / 100,
-      high: Math.round(high * 100) / 100,
-      low: Math.round(low * 100) / 100,
-      volume,
-      amount: Math.round(volume * close),
-    });
-  }
-  return data;
+// K线数据获取结果
+interface KLineFetchResult {
+  success: boolean;
+  data?: KLineData[];
+  error?: string;
 }
 
 export function HistoryBacktestPanel() {
@@ -121,15 +93,15 @@ export function HistoryBacktestPanel() {
     }
   }, []);
 
-  // 获取K线数据（优先缓存，其次API，最后模拟数据）
-  const fetchKLineData = useCallback(async (code: string): Promise<KLineData[]> => {
+  // 获取K线数据（优先缓存，其次API，返回错误信息）
+  const fetchKLineData = useCallback(async (code: string): Promise<KLineFetchResult> => {
     // 1. 先尝试 IndexedDB 缓存
     try {
       const cached = await getCachedKline(code, 'daily');
       if (cached && cached.length > 0) {
-        return cached as KLineData[];
+        return { success: true, data: cached as KLineData[] };
       }
-    } catch {
+    } catch (e) {
       // ignore cache errors
     }
 
@@ -138,14 +110,12 @@ export function HistoryBacktestPanel() {
       const res = await fetch(`/api/stock?action=kline&code=${encodeURIComponent(code)}&period=daily&limit=1000`);
       const data = await res.json();
       if (data.data && Array.isArray(data.data) && data.data.length > 0) {
-        return data.data;
+        return { success: true, data: data.data };
       }
-    } catch {
-      // ignore API errors
+      return { success: false, error: "API返回数据为空，该股票暂无K线数据" };
+    } catch (e) {
+      return { success: false, error: `网络请求失败: ${e instanceof Error ? e.message : '未知错误'}` };
     }
-
-    // 3. 生成模拟数据用于测试
-    return generateMockKlineData(code);
   }, []);
 
   // 处理添加股票
@@ -185,16 +155,16 @@ export function HistoryBacktestPanel() {
       }
 
       // 获取K线数据（使用标准化后的股票代码）
-      const klineData = await fetchKLineData(stockInfo.code);
-      if (klineData.length === 0) {
-        errors.push(`${stockInfo.name || stockInfo.code} 无K线数据`);
+      const klineResult = await fetchKLineData(stockInfo.code);
+      if (!klineResult.success || !klineResult.data || klineResult.data.length === 0) {
+        errors.push(`${stockInfo.name || stockInfo.code}: ${klineResult.error || '无K线数据'}`);
         continue;
       }
 
       newStocks.push({
         code: stockInfo.code,
         name: stockInfo.name,
-        klineData,
+        klineData: klineResult.data,
       });
     }
 
