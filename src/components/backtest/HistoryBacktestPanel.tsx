@@ -131,10 +131,10 @@ export function HistoryBacktestPanel() {
         continue;
       }
 
-      // 获取K线数据
-      const klineData = await fetchKLineData(code);
+      // 获取K线数据（使用标准化后的股票代码）
+      const klineData = await fetchKLineData(stockInfo.code);
       if (klineData.length === 0) {
-        errors.push(`${code} 无K线数据`);
+        errors.push(`${stockInfo.name || stockInfo.code} 无K线数据`);
         continue;
       }
 
