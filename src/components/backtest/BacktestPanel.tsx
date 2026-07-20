@@ -17,6 +17,7 @@ import {
 import { useAppState } from "@/hooks/useAppState";
 import EquityCurveChart from "./EquityCurveChart";
 import { HistoryBacktestPanel } from "./HistoryBacktestPanel";
+import { TradingStatusIndicator } from "./TradingStatusIndicator";
 
 // ===== 失败原因标签配置 =====
 const FAILURE_REASON_CONFIG: Record<FailureReason, { label: string; color: string; bg: string }> = {
@@ -805,6 +806,14 @@ export function BacktestPanel({ externalAddStock }: { externalAddStock?: { code:
           </span>
         </div>
       )}
+
+      {/* 交易状态指示器 */}
+      <div className="px-2 py-1 border-b border-gray-800 flex items-center justify-between flex-shrink-0">
+        <TradingStatusIndicator />
+        {account?.type === 'quant' && account?.strategy?.autoTrade && (
+          <span className="text-[10px] text-purple-400">量化自动交易已启用</span>
+        )}
+      </div>
 
       {/* 顶部：账户管理 */}
       <div className="p-2 border-b border-gray-800 bg-[#111827] flex-shrink-0">

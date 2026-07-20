@@ -1,4 +1,5 @@
 import type { Account, AccountSummary, Trade, Position, StrategyMetrics, EquityPoint, SingleStrategyStats, FailureStats, FailureReason, StrategySource, AccountType, QuantStrategy } from "./types";
+import { applySlippage } from "@/lib/slippage";
 
 const STORAGE_PREFIX = "backtest_account_";
 const ACTIVE_ACCOUNT_KEY = "backtest_active_account";
@@ -351,10 +352,12 @@ export function canBuyStock(account: Account, code: string, amount: number): { c
 
 // 执行买入
 export function executeBuy(account: Account, code: string, name: string, price: number, amount: number, reason: string, isAuto: boolean = false): Account {
-  const quantity = Math.floor(amount / price / 100) * 100; // A股100股整数倍
+  // 自动交易应用滑点
+  const actualPrice = isAuto ? applySlippage(price, 'buy') : price;
+  const quantity = Math.floor(amount / actualPrice / 100) * 100; // A股100股整数倍
   if (quantity <= 0) return account;
 
-  const actualAmount = quantity * price;
+  const actualAmount = quantity * actualPrice;
   if (actualAmount > account.currentCapital) return account;
 
   const trade: Trade = {
@@ -363,7 +366,8 @@ export function executeBuy(account: Account, code: string, name: string, price: 
     stockCode: code,
     stockName: name,
     direction: "buy",
-    price,
+    price: actualPrice,
+    suggestedPrice: isAuto ? price : undefined,
     quantity,
     amount: actualAmount,
     reason,
@@ -423,8 +427,10 @@ export function executeSell(account: Account, code: string, price: number, quant
   const existingPos = account.positions.find((p) => p.stockCode === code);
   if (!existingPos || existingPos.quantity < quantity) return account;
 
-  const amount = quantity * price;
-  const pnl = (price - existingPos.avgCost) * quantity;
+  // 自动交易应用滑点
+  const actualPrice = isAuto ? applySlippage(price, 'sell') : price;
+  const amount = quantity * actualPrice;
+  const pnl = (actualPrice - existingPos.avgCost) * quantity;
 
   const trade: Trade = {
     id: `t_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
@@ -432,7 +438,8 @@ export function executeSell(account: Account, code: string, price: number, quant
     stockCode: code,
     stockName: existingPos.stockName,
     direction: "sell",
-    price,
+    price: actualPrice,
+    suggestedPrice: isAuto ? price : undefined,
     quantity,
     amount,
     reason,

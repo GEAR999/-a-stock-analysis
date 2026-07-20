@@ -49,6 +49,7 @@ export interface Trade {
   decision?: TradeDecision;       // 决策快照
   failureReason?: FailureReason;  // 失败原因(亏损交易)
   failureReasons?: FailureReason[]; // 多个失败原因
+  suggestedPrice?: number;        // 建议价格（用于计算滑点）
 }
 
 // 持仓
