@@ -1,4 +1,4 @@
-import type { Account, AccountSummary, Trade, Position, StrategyMetrics, EquityPoint, SingleStrategyStats, FailureStats, FailureReason, StrategySource, AccountType, QuantStrategy } from "./types";
+import type { Account, AccountSummary, Trade, Position, StrategyMetrics, EquityPoint, SingleStrategyStats, FailureStats, FailureReason, StrategySource, AccountType, QuantStrategy, RunMode } from "./types";
 import { applySlippage } from "@/lib/slippage";
 
 const STORAGE_PREFIX = "backtest_account_";
@@ -96,7 +96,7 @@ export function createDefaultStrategy(): QuantStrategy {
 }
 
 // 创建新账户
-export function createAccount(name: string, initialCapital: number, type: AccountType = "manual", strategy?: QuantStrategy): Account {
+export function createAccount(name: string, initialCapital: number, type: AccountType = "manual", strategy?: QuantStrategy, runMode?: RunMode): Account {
   const account: Account = {
     id: generateId(),
     name,
@@ -108,6 +108,7 @@ export function createAccount(name: string, initialCapital: number, type: Accoun
     trackingList: [],
     stockLimits: {},
     strategy: type === "quant" ? (strategy || createDefaultStrategy()) : undefined,
+    runMode: type === "quant" ? (runMode || "backtest") : undefined,
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };

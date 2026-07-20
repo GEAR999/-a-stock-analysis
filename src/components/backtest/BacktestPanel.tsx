@@ -8,7 +8,7 @@ import { QuantAutoTradePanel } from './QuantAutoTradePanel';
 import { TradeHistoryPanel } from './TradeHistoryPanel';
 import { getAllAvailableStrategies, calculateWeightsByConfidence } from './strategy-storage';
 import type { BuiltinStrategy } from './strategy-storage';
-import type { Account, QuantStrategy, StrategySource, CustomStrategy } from './types';
+import type { Account, QuantStrategy, StrategySource, CustomStrategy, RunMode } from './types';
 
 type ToastType = 'success' | 'error' | 'warning' | 'info';
 
@@ -56,6 +56,7 @@ export function BacktestPanel() {
     });
   }, []);
   const [selectedStrategyIds, setSelectedStrategyIds] = useState<string[]>(['builtin_comprehensive']);
+  const [newRunMode, setNewRunMode] = useState<RunMode>('backtest');
   const [tradeThreshold, setTradeThreshold] = useState(60);
   const [showStrategyPicker, setShowStrategyPicker] = useState(false);
 
@@ -107,13 +108,16 @@ export function BacktestPanel() {
       return;
     }
     const strategy = buildStrategy();
-    const acc = createAccount(newAccountName, newAccountCapital, newAccountType, strategy);
+    const runMode: RunMode | undefined = newAccountType === 'quant' ? newRunMode : undefined;
+    const acc = createAccount(newAccountName, newAccountCapital, newAccountType, strategy, runMode);
     if (acc) {
       setShowNewAccount(false);
       setNewAccountName('');
       setNewAccountCapital(1000000);
       setSelectedStrategyIds(['builtin_comprehensive']);
-      showToast('success', `账户 ${newAccountName} 创建成功${strategy ? `（策略: ${strategy.name}）` : ''}`);
+      setNewRunMode('backtest');
+      const modeText = runMode === 'backtest' ? '历史回测' : runMode === 'realtime' ? '实时验证' : '';
+      showToast('success', `账户 ${newAccountName} 创建成功${strategy ? `（策略: ${strategy.name}）` : ''}${modeText ? `（${modeText}）` : ''}`);
     }
   };
 
@@ -264,6 +268,41 @@ export function BacktestPanel() {
               量化自动
             </button>
           </div>
+
+          {/* 运行模式选择 - 仅量化类型显示 */}
+          {newAccountType === 'quant' && (
+            <div className="space-y-1">
+              <label className="text-[10px] text-gray-500 flex items-center gap-1">
+                运行模式
+                <span className="text-[9px] text-gray-600">（创建后不可更改）</span>
+              </label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setNewRunMode('backtest')}
+                  className={`flex-1 px-2 py-1 text-xs rounded border transition-colors ${
+                    newRunMode === 'backtest'
+                      ? 'bg-purple-500/20 text-purple-400 border-purple-500/30'
+                      : 'bg-gray-800/50 text-gray-400 border-gray-700 hover:bg-gray-700/50'
+                  }`}
+                >
+                  📊 历史回测
+                </button>
+                <button
+                  onClick={() => setNewRunMode('realtime')}
+                  className={`flex-1 px-2 py-1 text-xs rounded border transition-colors ${
+                    newRunMode === 'realtime'
+                      ? 'bg-red-500/20 text-red-400 border-red-500/30'
+                      : 'bg-gray-800/50 text-gray-400 border-gray-700 hover:bg-gray-700/50'
+                  }`}
+                >
+                  🔴 实时验证
+                </button>
+              </div>
+              <div className="text-[9px] text-gray-600">
+                {newRunMode === 'backtest' ? '用历史K线数据跑策略，不受交易时间限制' : '用实时行情数据，仅在A股交易时间运行'}
+              </div>
+            </div>
+          )}
 
           {/* 策略选择区域 - 仅量化类型显示 */}
           {newAccountType === 'quant' && (

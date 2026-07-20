@@ -74,6 +74,7 @@ export interface Position {
 
 // 账户类型
 export type AccountType = "manual" | "quant";
+export type RunMode = "backtest" | "realtime";
 
 // 量化策略配置
 export interface QuantStrategy {
@@ -83,6 +84,9 @@ export interface QuantStrategy {
   takeProfitPercent: number;   // 止盈百分比
   maxPositionPercent: number;  // 单只股票最大仓位
   autoTrade: boolean;          // 是否自动交易
+  // 自定义权重模式
+  weightMode?: "auto" | "custom";  // 权重分配模式
+  customWeights?: Record<string, number>;  // 自定义权重（策略ID -> 百分比）
 }
 
 // 账户信息
@@ -98,6 +102,7 @@ export interface Account {
   stockLimits: Record<string, number>;
   equityCurve?: EquityPoint[];  // 资金曲线
   strategy?: QuantStrategy;     // 量化策略配置（仅quant类型）
+  runMode?: RunMode;            // 运行模式（仅quant类型，创建后不可更改）
   createdAt: number;
   updatedAt: number;
 }

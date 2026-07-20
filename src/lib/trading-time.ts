@@ -5,9 +5,13 @@
 /**
  * 判断当前是否为A股交易时间
  * 交易时段：工作日 9:30-11:30, 13:00-15:00
+ * @param runMode 运行模式：'backtest' 不受限制，'realtime' 检查交易时间
  * @returns boolean 是否在交易时间内
  */
-export function isTradingTime(): boolean {
+export function isTradingTime(runMode: 'backtest' | 'realtime' = 'realtime'): boolean {
+  // 回测模式不限制交易时间
+  if (runMode === 'backtest') return true;
+  
   // 获取北京时间 (UTC+8)
   const now = new Date();
   const utc = now.getTime() + now.getTimezoneOffset() * 60000;

@@ -12,7 +12,7 @@ import {
   executeSell,
   canBuyStock,
 } from '../storage';
-import type { Account, AccountSummary, AccountType, StrategyWeight, QuantStrategy } from '../types';
+import type { Account, AccountSummary, AccountType, StrategyWeight, QuantStrategy, RunMode } from '../types';
 
 export interface ToastMessage {
   id: string;
@@ -66,13 +66,14 @@ export function useAccountManager() {
     if (acc) setAccount(acc);
   }, []);
 
-  const handleCreateAccount = useCallback((name: string, capital: number, accountType: AccountType, strategy?: QuantStrategy) => {
-    const acc = createAccount(name, capital, accountType, strategy);
+  const handleCreateAccount = useCallback((name: string, capital: number, accountType: AccountType, strategy?: QuantStrategy, runMode?: RunMode) => {
+    const acc = createAccount(name, capital, accountType, strategy, runMode);
     setActiveAccountId(acc.id);
     setActiveAccountIdState(acc.id);
     setAccount(acc);
     setAccounts(getAllAccountSummaries());
-    addToast('success', `账户"${name}"创建成功${accountType === 'quant' ? '（量化回测）' : ''}`);
+    const modeText = accountType === 'quant' ? (runMode === 'realtime' ? '（实时验证）' : '（历史回测）') : '';
+    addToast('success', `账户"${name}"创建成功${modeText}`);
     return acc;
   }, [addToast]);
 

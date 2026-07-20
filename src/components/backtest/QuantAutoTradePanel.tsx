@@ -29,9 +29,12 @@ export function QuantAutoTradePanel({ account, stockCode, stockName, onUpdate, o
     );
   }
 
+  const runMode = account.runMode || 'realtime';
+  const tradingActive = isTradingTime(runMode);
+
   const handleToggleAutoTrade = () => {
-    if (!isTradingTime()) {
-      onToast('warning', '当前非交易时段，自动交易已暂停');
+    if (!tradingActive) {
+      onToast('warning', runMode === 'backtest' ? '回测模式不受交易时间限制' : '当前非交易时段，自动交易已暂停');
       return;
     }
     setIsRunning(!isRunning);
@@ -108,6 +111,14 @@ export function QuantAutoTradePanel({ account, stockCode, stockName, onUpdate, o
           <span className="text-gray-200">{strategy.name}</span>
         </div>
         <div className="flex items-center justify-between text-xs">
+          <span className="text-gray-500">运行模式</span>
+          <span className={`px-1.5 py-0.5 rounded text-[10px] ${
+            account.runMode === 'backtest' ? 'bg-blue-500/20 text-blue-400' : 'bg-red-500/20 text-red-400'
+          }`}>
+            {account.runMode === 'backtest' ? '📊 历史回测' : '🔴 实时验证'}
+          </span>
+        </div>
+        <div className="flex items-center justify-between text-xs">
           <span className="text-gray-500">跟踪股票</span>
           <span className="text-gray-200">{account.trackingList.length}只</span>
         </div>
@@ -117,8 +128,8 @@ export function QuantAutoTradePanel({ account, stockCode, stockName, onUpdate, o
         </div>
         <div className="flex items-center justify-between text-xs">
           <span className="text-gray-500">交易时段</span>
-          <span className={isTradingTime() ? 'text-green-400' : 'text-gray-500'}>
-            {isTradingTime() ? '交易中' : '已休市'}
+          <span className={isTradingTime(runMode) ? 'text-green-400' : 'text-gray-500'}>
+            {isTradingTime(runMode) ? '交易中' : '已休市'}
           </span>
         </div>
       </div>
