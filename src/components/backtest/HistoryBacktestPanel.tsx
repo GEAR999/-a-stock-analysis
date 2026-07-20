@@ -26,10 +26,11 @@ const STRATEGY_OPTIONS: { value: StrategyType; label: string; group: string }[] 
 ];
 
 const TIME_RANGES = [
-  { label: "近3月", days: 63 },
-  { label: "近6月", days: 126 },
-  { label: "近1年", days: 252 },
-  { label: "近3年", days: 756 },
+  { label: "近1月", days: 20 },
+  { label: "近3月", days: 60 },
+  { label: "近6月", days: 120 },
+  { label: "近1年", days: 240 },
+  { label: "近2年", days: 480 },
   { label: "全部", days: 0 },
 ];
 
@@ -59,7 +60,13 @@ export function HistoryBacktestPanel() {
 
   // 回测状态
   const [isRunning, setIsRunning] = useState(false);
-  const [progress, setProgress] = useState({ current: 0, total: 0, currentStock: "" });
+  const [progress, setProgress] = useState({
+    currentIndex: 0,
+    total: 0,
+    currentStockCode: "",
+    currentStockName: "",
+    isComplete: false,
+  });
   const [results, setResults] = useState<BacktestResultItem[]>([]);
   const [activeResultIndex, setActiveResultIndex] = useState(0);
 
@@ -190,13 +197,25 @@ export function HistoryBacktestPanel() {
 
     setIsRunning(true);
     setResults([]);
-    setProgress({ current: 0, total: stockList.length, currentStock: "" });
+    setProgress({
+      currentIndex: 0,
+      total: stockList.length,
+      currentStockCode: stockList[0].code,
+      currentStockName: stockList[0].name,
+      isComplete: false,
+    });
 
     const newResults: BacktestResultItem[] = [];
 
     for (let i = 0; i < stockList.length; i++) {
       const stock = stockList[i];
-      setProgress({ current: i + 1, total: stockList.length, currentStock: stock.name });
+      setProgress({
+        currentIndex: i + 1,
+        total: stockList.length,
+        currentStockCode: stock.code,
+        currentStockName: stock.name,
+        isComplete: false,
+      });
 
       // 使用 setTimeout 避免阻塞UI
       await new Promise<void>((resolve) => {
@@ -232,7 +251,18 @@ export function HistoryBacktestPanel() {
     setResults(newResults);
     setActiveResultIndex(0);
     setIsRunning(false);
-    setProgress({ current: 0, total: 0, currentStock: "" });
+    setProgress({
+      currentIndex: stockList.length,
+      total: stockList.length,
+      currentStockCode: "",
+      currentStockName: "",
+      isComplete: true,
+    });
+
+    // 3秒后自动隐藏完成提示
+    setTimeout(() => {
+      setProgress(prev => ({ ...prev, isComplete: false }));
+    }, 3000);
   }, [stockList, strategies, timeRange, initialCapital]);
 
   // 导出CSV
@@ -399,19 +429,19 @@ export function HistoryBacktestPanel() {
           </div>
         </div>
 
-        {/* 时间范围和初始资金 */}
+        {/* 回测周期和初始资金 */}
         <div className="flex gap-3 items-end">
           <div className="flex-1">
-            <div className="text-[10px] text-[var(--text-secondary)] mb-1">时间范围</div>
-            <div className="flex gap-1">
+            <div className="text-[10px] text-[var(--text-secondary)] mb-1">回测周期</div>
+            <div className="flex gap-1 flex-wrap">
               {TIME_RANGES.map(tr => (
                 <button
                   key={tr.days}
                   onClick={() => setTimeRange(tr.days)}
                   className={`px-2 py-1 text-[10px] rounded transition-colors ${
                     timeRange === tr.days
-                      ? "bg-[var(--accent-blue)]/20 text-[var(--accent-blue)]"
-                      : "bg-[var(--bg-card)]/50 text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                      ? "bg-[var(--accent-blue)]/20 text-[var(--accent-blue)] border border-[var(--accent-blue)]/30"
+                      : "bg-[var(--bg-card)]/50 text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-transparent"
                   }`}
                 >
                   {tr.label}
@@ -430,6 +460,38 @@ export function HistoryBacktestPanel() {
           </div>
         </div>
 
+        {/* 回测进度指示器 */}
+        {(isRunning || progress.isComplete) && (
+          <div className="bg-[var(--bg-card)]/30 rounded p-2 space-y-1.5">
+            <div className="flex items-center justify-between text-[10px]">
+              <span className="text-[var(--text-secondary)]">
+                {progress.isComplete ? (
+                  <span className="text-[var(--accent-green)]">✓ 回测完成</span>
+                ) : (
+                  <span>正在回测: {progress.currentStockCode} {progress.currentStockName} [{progress.currentIndex}/{progress.total}]</span>
+                )}
+              </span>
+              {!progress.isComplete && (
+                <span className="text-[var(--accent-blue)] font-mono">
+                  {Math.round((progress.currentIndex / progress.total) * 100)}%
+                </span>
+              )}
+            </div>
+            <div className="h-1.5 bg-[var(--bg-primary)]/50 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-300 ${
+                  progress.isComplete
+                    ? "bg-[var(--accent-green)]"
+                    : "bg-[var(--accent-blue)]"
+                }`}
+                style={{
+                  width: `${progress.total > 0 ? (progress.currentIndex / progress.total) * 100 : 0}%`,
+                }}
+              />
+            </div>
+          </div>
+        )}
+
         {/* 运行按钮 */}
         <button
           onClick={handleRunBacktest}
@@ -445,9 +507,7 @@ export function HistoryBacktestPanel() {
           {isRunning ? (
             <>
               <div className="w-3 h-3 border-2 border-[var(--text-muted)] border-t-transparent rounded-full animate-spin" />
-              {progress.total > 0
-                ? `回测中... ${progress.currentStock} (${progress.current}/${progress.total})`
-                : "回测中..."}
+              回测中...
             </>
           ) : (
             <>
