@@ -798,6 +798,62 @@ export function BacktestPanel({ externalAddStock }: { externalAddStock?: { code:
         )}
       </div>
 
+      {/* 量化账户策略配置区域 */}
+      {account?.type === 'quant' && (
+        <div className="border-b border-gray-800 p-2 bg-[#0f1419]">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold text-purple-400">📊 量化策略</span>
+              <span className="text-[9px] text-gray-500">{strategyWeights.filter(s => s.enabled).length}个已启用</span>
+            </div>
+            <button
+              onClick={() => setActiveTab('settings')}
+              className="text-[9px] text-blue-400 hover:text-blue-300"
+            >
+              配置策略 →
+            </button>
+          </div>
+          
+          {strategyWeights.filter(s => s.enabled).length === 0 ? (
+            <div className="text-center py-2">
+              <p className="text-[9px] text-gray-500 mb-2">暂未配置策略</p>
+              <button
+                onClick={() => setActiveTab('settings')}
+                className="px-2 py-1 text-[9px] bg-purple-500/20 text-purple-400 rounded hover:bg-purple-500/30"
+              >
+                添加策略
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {strategyWeights.filter(s => s.enabled).map((sw) => (
+                <div key={sw.strategyId} className="flex items-center justify-between bg-[#111827] rounded px-2 py-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[9px] text-gray-300">{sw.strategyName}</span>
+                    <span className="text-[8px] text-gray-500">权重{sw.weight}%</span>
+                  </div>
+                  <span className={`text-[8px] ${sw.confidence >= 70 ? 'text-green-400' : sw.confidence >= 50 ? 'text-yellow-400' : 'text-gray-500'}`}>
+                    置信度{sw.confidence}%
+                  </span>
+                </div>
+              ))}
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-[8px] text-gray-500">交易阈值: {tradeThreshold}分</span>
+                <button
+                  onClick={() => {
+                    // 模拟运行策略
+                    addToast('info', '策略运行中 - 正在根据实时价格和策略信号进行分析...');
+                  }}
+                  className="px-2 py-0.5 text-[9px] bg-green-500/20 text-green-400 rounded hover:bg-green-500/30"
+                >
+                  ▶ 运行策略
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Tab切换 */}
       <div className="flex border-b border-gray-800 flex-shrink-0">
         {tabs.map((tab) => (
