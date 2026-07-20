@@ -52,15 +52,15 @@ export function ManualTradePanel({ account, stockCode, stockName, currentPrice, 
   };
 
   return (
-    <div className="bg-[#111827] rounded border border-gray-800 p-4">
+    <div className="bg-[var(--bg-panel)] rounded border border-[var(--border-default)] p-4">
       <div className="flex items-center gap-2 mb-3">
-        <ShoppingCart className="w-4 h-4 text-blue-400" />
-        <span className="text-sm font-medium text-gray-200">手动交易</span>
+        <ShoppingCart className="w-4 h-4 text-[var(--accent-blue)]" />
+        <span className="text-sm font-medium text-[var(--text-primary)]">手动交易</span>
       </div>
       <div className="grid grid-cols-2 gap-4">
         {/* 买入 */}
         <div className="space-y-2">
-          <div className="flex items-center gap-1 text-xs text-red-400">
+          <div className="flex items-center gap-1 text-xs text-[var(--accent-red)]">
             <TrendingUp className="w-3 h-3" />
             <span>买入</span>
           </div>
@@ -69,31 +69,31 @@ export function ManualTradePanel({ account, stockCode, stockName, currentPrice, 
               type="number"
               value={buyPrice}
               onChange={(e) => setBuyPrice(Number(e.target.value))}
-              className="flex-1 px-2 py-1 text-xs bg-gray-800/50 border border-gray-700 rounded text-gray-200"
+              className="flex-1 px-2 py-1 text-xs bg-[var(--bg-card)]/50 border border-[var(--border-default)] rounded text-[var(--text-primary)]"
               placeholder="价格"
             />
             <input
               type="number"
               value={buyQty}
               onChange={(e) => setBuyQty(Number(e.target.value))}
-              className="w-20 px-2 py-1 text-xs bg-gray-800/50 border border-gray-700 rounded text-gray-200"
+              className="w-20 px-2 py-1 text-xs bg-[var(--bg-card)]/50 border border-[var(--border-default)] rounded text-[var(--text-primary)]"
               placeholder="数量"
             />
           </div>
-          <div className="text-[10px] text-gray-500">
+          <div className="text-[10px] text-[var(--text-secondary)]">
             需要：{formatMoney(buyPrice * buyQty)}
           </div>
           <button
             onClick={handleBuy}
             disabled={!canBuyResult.can}
-            className="w-full px-3 py-1.5 text-xs font-medium rounded bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="w-full px-3 py-1.5 text-xs font-medium rounded bg-red-500/20 text-[var(--accent-red)] border border-red-500/30 hover:bg-red-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             买入 {stockName}
           </button>
         </div>
         {/* 卖出 */}
         <div className="space-y-2">
-          <div className="flex items-center gap-1 text-xs text-green-400">
+          <div className="flex items-center gap-1 text-xs text-[var(--accent-green)]">
             <TrendingDown className="w-3 h-3" />
             <span>卖出</span>
           </div>
@@ -102,24 +102,24 @@ export function ManualTradePanel({ account, stockCode, stockName, currentPrice, 
               type="number"
               value={sellPrice}
               onChange={(e) => setSellPrice(Number(e.target.value))}
-              className="flex-1 px-2 py-1 text-xs bg-gray-800/50 border border-gray-700 rounded text-gray-200"
+              className="flex-1 px-2 py-1 text-xs bg-[var(--bg-card)]/50 border border-[var(--border-default)] rounded text-[var(--text-primary)]"
               placeholder="价格"
             />
             <input
               type="number"
               value={sellQty}
               onChange={(e) => setSellQty(Number(e.target.value))}
-              className="w-20 px-2 py-1 text-xs bg-gray-800/50 border border-gray-700 rounded text-gray-200"
+              className="w-20 px-2 py-1 text-xs bg-[var(--bg-card)]/50 border border-[var(--border-default)] rounded text-[var(--text-primary)]"
               placeholder="数量"
             />
           </div>
-          <div className="text-[10px] text-gray-500">
+          <div className="text-[10px] text-[var(--text-secondary)]">
             持仓：{position ? `${position.quantity}股` : '0股'}
           </div>
           <button
             onClick={handleSell}
             disabled={!position || position.quantity === 0}
-            className="w-full px-3 py-1.5 text-xs font-medium rounded bg-green-500/20 text-green-400 border border-green-500/30 hover:bg-green-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="w-full px-3 py-1.5 text-xs font-medium rounded bg-green-500/20 text-[var(--accent-green)] border border-green-500/30 hover:bg-green-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             卖出 {stockName}
           </button>

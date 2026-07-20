@@ -57,14 +57,14 @@ export function SignalSummaryBar() {
   const consistency = consistencyConfig[summary.consistency];
 
   return (
-    <div className="bg-[#111827] border-b border-[#1e293b]">
+    <div className="bg-[var(--bg-panel)] border-b border-[var(--border-default)]">
       {/* 摘要行 */}
       <div
-        className="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-[#1a2332] transition-colors"
+        className="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-[var(--bg-primary)] transition-colors"
         onClick={() => setExpanded(!expanded)}
       >
         <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-[#e2e8f0]">信号总览</span>
+          <span className="text-xs font-medium text-[var(--text-primary)]">信号总览</span>
           <span className="text-xs" style={{ color: consistency.color }}>
             {consistency.icon} {consistency.text}
           </span>
@@ -73,23 +73,23 @@ export function SignalSummaryBar() {
           {analysisSettings.chanlun && (
             <div className="flex items-center gap-1">
               <span className="text-xs">{getSignalIcon(summary.chanlun.signal)}</span>
-              <span className="text-[10px] text-[#94a3b8]">缠论</span>
+              <span className="text-[10px] text-[var(--text-secondary)]">缠论</span>
             </div>
           )}
           {analysisSettings.wave && (
             <div className="flex items-center gap-1">
               <span className="text-xs">{getSignalIcon(summary.wave.signal)}</span>
-              <span className="text-[10px] text-[#94a3b8]">波浪</span>
+              <span className="text-[10px] text-[var(--text-secondary)]">波浪</span>
             </div>
           )}
           {analysisSettings.technical && (
             <div className="flex items-center gap-1">
               <span className="text-xs">{getSignalIcon(summary.technical.signal)}</span>
-              <span className="text-[10px] text-[#94a3b8]">技术</span>
+              <span className="text-[10px] text-[var(--text-secondary)]">技术</span>
             </div>
           )}
           <svg
-            className={`w-3 h-3 text-[#94a3b8] transition-transform ${expanded ? 'rotate-180' : ''}`}
+            className={`w-3 h-3 text-[var(--text-secondary)] transition-transform ${expanded ? 'rotate-180' : ''}`}
             fill="none" stroke="currentColor" viewBox="0 0 24 24"
           >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -99,12 +99,12 @@ export function SignalSummaryBar() {
 
       {/* 展开详情 */}
       {expanded && (
-        <div className="px-3 pb-2 space-y-1 border-t border-[#1e293b] pt-2">
+        <div className="px-3 pb-2 space-y-1 border-t border-[var(--border-default)] pt-2">
           {analysisSettings.chanlun && (
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-purple-500" />
-                <span className="text-xs text-[#e2e8f0]">缠论</span>
+                <span className="text-xs text-[var(--text-primary)]">缠论</span>
               </div>
               <div className="flex items-center gap-2">
                 <span
@@ -113,7 +113,7 @@ export function SignalSummaryBar() {
                 >
                   {getSignalText(summary.chanlun.signal)}
                 </span>
-                <span className="text-[10px] text-[#94a3b8] max-w-[180px] truncate">{summary.chanlun.text}</span>
+                <span className="text-[10px] text-[var(--text-secondary)] max-w-[180px] truncate">{summary.chanlun.text}</span>
               </div>
             </div>
           )}
@@ -121,7 +121,7 @@ export function SignalSummaryBar() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-blue-500" />
-                <span className="text-xs text-[#e2e8f0]">波浪</span>
+                <span className="text-xs text-[var(--text-primary)]">波浪</span>
               </div>
               <div className="flex items-center gap-2">
                 <span
@@ -130,7 +130,7 @@ export function SignalSummaryBar() {
                 >
                   {getSignalText(summary.wave.signal)}
                 </span>
-                <span className="text-[10px] text-[#94a3b8] max-w-[180px] truncate">{summary.wave.text}</span>
+                <span className="text-[10px] text-[var(--text-secondary)] max-w-[180px] truncate">{summary.wave.text}</span>
               </div>
             </div>
           )}
@@ -138,7 +138,7 @@ export function SignalSummaryBar() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                <span className="text-xs text-[#e2e8f0]">技术</span>
+                <span className="text-xs text-[var(--text-primary)]">技术</span>
               </div>
               <div className="flex items-center gap-2">
                 <span
@@ -147,12 +147,12 @@ export function SignalSummaryBar() {
                 >
                   {getSignalText(summary.technical.signal)}
                 </span>
-                <span className="text-[10px] text-[#94a3b8] max-w-[180px] truncate">{summary.technical.text}</span>
+                <span className="text-[10px] text-[var(--text-secondary)] max-w-[180px] truncate">{summary.technical.text}</span>
               </div>
             </div>
           )}
           {/* 一致性说明 */}
-          <div className="pt-1 border-t border-[#1e293b]">
+          <div className="pt-1 border-t border-[var(--border-default)]">
             <div className="flex items-center gap-2">
               <span style={{ color: consistency.color }}>{consistency.icon}</span>
               <span className="text-[10px]" style={{ color: consistency.color }}>
@@ -163,7 +163,7 @@ export function SignalSummaryBar() {
             </div>
           </div>
           {/* 时间戳 */}
-          <div className="text-[9px] text-[#64748b]">
+          <div className="text-[9px] text-[var(--text-muted)]">
             基于 {klineData[klineData.length - 1]?.date || ''} 数据
           </div>
         </div>

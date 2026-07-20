@@ -34,19 +34,19 @@ export function AnalysisTooltip({ data, children }: AnalysisTooltipProps) {
     <TooltipProvider delayDuration={200}>
       <Tooltip>
         <TooltipTrigger asChild>
-          <span className="cursor-help border-b border-dashed border-[#94a3b8]/50 hover:border-[#e2e8f0] transition-colors">
+          <span className="cursor-help border-b border-dashed border-[var(--text-secondary)]/50 hover:border-[var(--text-primary)] transition-colors">
             {children}
           </span>
         </TooltipTrigger>
         <TooltipContent
           side="right"
           align="start"
-          className="max-w-[360px] bg-[#0f0f1a] border border-[#1e293b] shadow-xl p-0"
+          className="max-w-[360px] bg-[var(--bg-primary)] border border-[var(--border-default)] shadow-xl p-0"
         >
           <div className="p-3 space-y-2">
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-[#1e293b] pb-2">
-              <span className="text-sm font-medium text-[#e2e8f0]">{data.name}</span>
+            <div className="flex items-center justify-between border-b border-[var(--border-default)] pb-2">
+              <span className="text-sm font-medium text-[var(--text-primary)]">{data.name}</span>
               <span
                 className="text-[10px] px-1.5 py-0.5 rounded"
                 style={{
@@ -60,28 +60,28 @@ export function AnalysisTooltip({ data, children }: AnalysisTooltipProps) {
 
             {/* Conclusion */}
             <div>
-              <div className="text-[10px] text-[#94a3b8] mb-0.5">当前结论</div>
-              <div className="text-xs text-[#e2e8f0] leading-relaxed">{data.conclusion}</div>
+              <div className="text-[10px] text-[var(--text-secondary)] mb-0.5">当前结论</div>
+              <div className="text-xs text-[var(--text-primary)] leading-relaxed">{data.conclusion}</div>
             </div>
 
             {/* Current Value */}
             {data.currentValue && (
               <div>
-                <div className="text-[10px] text-[#94a3b8] mb-0.5">当前值</div>
-                <div className="text-xs text-[#4ade80] font-mono-num">{data.currentValue}</div>
+                <div className="text-[10px] text-[var(--text-secondary)] mb-0.5">当前值</div>
+                <div className="text-xs text-[var(--accent-green)] font-mono-num">{data.currentValue}</div>
               </div>
             )}
 
             {/* Basis */}
             <div>
-              <div className="text-[10px] text-[#94a3b8] mb-0.5">分析依据</div>
-              <div className="text-[11px] text-[#94a3b8] leading-relaxed">{data.basis}</div>
+              <div className="text-[10px] text-[var(--text-secondary)] mb-0.5">分析依据</div>
+              <div className="text-[11px] text-[var(--text-secondary)] leading-relaxed">{data.basis}</div>
             </div>
 
             {/* Explanation */}
-            <div className="pt-1 border-t border-[#1e293b]">
-              <div className="text-[10px] text-[#94a3b8] mb-0.5">简单解释</div>
-              <div className="text-[11px] text-[#e2e8f0]/80 leading-relaxed italic">
+            <div className="pt-1 border-t border-[var(--border-default)]">
+              <div className="text-[10px] text-[var(--text-secondary)] mb-0.5">简单解释</div>
+              <div className="text-[11px] text-[var(--text-primary)]/80 leading-relaxed italic">
                 {data.explanation}
               </div>
             </div>

@@ -538,7 +538,7 @@ export function KLineChart() {
 
   if (!selectedStock) {
     return (
-      <div className="flex-1 flex items-center justify-center text-[#94a3b8] text-sm">
+      <div className="flex-1 flex items-center justify-center text-[var(--text-secondary)] text-sm">
         请搜索并选择一只股票开始分析
       </div>
     );
@@ -547,11 +547,11 @@ export function KLineChart() {
   return (
     <div className="flex-1 flex flex-col min-h-0 relative">
       {/* Period selector */}
-      <div className="flex items-center gap-1 px-3 py-2 border-b border-[#1e293b]">
+      <div className="flex items-center gap-1 px-3 py-2 border-b border-[var(--border-default)]">
         <button
           onClick={handleRefresh}
           disabled={loading}
-          className="px-2 py-0.5 text-xs text-gray-400 hover:text-white disabled:opacity-50 transition-colors"
+          className="px-2 py-0.5 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-50 transition-colors"
           title="刷新数据"
         >
           {loading ? '⏳' : '🔄'}
@@ -562,21 +562,21 @@ export function KLineChart() {
             onClick={() => setKlinePeriod(p.key as typeof klinePeriod)}
             className={`px-2 py-0.5 text-xs rounded transition-colors ${
               klinePeriod === p.key
-                ? 'bg-[#3b82f6] text-white'
-                : 'text-[#94a3b8] hover:text-[#e2e8f0] hover:bg-[#1e293b]'
+                ? 'bg-[var(--accent-blue)] text-[var(--text-primary)]'
+                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'
             }`}
           >
             {p.label}
           </button>
         ))}
-        <div className="ml-auto flex items-center gap-3 text-xs text-[#94a3b8]">
+        <div className="ml-auto flex items-center gap-3 text-xs text-[var(--text-secondary)]">
           {analysisSettings.ma && analysisSettings.maPeriods.map(p => {
             const colors: Record<number, string> = { 5: '#f59e0b', 10: '#3b82f6', 20: '#a855f7', 60: '#22c55e', 120: '#ef4444', 250: '#94a3b8' };
             return <span key={p} style={{ color: colors[p] }}>MA{p}</span>;
           })}
           <button
             onClick={() => setShowLegend(!showLegend)}
-            className={`px-1.5 py-0.5 rounded text-[10px] transition-colors ${showLegend ? 'bg-[#3b82f6] text-white' : 'text-[#94a3b8] hover:text-[#e2e8f0] hover:bg-[#1e293b]'}`}
+            className={`px-1.5 py-0.5 rounded text-[10px] transition-colors ${showLegend ? 'bg-[var(--accent-blue)] text-[var(--text-primary)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'}`}
           >
             图例
           </button>
@@ -585,14 +585,14 @@ export function KLineChart() {
               type="checkbox"
               checked={showAnnotations}
               onChange={(e) => setShowAnnotations(e.target.checked)}
-              className="w-3 h-3 rounded border-gray-600 bg-gray-800 text-blue-500 focus:ring-0 focus:ring-offset-0 accent-blue-500"
+              className="w-3 h-3 rounded border-[var(--border-default)] bg-[var(--bg-card)] text-[var(--accent-blue)] focus:ring-0 focus:ring-offset-0 accent-[var(--accent-blue)]"
             />
-            <span className="text-[10px] text-[#94a3b8]">标注</span>
+            <span className="text-[10px] text-[var(--text-secondary)]">标注</span>
           </label>
           <button
             onClick={handleRefresh}
             disabled={loading}
-            className="px-1.5 py-0.5 rounded text-[10px] text-[#94a3b8] hover:text-[#e2e8f0] hover:bg-[#1e293b] transition-colors disabled:opacity-50"
+            className="px-1.5 py-0.5 rounded text-[10px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors disabled:opacity-50"
             title="刷新数据"
           >
             {loading ? '⏳' : '🔄'}
@@ -602,8 +602,8 @@ export function KLineChart() {
 
       {/* Legend overlay */}
       {showLegend && (
-        <div className="absolute top-12 right-3 z-20 bg-[#111827] border border-[#1e293b] rounded p-3 text-xs shadow-lg max-w-xs">
-          <div className="text-[#94a3b8] font-medium mb-2 text-[10px] uppercase tracking-wider">标注图例说明</div>
+        <div className="absolute top-12 right-3 z-20 bg-[var(--bg-panel)] border border-[var(--border-default)] rounded p-3 text-xs shadow-lg max-w-xs">
+          <div className="text-[var(--text-secondary)] font-medium mb-2 text-[10px] uppercase tracking-wider">标注图例说明</div>
           <div className="space-y-2">
             {analysisSettings.chanlun && (
               <div>
@@ -611,23 +611,23 @@ export function KLineChart() {
                 <div className="space-y-0.5 text-[10px] pl-2">
                   <div className="flex items-center gap-2">
                     <span className="w-3 h-0.5 bg-[#ef4444] inline-block" />
-                    <span className="text-[#e2e8f0]">红色线 = 上升笔（低点→高点）</span>
+                    <span className="text-[var(--text-primary)]">红色线 = 上升笔（低点→高点）</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="w-3 h-0.5 bg-[#22c55e] inline-block" />
-                    <span className="text-[#e2e8f0]">绿色线 = 下降笔（高点→低点）</span>
+                    <span className="text-[var(--text-primary)]">绿色线 = 下降笔（高点→低点）</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="w-3 h-2 bg-[#3b82f6]/20 border border-[#3b82f6] inline-block" />
-                    <span className="text-[#e2e8f0]">蓝色区域 = 中枢（三笔重叠区间）</span>
+                    <span className="w-3 h-2 bg-[var(--accent-blue)]/20 border border-[#3b82f6] inline-block" />
+                    <span className="text-[var(--text-primary)]">蓝色区域 = 中枢（三笔重叠区间）</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-[#ef4444]">▲</span>
-                    <span className="text-[#e2e8f0]">红色三角+B = 买点（B1一买/B2二买/B3三买）</span>
+                    <span className="text-[var(--text-primary)]">红色三角+B = 买点（B1一买/B2二买/B3三买）</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-[#22c55e]">▼</span>
-                    <span className="text-[#e2e8f0]">绿色三角+S = 卖点（S1一卖/S2二卖/S3三卖）</span>
+                    <span className="text-[var(--text-primary)]">绿色三角+S = 卖点（S1一卖/S2二卖/S3三卖）</span>
                   </div>
                 </div>
               </div>
@@ -638,13 +638,13 @@ export function KLineChart() {
                 <div className="space-y-0.5 text-[10px] pl-2">
                   <div className="flex items-center gap-2">
                     <span className="text-[#a855f7] font-bold">1-5</span>
-                    <span className="text-[#e2e8f0]">推动浪（5浪结构，1/3/5顺势，2/4回调）</span>
+                    <span className="text-[var(--text-primary)]">推动浪（5浪结构，1/3/5顺势，2/4回调）</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-[#f59e0b] font-bold">A-C</span>
-                    <span className="text-[#e2e8f0]">调整浪（3浪结构，A/C顺势，B反弹）</span>
+                    <span className="text-[var(--text-primary)]">调整浪（3浪结构，A/C顺势，B反弹）</span>
                   </div>
-                  <div className="text-[#94a3b8] text-[9px] mt-0.5">浪型标注在每段波动的中点位置</div>
+                  <div className="text-[var(--text-secondary)] text-[9px] mt-0.5">浪型标注在每段波动的中点位置</div>
                 </div>
               </div>
             )}
@@ -653,8 +653,8 @@ export function KLineChart() {
                 <div className="text-[#3b82f6] font-medium mb-1">布林带 (BOLL)</div>
                 <div className="space-y-0.5 text-[10px] pl-2">
                   <div className="flex items-center gap-2">
-                    <span className="w-3 h-0.5 bg-[#3b82f6] inline-block" style={{ borderStyle: 'dashed' }} />
-                    <span className="text-[#e2e8f0]">上轨/中轨/下轨 = 价格波动通道</span>
+                    <span className="w-3 h-0.5 bg-[var(--accent-blue)] inline-block" style={{ borderStyle: 'dashed' }} />
+                    <span className="text-[var(--text-primary)]">上轨/中轨/下轨 = 价格波动通道</span>
                   </div>
                 </div>
               </div>
@@ -665,21 +665,21 @@ export function KLineChart() {
                 <div className="space-y-0.5 text-[10px] pl-2">
                   <div className="flex items-center gap-2">
                     <span className="w-3 h-0.5 bg-[#f59e0b] inline-block" />
-                    <span className="text-[#e2e8f0]">MA5/MA10 = 短期趋势</span>
+                    <span className="text-[var(--text-primary)]">MA5/MA10 = 短期趋势</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="w-3 h-0.5 bg-[#3b82f6] inline-block" />
-                    <span className="text-[#e2e8f0]">MA20/MA60 = 中期趋势</span>
+                    <span className="w-3 h-0.5 bg-[var(--accent-blue)] inline-block" />
+                    <span className="text-[var(--text-primary)]">MA20/MA60 = 中期趋势</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="w-3 h-0.5 bg-[#94a3b8] inline-block" />
-                    <span className="text-[#e2e8f0]">MA120/MA250 = 长期趋势（半年线/年线）</span>
+                    <span className="text-[var(--text-primary)]">MA120/MA250 = 长期趋势（半年线/年线）</span>
                   </div>
                 </div>
               </div>
             )}
             {!analysisSettings.chanlun && !analysisSettings.wave && !analysisSettings.boll && !analysisSettings.ma && (
-              <div className="text-[#94a3b8] text-[10px]">暂无开启的分析指标，请在右侧面板开启</div>
+              <div className="text-[var(--text-secondary)] text-[10px]">暂无开启的分析指标，请在右侧面板开启</div>
             )}
           </div>
         </div>
@@ -693,7 +693,7 @@ export function KLineChart() {
         {hoveredData && (
           <div className="absolute top-2 left-16 z-10 pointer-events-none">
             <div className="flex items-center gap-3 text-[11px] font-mono">
-              <span className="text-[#94a3b8]">{hoveredData.date}</span>
+              <span className="text-[var(--text-secondary)]">{hoveredData.date}</span>
               <span>开:<span className={hoveredData.close >= hoveredData.open ? 'text-[#ef4444]' : 'text-[#22c55e]'}>{hoveredData.open.toFixed(2)}</span></span>
               <span>高:<span className="text-[#ef4444]">{hoveredData.high.toFixed(2)}</span></span>
               <span>低:<span className="text-[#22c55e]">{hoveredData.low.toFixed(2)}</span></span>
@@ -701,18 +701,18 @@ export function KLineChart() {
               <span className={hoveredData.change >= 0 ? 'text-[#ef4444]' : 'text-[#22c55e]'}>
                 {hoveredData.change >= 0 ? '+' : ''}{hoveredData.change.toFixed(2)} ({hoveredData.changePercent >= 0 ? '+' : ''}{hoveredData.changePercent.toFixed(2)}%)
               </span>
-              <span className="text-[#94a3b8]">量:{(hoveredData.volume / 10000).toFixed(1)}万</span>
+              <span className="text-[var(--text-secondary)]">量:{(hoveredData.volume / 10000).toFixed(1)}万</span>
             </div>
           </div>
         )}
 
         {/* Zoom indicator (bottom-right) */}
         <div className="absolute bottom-8 right-10 z-10 flex items-center gap-2">
-          <span className="text-[10px] text-[#94a3b8] font-mono">{zoomLevel}%</span>
+          <span className="text-[10px] text-[var(--text-secondary)] font-mono">{zoomLevel}%</span>
           {zoomLevel < 100 && (
             <button
               onClick={handleResetView}
-              className="px-1.5 py-0.5 text-[10px] text-[#94a3b8] hover:text-white bg-[#111827]/80 border border-[#1e293b] rounded transition-colors"
+              className="px-1.5 py-0.5 text-[10px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] bg-[var(--bg-panel)]/80 border border-[var(--border-default)] rounded transition-colors"
               title="重置视图"
             >
               重置

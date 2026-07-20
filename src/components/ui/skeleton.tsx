@@ -17,7 +17,7 @@ function SkeletonShimmer({ className, ...props }: React.ComponentProps<"div">) {
       data-slot="skeleton-shimmer"
       className={cn(
         "relative overflow-hidden rounded",
-        "bg-[#1a1f2e]",
+        "bg-[var(--bg-panel)]",
         "before:absolute before:inset-0 before:-translate-x-full",
         "before:animate-[shimmer_1.5s_infinite]",
         "before:bg-gradient-to-r before:from-transparent before:via-[#252b3b] before:to-transparent",

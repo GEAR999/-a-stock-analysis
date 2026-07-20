@@ -73,7 +73,7 @@ export function Sidebar() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 rounded bg-[var(--accent-blue)] flex items-center justify-center shrink-0">
-              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 text-[var(--text-primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
               </svg>
             </div>
@@ -87,7 +87,7 @@ export function Sidebar() {
             <button
               onClick={() => setView('stocks')}
               className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
-                view === 'stocks' ? 'bg-[var(--accent-blue)] text-white' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                view === 'stocks' ? 'bg-[var(--accent-blue)] text-[var(--text-primary)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
               }`}
             >
               自选股
@@ -95,7 +95,7 @@ export function Sidebar() {
             <button
               onClick={() => setView('dashboard')}
               className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
-                view === 'dashboard' ? 'bg-[var(--accent-blue)] text-white' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                view === 'dashboard' ? 'bg-[var(--accent-blue)] text-[var(--text-primary)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
               }`}
             >
               仪表盘
@@ -103,7 +103,7 @@ export function Sidebar() {
             <button
               onClick={() => setView('learning')}
               className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
-                view === 'learning' ? 'bg-[var(--accent-blue)] text-white' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                view === 'learning' ? 'bg-[var(--accent-blue)] text-[var(--text-primary)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
               }`}
             >
               学习
@@ -118,7 +118,7 @@ export function Sidebar() {
           <button
             onClick={() => setView('stocks')}
             className={`w-10 h-10 rounded flex items-center justify-center transition-colors ${
-              view === 'stocks' ? 'bg-[var(--accent-blue)] text-white' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-card)] hover:text-[var(--text-primary)]'
+              view === 'stocks' ? 'bg-[var(--accent-blue)] text-[var(--text-primary)]' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-card)] hover:text-[var(--text-primary)]'
             }`}
             title="自选股"
           >
@@ -129,7 +129,7 @@ export function Sidebar() {
           <button
             onClick={() => setView('dashboard')}
             className={`w-10 h-10 rounded flex items-center justify-center transition-colors ${
-              view === 'dashboard' ? 'bg-[var(--accent-blue)] text-white' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-card)] hover:text-[var(--text-primary)]'
+              view === 'dashboard' ? 'bg-[var(--accent-blue)] text-[var(--text-primary)]' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-card)] hover:text-[var(--text-primary)]'
             }`}
             title="仪表盘"
           >
@@ -140,7 +140,7 @@ export function Sidebar() {
           <button
             onClick={() => setView('learning')}
             className={`w-10 h-10 rounded flex items-center justify-center transition-colors ${
-              view === 'learning' ? 'bg-[var(--accent-blue)] text-white' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-card)] hover:text-[var(--text-primary)]'
+              view === 'learning' ? 'bg-[var(--accent-blue)] text-[var(--text-primary)]' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-card)] hover:text-[var(--text-primary)]'
             }`}
             title="学习中心"
           >
@@ -149,8 +149,8 @@ export function Sidebar() {
             </svg>
           </button>
           <div className="w-8 h-px bg-[var(--bg-card)] my-2" />
-          <div className={`w-10 h-10 rounded flex items-center justify-center ${isMonitoring ? 'text-[#22c55e]' : 'text-[var(--text-secondary)]'}`} title={isMonitoring ? '监控中' : '监控关闭'}>
-            <div className={`w-2 h-2 rounded-full ${isMonitoring ? 'bg-[#22c55e] animate-pulse' : 'bg-[#94a3b8]'}`} />
+          <div className={`w-10 h-10 rounded flex items-center justify-center ${isMonitoring ? 'text-[var(--accent-green)]' : 'text-[var(--text-secondary)]'}`} title={isMonitoring ? '监控中' : '监控关闭'}>
+            <div className={`w-2 h-2 rounded-full ${isMonitoring ? 'bg-[var(--accent-green)] animate-pulse' : 'bg-[var(--text-secondary)]'}`} />
           </div>
         </div>
       ) : (
@@ -164,7 +164,7 @@ export function Sidebar() {
           <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--border-default)]">
             <span className="text-xs text-[var(--text-secondary)]">实时监控</span>
             <div className="flex items-center gap-2">
-              <div className={`w-1.5 h-1.5 rounded-full ${isMonitoring ? 'bg-[#22c55e] animate-pulse' : 'bg-[#94a3b8]'}`} />
+              <div className={`w-1.5 h-1.5 rounded-full ${isMonitoring ? 'bg-[var(--accent-green)] animate-pulse' : 'bg-[var(--text-secondary)]'}`} />
               <Switch checked={isMonitoring} onCheckedChange={setIsMonitoring} />
             </div>
           </div>
@@ -256,8 +256,8 @@ function WatchListItem({ stock, groupColor }: { stock: { code: string; name: str
       </div>
       {currentQuote && selectedStock?.code === stock.code && (
         <span className={`text-xs font-mono-num ${
-          currentQuote.changePercent > 0 ? 'text-[#ef4444]' :
-          currentQuote.changePercent < 0 ? 'text-[#22c55e]' : 'text-[var(--text-secondary)]'
+          currentQuote.changePercent > 0 ? 'text-[var(--accent-red)]' :
+          currentQuote.changePercent < 0 ? 'text-[var(--accent-green)]' : 'text-[var(--text-secondary)]'
         }`}>
           {currentQuote.changePercent > 0 ? '+' : ''}{currentQuote.changePercent.toFixed(2)}%
         </span>
@@ -338,7 +338,7 @@ function DashboardView() {
           <select
             value={selectedAccountId}
             onChange={(e) => setSelectedAccountId(e.target.value)}
-            className="w-full bg-[var(--bg-card)] border border-[#374151] rounded px-2 py-1.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-blue)]"
+            className="w-full bg-[var(--bg-card)] border border-[var(--border-default)] rounded px-2 py-1.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-blue)]"
           >
             {accounts.map(acc => (
               <option key={acc.id} value={acc.id}>{acc.name}</option>
@@ -355,7 +355,7 @@ function DashboardView() {
             <div className="text-lg font-bold text-[var(--text-primary)] font-mono-num">
               ¥{marketValue.toLocaleString()}
             </div>
-            <div className={`text-sm font-mono-num ${totalPnl >= 0 ? 'text-[#ef4444]' : 'text-[#22c55e]'}`}>
+            <div className={`text-sm font-mono-num ${totalPnl >= 0 ? 'text-[var(--accent-red)]' : 'text-[var(--accent-green)]'}`}>
               {totalPnl >= 0 ? '+' : ''}¥{totalPnl.toLocaleString()}
             </div>
           </div>
@@ -366,7 +366,7 @@ function DashboardView() {
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <div className="text-xs text-[var(--text-secondary)]">累计收益</div>
-                <div className={`text-sm font-mono-num ${metrics.totalReturn >= 0 ? 'text-[#ef4444]' : 'text-[#22c55e]'}`}>
+                <div className={`text-sm font-mono-num ${metrics.totalReturn >= 0 ? 'text-[var(--accent-red)]' : 'text-[var(--accent-green)]'}`}>
                   {metrics.totalReturn >= 0 ? '+' : ''}{metrics.totalReturn.toFixed(2)}%
                 </div>
               </div>
@@ -378,7 +378,7 @@ function DashboardView() {
               </div>
               <div>
                 <div className="text-xs text-[var(--text-secondary)]">最大回撤</div>
-                <div className="text-sm font-mono-num text-[#f59e0b]">
+                <div className="text-sm font-mono-num text-[var(--accent-yellow)]">
                   {metrics.maxDrawdown.toFixed(2)}%
                 </div>
               </div>
@@ -405,10 +405,10 @@ function DashboardView() {
                   <div className="text-xs text-[var(--text-secondary)] font-mono-num">{p.stockCode}</div>
                 </div>
                 <div className="text-right">
-                  <div className={`text-xs font-mono-num ${p.pnl >= 0 ? 'text-[#ef4444]' : 'text-[#22c55e]'}`}>
+                  <div className={`text-xs font-mono-num ${p.pnl >= 0 ? 'text-[var(--accent-red)]' : 'text-[var(--accent-green)]'}`}>
                     {p.pnl >= 0 ? '+' : ''}¥{p.pnl.toFixed(0)}
                   </div>
-                  <div className={`text-xs font-mono-num ${p.pnlPercent >= 0 ? 'text-[#ef4444]' : 'text-[#22c55e]'}`}>
+                  <div className={`text-xs font-mono-num ${p.pnlPercent >= 0 ? 'text-[var(--accent-red)]' : 'text-[var(--accent-green)]'}`}>
                     {p.pnlPercent >= 0 ? '+' : ''}{p.pnlPercent.toFixed(2)}%
                   </div>
                 </div>
@@ -429,15 +429,15 @@ function DashboardView() {
       {selectedAccount && (
         <div className="bg-[var(--bg-panel)] rounded p-3 border border-[var(--border-default)]">
           <div className="flex items-center gap-2 mb-2">
-            <div className={`w-2 h-2 rounded-full ${marketValue / (selectedAccount.initialCapital || 1) > 0.7 ? 'bg-[#ef4444]' : 'bg-[#22c55e]'} animate-pulse`} />
+            <div className={`w-2 h-2 rounded-full ${marketValue / (selectedAccount.initialCapital || 1) > 0.7 ? 'bg-[var(--accent-red)]' : 'bg-[var(--accent-green)]'} animate-pulse`} />
             <span className="text-xs font-medium text-[var(--text-primary)]">风险状态</span>
           </div>
           <div className="space-y-1">
             {marketValue / (selectedAccount.initialCapital || 1) > 0.7 && (
-              <div className="text-xs text-[#ef4444]">• 仓位过重，建议降低仓位</div>
+              <div className="text-xs text-[var(--accent-red)]">• 仓位过重，建议降低仓位</div>
             )}
             {totalPnl < 0 && Math.abs(totalPnl) / (selectedAccount.initialCapital || 1) > 0.05 && (
-              <div className="text-xs text-[#f59e0b]">• 亏损超过5%，注意止损</div>
+              <div className="text-xs text-[var(--accent-yellow)]">• 亏损超过5%，注意止损</div>
             )}
             {positions.length === 0 && (
               <div className="text-xs text-[var(--text-secondary)]">• 空仓状态</div>
@@ -457,7 +457,7 @@ function DashboardView() {
             </div>
             <div className="text-right">
               <div className="text-sm font-bold text-[var(--text-primary)] font-mono-num">{currentQuote.price.toFixed(2)}</div>
-              <div className={`text-xs font-mono-num ${currentQuote.changePercent >= 0 ? 'text-[#ef4444]' : 'text-[#22c55e]'}`}>
+              <div className={`text-xs font-mono-num ${currentQuote.changePercent >= 0 ? 'text-[var(--accent-red)]' : 'text-[var(--accent-green)]'}`}>
                 {currentQuote.changePercent >= 0 ? '+' : ''}{currentQuote.changePercent.toFixed(2)}%
               </div>
             </div>

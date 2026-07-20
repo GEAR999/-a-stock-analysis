@@ -26,23 +26,23 @@ export function TradingStatusIndicator() {
         onClick={() => setIsExpanded(!isExpanded)}
         className={`flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-medium transition-colors ${
           status.isTrading
-            ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-            : 'bg-gray-700/50 text-gray-400 border border-gray-600/30'
+            ? 'bg-green-500/20 text-[var(--accent-green)] border border-green-500/30'
+            : 'bg-[var(--bg-card)]/50 text-[var(--text-secondary)] border border-[var(--border-default)]/30'
         }`}
       >
         <span className={`w-1.5 h-1.5 rounded-full ${
-          status.isTrading ? 'bg-green-400 animate-pulse' : 'bg-gray-500'
+          status.isTrading ? 'bg-green-400 animate-pulse' : 'bg-[var(--text-secondary)]'
         }`} />
         <span>{status.statusText}</span>
       </button>
 
       {isExpanded && (
-        <div className="absolute top-full right-0 mt-1 w-48 bg-[#111827] border border-gray-700 rounded-lg shadow-lg z-50 p-3">
+        <div className="absolute top-full right-0 mt-1 w-48 bg-[var(--bg-panel)] border border-[var(--border-default)] rounded-lg shadow-lg z-50 p-3">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] text-gray-400">交易状态</span>
+              <span className="text-[10px] text-[var(--text-secondary)]">交易状态</span>
               <span className={`text-[10px] font-medium ${
-                status.isTrading ? 'text-green-400' : 'text-gray-400'
+                status.isTrading ? 'text-[var(--accent-green)]' : 'text-[var(--text-secondary)]'
               }`}>
                 {status.statusText}
               </span>
@@ -50,16 +50,16 @@ export function TradingStatusIndicator() {
             
             {status.nextSession && (
               <div className="flex items-center justify-between">
-                <span className="text-[10px] text-gray-400">下一时段</span>
-                <span className="text-[10px] text-blue-400">{status.nextSession}</span>
+                <span className="text-[10px] text-[var(--text-secondary)]">下一时段</span>
+                <span className="text-[10px] text-[var(--accent-blue)]">{status.nextSession}</span>
               </div>
             )}
             
-            <div className="pt-2 border-t border-gray-700">
-              <div className="text-[9px] text-gray-500 space-y-1">
+            <div className="pt-2 border-t border-[var(--border-default)]">
+              <div className="text-[9px] text-[var(--text-secondary)] space-y-1">
                 <div>上午: 9:30 - 11:30</div>
                 <div>下午: 13:00 - 15:00</div>
-                <div className="text-gray-600">（工作日交易）</div>
+                <div className="text-[var(--text-muted)]">（工作日交易）</div>
               </div>
             </div>
           </div>

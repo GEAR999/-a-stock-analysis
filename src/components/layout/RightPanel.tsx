@@ -37,22 +37,22 @@ function AccordionSection({
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   return (
-    <div className="border border-gray-800 rounded overflow-hidden">
+    <div className="border border-[var(--border-default)] rounded overflow-hidden">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-3 py-2 bg-[#111827] flex items-center justify-between hover:bg-[#1a2332] transition-colors"
+        className="w-full px-3 py-2 bg-[var(--bg-panel)] flex items-center justify-between hover:bg-[var(--bg-primary)] transition-colors"
       >
         <div className="flex items-center gap-2">
           {icon && <span>{icon}</span>}
-          <span className="text-xs text-gray-300 font-medium">{title}</span>
+          <span className="text-xs text-[var(--text-primary)] font-medium">{title}</span>
           {summary && !isOpen && (
-            <span className="text-xs text-gray-500 truncate max-w-[120px]">{summary}</span>
+            <span className="text-xs text-[var(--text-secondary)] truncate max-w-[120px]">{summary}</span>
           )}
         </div>
         <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
           {action}
           <svg
-            className={`w-4 h-4 text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+            className={`w-4 h-4 text-[var(--text-secondary)] transition-transform ${isOpen ? 'rotate-180' : ''}`}
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -62,7 +62,7 @@ function AccordionSection({
         </div>
       </button>
       {isOpen && (
-        <div className="bg-[#0a0e17] max-h-[60vh] overflow-y-auto">
+        <div className="bg-[var(--bg-primary)] max-h-[60vh] overflow-y-auto">
           {children}
         </div>
       )}
@@ -86,20 +86,20 @@ export function RightPanel() {
   };
 
   return (
-    <div className="w-full h-full flex flex-col overflow-hidden bg-[#0a0e17]">
+    <div className="w-full h-full flex flex-col overflow-hidden bg-[var(--bg-primary)]">
       {/* 固定顶部：当前股票信息 */}
-      <div className="px-3 py-2 bg-[#111827] border-b border-gray-800 flex-shrink-0">
+      <div className="px-3 py-2 bg-[var(--bg-panel)] border-b border-[var(--border-default)] flex-shrink-0">
         <div className="flex items-center justify-between">
           <div>
-            <div className="text-sm font-medium text-white">
+            <div className="text-sm font-medium text-[var(--text-primary)]">
               {selectedStock?.name || '请选择股票'}
             </div>
-            <div className="text-xs text-gray-500">{selectedStock?.code}</div>
+            <div className="text-xs text-[var(--text-secondary)]">{selectedStock?.code}</div>
           </div>
           <button
             onClick={handleAddToBacktest}
             disabled={!selectedStock}
-            className="px-2 py-1 text-xs bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded hover:bg-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="px-2 py-1 text-xs bg-blue-500/20 text-[var(--accent-blue)] border border-[var(--accent-blue)]/30 rounded hover:bg-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             title="将当前股票加入回测跟踪列表"
           >
             + 加入回测
@@ -116,8 +116,8 @@ export function RightPanel() {
         {!selectedStock && (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <div className="text-4xl mb-4 opacity-50">📈</div>
-            <p className="text-gray-400 text-sm mb-2">请搜索或选择一只股票开始分析</p>
-            <p className="text-gray-500 text-xs">在左侧搜索框输入股票代码或名称</p>
+            <p className="text-[var(--text-secondary)] text-sm mb-2">请搜索或选择一只股票开始分析</p>
+            <p className="text-[var(--text-secondary)] text-xs">在左侧搜索框输入股票代码或名称</p>
           </div>
         )}
 
@@ -138,7 +138,7 @@ export function RightPanel() {
                 setTimeout(() => setIsRefreshingAnalysis(false), 500);
               }}
               disabled={isRefreshingAnalysis}
-              className="p-1 text-gray-400 hover:text-white disabled:opacity-50 transition-colors"
+              className="p-1 text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-50 transition-colors"
               title="重新分析"
             >
               {isRefreshingAnalysis ? '⏳' : '🔄'}
@@ -153,7 +153,7 @@ export function RightPanel() {
                 className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
                   activeAnalysisTab === 'summary' 
                     ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' 
-                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                    : 'bg-[var(--bg-card)] text-[var(--text-secondary)] hover:bg-[var(--bg-card)]'
                 }`}
               >
                 综合
@@ -163,7 +163,7 @@ export function RightPanel() {
                 className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
                   activeAnalysisTab === 'chanlun' 
                     ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' 
-                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                    : 'bg-[var(--bg-card)] text-[var(--text-secondary)] hover:bg-[var(--bg-card)]'
                 }`}
               >
                 缠论
@@ -172,8 +172,8 @@ export function RightPanel() {
                 onClick={() => setActiveAnalysisTab('wave')}
                 className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
                   activeAnalysisTab === 'wave' 
-                    ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' 
-                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                    ? 'bg-blue-500/20 text-[var(--accent-blue)] border border-[var(--accent-blue)]/30' 
+                    : 'bg-[var(--bg-card)] text-[var(--text-secondary)] hover:bg-[var(--bg-card)]'
                 }`}
               >
                 波浪
@@ -182,8 +182,8 @@ export function RightPanel() {
                 onClick={() => setActiveAnalysisTab('technical')}
                 className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
                   activeAnalysisTab === 'technical' 
-                    ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
-                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                    ? 'bg-green-500/20 text-[var(--accent-green)] border border-green-500/30' 
+                    : 'bg-[var(--bg-card)] text-[var(--text-secondary)] hover:bg-[var(--bg-card)]'
                 }`}
               >
                 技术

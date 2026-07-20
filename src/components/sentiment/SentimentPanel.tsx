@@ -168,7 +168,7 @@ export function SentimentPanel({ stockCode, stockName, sectorName }: SentimentPa
 
   if (loading || !data) {
     return (
-      <div className="flex items-center justify-center h-32 text-gray-500 text-xs">
+      <div className="flex items-center justify-center h-32 text-[var(--text-secondary)] text-xs">
         加载中...
       </div>
     );
@@ -178,52 +178,52 @@ export function SentimentPanel({ stockCode, stockName, sectorName }: SentimentPa
     switch (level) {
       case "极度贪婪":
       case "爆热":
-        return "text-red-400";
+        return "text-[var(--accent-red)]";
       case "贪婪":
       case "热门":
         return "text-orange-400";
       case "中性":
       case "温和":
-        return "text-yellow-400";
+        return "text-[var(--accent-yellow)]";
       case "恐慌":
       case "冷门":
-        return "text-blue-400";
+        return "text-[var(--accent-blue)]";
       case "极度恐慌":
-        return "text-green-400";
+        return "text-[var(--accent-green)]";
       default:
-        return "text-gray-400";
+        return "text-[var(--text-secondary)]";
     }
   };
 
   const getScoreColor = (score: number) => {
-    if (score >= 70) return "text-green-400";
-    if (score >= 40) return "text-yellow-400";
-    return "text-red-400";
+    if (score >= 70) return "text-[var(--accent-green)]";
+    if (score >= 40) return "text-[var(--accent-yellow)]";
+    return "text-[var(--accent-red)]";
   };
 
   const getRiskColor = (level: string) => {
     switch (level) {
       case "低":
-        return "text-green-400 bg-green-400/10";
+        return "text-[var(--accent-green)] bg-green-400/10";
       case "中":
-        return "text-yellow-400 bg-yellow-400/10";
+        return "text-[var(--accent-yellow)] bg-yellow-400/10";
       case "高":
         return "text-orange-400 bg-orange-400/10";
       case "极高":
-        return "text-red-400 bg-red-400/10";
+        return "text-[var(--accent-red)] bg-red-400/10";
       default:
-        return "text-gray-400 bg-gray-400/10";
+        return "text-[var(--text-secondary)] bg-[var(--text-muted)]/10";
     }
   };
 
   return (
-    <div className="h-full flex flex-col bg-[#0a0e17]">
+    <div className="h-full flex flex-col bg-[var(--bg-primary)]">
       {/* 视图切换 */}
-      <div className="flex items-center gap-1 p-2 border-b border-gray-800">
+      <div className="flex items-center gap-1 p-2 border-b border-[var(--border-default)]">
         <select
           value={viewMode}
           onChange={(e) => setViewMode(e.target.value as ViewMode)}
-          className="flex-1 bg-[#111827] border border-gray-700 rounded px-2 py-1.5 text-xs text-gray-300 focus:outline-none focus:border-blue-500"
+          className="flex-1 bg-[var(--bg-panel)] border border-[var(--border-default)] rounded px-2 py-1.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-blue)]"
         >
           <option value="market">大盘情绪</option>
           <option value="sector">板块热度</option>
@@ -233,7 +233,7 @@ export function SentimentPanel({ stockCode, stockName, sectorName }: SentimentPa
 
       {/* 板块选择器 */}
       {viewMode === "sector" && (
-        <div className="p-2 border-b border-gray-800">
+        <div className="p-2 border-b border-[var(--border-default)]">
           <div className="relative">
             <input
               type="text"
@@ -244,10 +244,10 @@ export function SentimentPanel({ stockCode, stockName, sectorName }: SentimentPa
               }}
               onFocus={() => setShowSectorDropdown(true)}
               placeholder="搜索板块..."
-              className="w-full bg-[#111827] border border-gray-700 rounded px-2 py-1.5 text-xs text-gray-300 focus:outline-none focus:border-blue-500"
+              className="w-full bg-[var(--bg-panel)] border border-[var(--border-default)] rounded px-2 py-1.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-blue)]"
             />
             {showSectorDropdown && (
-              <div className="absolute top-full left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-[#111827] border border-gray-700 rounded z-10">
+              <div className="absolute top-full left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-[var(--bg-panel)] border border-[var(--border-default)] rounded z-10">
                 {filteredSectors.map(sector => (
                   <div
                     key={sector.id}
@@ -256,13 +256,13 @@ export function SentimentPanel({ stockCode, stockName, sectorName }: SentimentPa
                       setShowSectorDropdown(false);
                       setSectorSearch("");
                     }}
-                    className={`px-2 py-1.5 text-xs cursor-pointer hover:bg-[#1f2937] flex items-center gap-2 ${
-                      selectedSector === sector.name ? "bg-blue-500/20 text-blue-400" : "text-gray-300"
+                    className={`px-2 py-1.5 text-xs cursor-pointer hover:bg-[var(--bg-card)] flex items-center gap-2 ${
+                      selectedSector === sector.name ? "bg-blue-500/20 text-[var(--accent-blue)]" : "text-[var(--text-primary)]"
                     }`}
                   >
                     <span className={`w-1 h-1 rounded-full ${sector.type === "industry" ? "bg-blue-400" : "bg-purple-400"}`} />
                     <span>{sector.name}</span>
-                    <span className="text-gray-500 text-[10px] ml-auto">
+                    <span className="text-[var(--text-secondary)] text-[10px] ml-auto">
                       {sector.type === "industry" ? "行业" : "概念"}
                     </span>
                   </div>
@@ -270,22 +270,22 @@ export function SentimentPanel({ stockCode, stockName, sectorName }: SentimentPa
               </div>
             )}
           </div>
-          <div className="mt-1 text-[10px] text-gray-500">
-            当前: <span className="text-blue-400">{selectedSector}</span>
+          <div className="mt-1 text-[10px] text-[var(--text-secondary)]">
+            当前: <span className="text-[var(--accent-blue)]">{selectedSector}</span>
           </div>
         </div>
       )}
 
       {/* 个股选择器 */}
       {viewMode === "stock" && (
-        <div className="p-2 border-b border-gray-800">
+        <div className="p-2 border-b border-[var(--border-default)]">
           {/* 跟随开关 */}
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs text-gray-400">跟随当前股票</span>
+            <span className="text-xs text-[var(--text-secondary)]">跟随当前股票</span>
             <button
               onClick={() => setFollowCurrentStock(!followCurrentStock)}
               className={`relative w-8 h-4 rounded-full transition-colors ${
-                followCurrentStock ? "bg-blue-500" : "bg-gray-600"
+                followCurrentStock ? "bg-blue-500" : "bg-[var(--text-muted)]"
               }`}
             >
               <span
@@ -308,18 +308,18 @@ export function SentimentPanel({ stockCode, stockName, sectorName }: SentimentPa
                 }}
                 onFocus={() => setShowSearchDropdown(true)}
                 placeholder="输入股票代码或名称..."
-                className="w-full bg-[#111827] border border-gray-700 rounded px-2 py-1.5 text-xs text-gray-300 focus:outline-none focus:border-blue-500"
+                className="w-full bg-[var(--bg-panel)] border border-[var(--border-default)] rounded px-2 py-1.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-blue)]"
               />
               {showSearchDropdown && searchResults.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1 max-h-40 overflow-y-auto bg-[#111827] border border-gray-700 rounded z-10">
+                <div className="absolute top-full left-0 right-0 mt-1 max-h-40 overflow-y-auto bg-[var(--bg-panel)] border border-[var(--border-default)] rounded z-10">
                   {searchResults.map(stock => (
                     <div
                       key={stock.code}
                       onClick={() => handleSelectStock(stock)}
-                      className="px-2 py-1.5 text-xs cursor-pointer hover:bg-[#1f2937] text-gray-300 flex justify-between"
+                      className="px-2 py-1.5 text-xs cursor-pointer hover:bg-[var(--bg-card)] text-[var(--text-primary)] flex justify-between"
                     >
                       <span>{stock.name}</span>
-                      <span className="text-gray-500">{stock.code}</span>
+                      <span className="text-[var(--text-secondary)]">{stock.code}</span>
                     </div>
                   ))}
                 </div>
@@ -327,17 +327,17 @@ export function SentimentPanel({ stockCode, stockName, sectorName }: SentimentPa
             </div>
           )}
           
-          <div className="mt-1 text-[10px] text-gray-500">
-            当前: <span className="text-blue-400">{selectedStockName}</span>
-            {followCurrentStock && <span className="text-green-400 ml-1">(自动跟随)</span>}
+          <div className="mt-1 text-[10px] text-[var(--text-secondary)]">
+            当前: <span className="text-[var(--accent-blue)]">{selectedStockName}</span>
+            {followCurrentStock && <span className="text-[var(--accent-green)] ml-1">(自动跟随)</span>}
           </div>
         </div>
       )}
 
       {/* 综合评分卡片 */}
-      <div className="p-3 border-b border-gray-800">
+      <div className="p-3 border-b border-[var(--border-default)]">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs text-gray-400">
+          <span className="text-xs text-[var(--text-secondary)]">
             {viewMode === "market" && "大盘情绪"}
             {viewMode === "sector" && "板块热度"}
             {viewMode === "stock" && "个股情绪"}
@@ -347,7 +347,7 @@ export function SentimentPanel({ stockCode, stockName, sectorName }: SentimentPa
           </span>
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-[10px] text-gray-500">综合评级</span>
+          <span className="text-[10px] text-[var(--text-secondary)]">综合评级</span>
           <span className={`text-xs font-medium ${getLevelColor(data.composite.level)}`}>
             {data.composite.level}
           </span>
@@ -358,7 +358,7 @@ export function SentimentPanel({ stockCode, stockName, sectorName }: SentimentPa
       <div className="flex-1 overflow-y-auto p-2">
         {viewMode === "market" && (
           <div>
-            <div className="text-[10px] text-gray-500 mb-2 uppercase tracking-wider">大盘情绪指标</div>
+            <div className="text-[10px] text-[var(--text-secondary)] mb-2 uppercase tracking-wider">大盘情绪指标</div>
             {data.market.details.map((detail, i) => (
               <SentimentRow key={i} detail={detail} />
             ))}
@@ -367,7 +367,7 @@ export function SentimentPanel({ stockCode, stockName, sectorName }: SentimentPa
 
         {viewMode === "sector" && (
           <div>
-            <div className="text-[10px] text-gray-500 mb-2 uppercase tracking-wider">板块热度指标</div>
+            <div className="text-[10px] text-[var(--text-secondary)] mb-2 uppercase tracking-wider">板块热度指标</div>
             {data.sector.details.map((detail, i) => (
               <SentimentRow key={i} detail={detail} />
             ))}
@@ -376,16 +376,16 @@ export function SentimentPanel({ stockCode, stockName, sectorName }: SentimentPa
 
         {viewMode === "stock" && (
           <div>
-            <div className="text-[10px] text-gray-500 mb-2 uppercase tracking-wider">个股情绪指标</div>
+            <div className="text-[10px] text-[var(--text-secondary)] mb-2 uppercase tracking-wider">个股情绪指标</div>
             {data.stock.details.map((detail, i) => (
               <SentimentRow key={i} detail={detail} />
             ))}
             {data.stock.tags.length > 0 && (
               <div className="mt-3">
-                <div className="text-[10px] text-gray-500 mb-1 uppercase tracking-wider">情绪标签</div>
+                <div className="text-[10px] text-[var(--text-secondary)] mb-1 uppercase tracking-wider">情绪标签</div>
                 <div className="flex flex-wrap gap-1">
                   {data.stock.tags.map((tag, i) => (
-                    <span key={i} className="px-1.5 py-0.5 text-[10px] bg-blue-500/10 text-blue-400 rounded">
+                    <span key={i} className="px-1.5 py-0.5 text-[10px] bg-blue-500/10 text-[var(--accent-blue)] rounded">
                       {tag}
                     </span>
                   ))}
@@ -397,15 +397,15 @@ export function SentimentPanel({ stockCode, stockName, sectorName }: SentimentPa
       </div>
 
       {/* 底部概览 */}
-      <div className="p-2 border-t border-gray-800 bg-[#0f1419]">
+      <div className="p-2 border-t border-[var(--border-default)] bg-[var(--bg-primary)]">
         <div className="grid grid-cols-3 gap-1">
           <button
             onClick={() => setViewMode("market")}
             className={`p-1.5 rounded text-center transition-colors ${
-              viewMode === "market" ? "bg-blue-500/20 border border-blue-500/50" : "bg-[#111827] hover:bg-[#1f2937]"
+              viewMode === "market" ? "bg-blue-500/20 border border-[var(--accent-blue)]/50" : "bg-[var(--bg-panel)] hover:bg-[var(--bg-card)]"
             }`}
           >
-            <div className="text-[10px] text-gray-500">大盘</div>
+            <div className="text-[10px] text-[var(--text-secondary)]">大盘</div>
             <div className={`text-xs font-mono font-bold ${getScoreColor(data.market.score)}`}>
               {data.market.score}
             </div>
@@ -413,10 +413,10 @@ export function SentimentPanel({ stockCode, stockName, sectorName }: SentimentPa
           <button
             onClick={() => setViewMode("sector")}
             className={`p-1.5 rounded text-center transition-colors ${
-              viewMode === "sector" ? "bg-blue-500/20 border border-blue-500/50" : "bg-[#111827] hover:bg-[#1f2937]"
+              viewMode === "sector" ? "bg-blue-500/20 border border-[var(--accent-blue)]/50" : "bg-[var(--bg-panel)] hover:bg-[var(--bg-card)]"
             }`}
           >
-            <div className="text-[10px] text-gray-500">板块</div>
+            <div className="text-[10px] text-[var(--text-secondary)]">板块</div>
             <div className={`text-xs font-mono font-bold ${getScoreColor(data.sector.score)}`}>
               {data.sector.score}
             </div>
@@ -424,10 +424,10 @@ export function SentimentPanel({ stockCode, stockName, sectorName }: SentimentPa
           <button
             onClick={() => setViewMode("stock")}
             className={`p-1.5 rounded text-center transition-colors ${
-              viewMode === "stock" ? "bg-blue-500/20 border border-blue-500/50" : "bg-[#111827] hover:bg-[#1f2937]"
+              viewMode === "stock" ? "bg-blue-500/20 border border-[var(--accent-blue)]/50" : "bg-[var(--bg-panel)] hover:bg-[var(--bg-card)]"
             }`}
           >
-            <div className="text-[10px] text-gray-500">个股</div>
+            <div className="text-[10px] text-[var(--text-secondary)]">个股</div>
             <div className={`text-xs font-mono font-bold ${getScoreColor(data.stock.score)}`}>
               {data.stock.score}
             </div>

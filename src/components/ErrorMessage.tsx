@@ -53,10 +53,10 @@ const errorIcons: Record<string, React.ReactNode> = {
 const errorColors: Record<string, string> = {
   network: 'text-amber-400',
   timeout: 'text-amber-400',
-  not_found: 'text-gray-400',
-  server: 'text-red-400',
-  empty: 'text-gray-500',
-  unknown: 'text-gray-400',
+  not_found: 'text-[var(--text-secondary)]',
+  server: 'text-[var(--accent-red)]',
+  empty: 'text-[var(--text-secondary)]',
+  unknown: 'text-[var(--text-secondary)]',
 };
 
 export default function ErrorMessage({
@@ -75,11 +75,11 @@ export default function ErrorMessage({
   return (
     <div className={`flex flex-col items-center justify-center py-8 px-4 ${className}`}>
       <div className={`${color} mb-3`}>{icon}</div>
-      <p className="text-sm text-gray-400 text-center mb-3">{displayMessage}</p>
+      <p className="text-sm text-[var(--text-secondary)] text-center mb-3">{displayMessage}</p>
       {isRetryable && onRetry && (
         <button
           onClick={onRetry}
-          className="px-4 py-1.5 text-xs rounded border border-gray-700 text-gray-300 hover:bg-gray-800 hover:border-gray-600 transition-colors"
+          className="px-4 py-1.5 text-xs rounded border border-[var(--border-default)] text-[var(--text-primary)] hover:bg-[var(--bg-card)] hover:border-[var(--border-default)] transition-colors"
         >
           重试
         </button>

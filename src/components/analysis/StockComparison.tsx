@@ -135,16 +135,16 @@ export function StockComparison() {
   const rankedStocks = [...stocks].sort((a, b) => b.score - a.score);
 
   return (
-    <div className="bg-[#111827] rounded border border-gray-800 p-4">
+    <div className="bg-[var(--bg-panel)] rounded border border-[var(--border-default)] p-4">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-medium text-gray-200 flex items-center gap-2">
-          <BarChart3 className="w-4 h-4 text-blue-400" />
+        <h3 className="text-sm font-medium text-[var(--text-primary)] flex items-center gap-2">
+          <BarChart3 className="w-4 h-4 text-[var(--accent-blue)]" />
           多股对比分析
         </h3>
         {stocks.length < 3 && (
           <button
             onClick={() => setShowAddDialog(true)}
-            className="flex items-center gap-1 px-2 py-1 text-xs text-blue-400 hover:bg-blue-500/10 rounded transition-colors"
+            className="flex items-center gap-1 px-2 py-1 text-xs text-[var(--accent-blue)] hover:bg-blue-500/10 rounded transition-colors"
           >
             <Plus className="w-3 h-3" />
             添加对比
@@ -154,19 +154,19 @@ export function StockComparison() {
 
       {/* 添加股票对话框 */}
       {showAddDialog && (
-        <div className="mb-4 p-3 bg-gray-800/50 rounded border border-gray-700">
+        <div className="mb-4 p-3 bg-[var(--bg-card)]/50 rounded border border-[var(--border-default)]">
           <div className="flex items-center gap-2 mb-2">
             <input
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="输入股票代码或名称..."
-              className="flex-1 px-3 py-1.5 text-xs bg-gray-900 border border-gray-700 rounded text-gray-200 placeholder-gray-500 focus:outline-none focus:border-blue-500/50"
+              className="flex-1 px-3 py-1.5 text-xs bg-[var(--bg-panel)] border border-[var(--border-default)] rounded text-[var(--text-primary)] placeholder-gray-500 focus:outline-none focus:border-[var(--accent-blue)]/50"
               autoFocus
             />
             <button
               onClick={() => { setShowAddDialog(false); setSearchQuery(""); setSuggestions([]); }}
-              className="p-1.5 text-gray-400 hover:text-gray-200"
+              className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
             >
               <X className="w-4 h-4" />
             </button>
@@ -177,16 +177,16 @@ export function StockComparison() {
                 <button
                   key={s.code}
                   onClick={() => addStock(s)}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left hover:bg-gray-700/50 rounded transition-colors"
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left hover:bg-[var(--bg-card)]/50 rounded transition-colors"
                 >
-                  <span className="text-gray-200">{s.name}</span>
-                  <span className="text-gray-500 font-mono">{s.code}</span>
-                  <span className="text-gray-600 ml-auto">{s.market === "sh" ? "沪" : "深"}</span>
+                  <span className="text-[var(--text-primary)]">{s.name}</span>
+                  <span className="text-[var(--text-secondary)] font-mono">{s.code}</span>
+                  <span className="text-[var(--text-muted)] ml-auto">{s.market === "sh" ? "沪" : "深"}</span>
                 </button>
               ))}
             </div>
           )}
-          {isLoading && <div className="text-xs text-gray-500 text-center py-2">加载中...</div>}
+          {isLoading && <div className="text-xs text-[var(--text-secondary)] text-center py-2">加载中...</div>}
         </div>
       )}
 
@@ -199,13 +199,13 @@ export function StockComparison() {
             style={{ backgroundColor: `${colors[i]}20`, borderColor: `${colors[i]}40`, borderWidth: 1 }}
           >
             <div className="w-2 h-2 rounded-full" style={{ backgroundColor: colors[i] }} />
-            <span className="text-gray-200">{stock.name}</span>
-            <span className={`font-mono ${stock.score >= 0 ? "text-red-400" : "text-green-400"}`}>
+            <span className="text-[var(--text-primary)]">{stock.name}</span>
+            <span className={`font-mono ${stock.score >= 0 ? "text-[var(--accent-red)]" : "text-[var(--accent-green)]"}`}>
               {stock.score >= 0 ? "+" : ""}{stock.score.toFixed(1)}%
             </span>
             <button
               onClick={() => removeStock(stock.code)}
-              className="ml-1 text-gray-500 hover:text-gray-200"
+              className="ml-1 text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
             >
               <X className="w-3 h-3" />
             </button>
@@ -267,26 +267,26 @@ export function StockComparison() {
               );
             })}
           </svg>
-          <div className="text-center text-[10px] text-gray-500 mt-1">归一化价格对比（基准=100）</div>
+          <div className="text-center text-[10px] text-[var(--text-secondary)] mt-1">归一化价格对比（基准=100）</div>
         </div>
       )}
 
       {/* 综合评分排名 */}
       {stocks.length > 1 && (
         <div>
-          <h4 className="text-xs font-medium text-gray-400 mb-2">综合评分排名</h4>
+          <h4 className="text-xs font-medium text-[var(--text-secondary)] mb-2">综合评分排名</h4>
           <div className="space-y-2">
             {rankedStocks.map((stock, i) => (
               <div key={stock.code} className="flex items-center gap-3">
                 <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
                   i === 0 ? "bg-amber-500/20 text-amber-400" :
-                  i === 1 ? "bg-gray-400/20 text-gray-400" :
+                  i === 1 ? "bg-[var(--text-muted)]/20 text-[var(--text-secondary)]" :
                   "bg-orange-500/20 text-orange-400"
                 }`}>
                   {i + 1}
                 </span>
-                <span className="text-xs text-gray-200 flex-1">{stock.name}</span>
-                <div className="w-24 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                <span className="text-xs text-[var(--text-primary)] flex-1">{stock.name}</span>
+                <div className="w-24 h-1.5 bg-[var(--bg-card)] rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all"
                     style={{
@@ -295,7 +295,7 @@ export function StockComparison() {
                     }}
                   />
                 </div>
-                <span className={`text-xs font-mono w-14 text-right ${stock.score >= 0 ? "text-red-400" : "text-green-400"}`}>
+                <span className={`text-xs font-mono w-14 text-right ${stock.score >= 0 ? "text-[var(--accent-red)]" : "text-[var(--accent-green)]"}`}>
                   {stock.score >= 0 ? "+" : ""}{stock.score.toFixed(1)}%
                 </span>
               </div>
@@ -305,7 +305,7 @@ export function StockComparison() {
       )}
 
       {stocks.length === 0 && (
-        <div className="text-center py-8 text-xs text-gray-500">
+        <div className="text-center py-8 text-xs text-[var(--text-secondary)]">
           请选择股票开始对比分析
         </div>
       )}

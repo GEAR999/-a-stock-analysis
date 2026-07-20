@@ -100,7 +100,7 @@ export function AIAssistant() {
     return (
       <button
         onClick={() => setIsChatOpen(true)}
-        className="fixed bottom-4 right-4 flex items-center gap-2 px-4 py-2 bg-[#3b82f6] text-white rounded shadow-lg hover:bg-[#2563eb] transition-colors z-50"
+        className="fixed bottom-4 right-4 flex items-center gap-2 px-4 py-2 bg-[var(--accent-blue)] text-[var(--text-primary)] rounded shadow-lg hover:bg-[var(--accent-blue)] transition-colors z-50"
       >
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
@@ -112,35 +112,35 @@ export function AIAssistant() {
 
   return (
     <div
-      className="fixed bottom-0 left-0 right-0 bg-[#0d1117] border-t border-[#1e293b] z-50 flex flex-col"
+      className="fixed bottom-0 left-0 right-0 bg-[var(--bg-primary)] border-t border-[var(--border-default)] z-50 flex flex-col"
       style={{ height: chatHeight }}
     >
       {/* Resize handle */}
       <div
-        className="h-1 cursor-ns-resize hover:bg-[#3b82f6] transition-colors"
+        className="h-1 cursor-ns-resize hover:bg-[var(--accent-blue)] transition-colors"
         onMouseDown={() => { isResizing.current = true; }}
       />
 
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-[#1e293b]">
+      <div className="flex items-center justify-between px-4 py-2 border-b border-[var(--border-default)]">
         <div className="flex items-center gap-3">
-          <span className="text-sm font-medium text-[#e2e8f0]">AI分析助手</span>
-          <div className="flex items-center gap-1 bg-[#1e293b] rounded p-0.5">
+          <span className="text-sm font-medium text-[var(--text-primary)]">AI分析助手</span>
+          <div className="flex items-center gap-1 bg-[var(--bg-card)] rounded p-0.5">
             <button
               onClick={() => setChatMode('analysis')}
-              className={`px-2 py-0.5 text-xs rounded transition-colors ${chatMode === 'analysis' ? 'bg-[#3b82f6] text-white' : 'text-[#94a3b8] hover:text-[#e2e8f0]'}`}
+              className={`px-2 py-0.5 text-xs rounded transition-colors ${chatMode === 'analysis' ? 'bg-[var(--accent-blue)] text-[var(--text-primary)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
             >
               分析模式
             </button>
             <button
               onClick={() => setChatMode('debug')}
-              className={`px-2 py-0.5 text-xs rounded transition-colors ${chatMode === 'debug' ? 'bg-[#3b82f6] text-white' : 'text-[#94a3b8] hover:text-[#e2e8f0]'}`}
+              className={`px-2 py-0.5 text-xs rounded transition-colors ${chatMode === 'debug' ? 'bg-[var(--accent-blue)] text-[var(--text-primary)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
             >
               调试模式
             </button>
           </div>
         </div>
-        <button onClick={() => setIsChatOpen(false)} className="text-[#94a3b8] hover:text-[#e2e8f0]">
+        <button onClick={() => setIsChatOpen(false)} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
           </svg>
@@ -150,7 +150,7 @@ export function AIAssistant() {
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
         {chatMessages.length === 0 && (
-          <div className="text-center text-xs text-[#94a3b8] py-8">
+          <div className="text-center text-xs text-[var(--text-secondary)] py-8">
             {chatMode === 'analysis' ? '输入问题开始分析，如"帮我分析一下当前股票"' : '调试模式：输入"系统状态"、"查看日志"或"测试引擎"'}
           </div>
         )}
@@ -158,8 +158,8 @@ export function AIAssistant() {
           <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-[80%] px-3 py-2 rounded text-xs leading-relaxed whitespace-pre-wrap ${
               msg.role === 'user'
-                ? 'bg-[#3b82f6] text-white'
-                : 'bg-[#1e293b] text-[#e2e8f0]'
+                ? 'bg-[var(--accent-blue)] text-[var(--text-primary)]'
+                : 'bg-[var(--bg-card)] text-[var(--text-primary)]'
             }`}>
               {msg.content}
             </div>
@@ -167,7 +167,7 @@ export function AIAssistant() {
         ))}
         {isTyping && (
           <div className="flex justify-start">
-            <div className="bg-[#1e293b] px-3 py-2 rounded text-xs text-[#94a3b8]">
+            <div className="bg-[var(--bg-card)] px-3 py-2 rounded text-xs text-[var(--text-secondary)]">
               思考中...
             </div>
           </div>
@@ -176,19 +176,19 @@ export function AIAssistant() {
       </div>
 
       {/* Input */}
-      <div className="flex items-center gap-2 px-4 py-2 border-t border-[#1e293b]">
+      <div className="flex items-center gap-2 px-4 py-2 border-t border-[var(--border-default)]">
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSend()}
           placeholder={chatMode === 'analysis' ? '输入分析相关问题...' : '输入调试命令...'}
-          className="flex-1 bg-[#111827] border border-[#1e293b] rounded px-3 py-1.5 text-sm text-[#e2e8f0] placeholder-[#94a3b8] outline-none focus:border-[#3b82f6]"
+          className="flex-1 bg-[var(--bg-panel)] border border-[var(--border-default)] rounded px-3 py-1.5 text-sm text-[var(--text-primary)] placeholder-[#94a3b8] outline-none focus:border-[var(--accent-blue)]"
         />
         <button
           onClick={handleSend}
           disabled={!input.trim()}
-          className="px-3 py-1.5 bg-[#3b82f6] text-white text-sm rounded hover:bg-[#2563eb] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="px-3 py-1.5 bg-[var(--accent-blue)] text-[var(--text-primary)] text-sm rounded hover:bg-[var(--accent-blue)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           发送
         </button>

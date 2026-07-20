@@ -96,7 +96,7 @@ export default function EquityCurveChart({ account }: EquityCurveChartProps) {
   }, [account]);
 
   if (data.length === 0) {
-    return <div className="text-center py-8 text-gray-500 text-[10px]">暂无数据</div>;
+    return <div className="text-center py-8 text-[var(--text-secondary)] text-[10px]">暂无数据</div>;
   }
 
   // Calculate chart dimensions

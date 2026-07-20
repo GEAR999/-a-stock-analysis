@@ -60,7 +60,7 @@ export function MacroEconomyPanel({ enabled }: MacroEconomyPanelProps) {
   };
 
   return (
-    <div className="bg-[#0a0e17] border border-amber-500/30 rounded overflow-hidden">
+    <div className="bg-[var(--bg-primary)] border border-amber-500/30 rounded overflow-hidden">
       {/* 标题 */}
       <div className="px-3 py-2 bg-gradient-to-r from-amber-500/10 to-transparent border-b border-amber-500/20">
         <div className="flex items-center justify-between">
@@ -68,8 +68,8 @@ export function MacroEconomyPanel({ enabled }: MacroEconomyPanelProps) {
             <span className="text-amber-400 text-sm">🌐</span>
             <span className="text-xs font-medium text-amber-400">宏观经济分析</span>
           </div>
-          <span className="text-[10px] text-gray-500">
-            综合评级: <span className="text-gray-500">暂无数据</span>
+          <span className="text-[10px] text-[var(--text-secondary)]">
+            综合评级: <span className="text-[var(--text-secondary)]">暂无数据</span>
           </span>
         </div>
       </div>
@@ -77,19 +77,19 @@ export function MacroEconomyPanel({ enabled }: MacroEconomyPanelProps) {
       {/* 经济体列表 */}
       <div className="p-2 space-y-1 max-h-[400px] overflow-y-auto">
         {ECONOMIES.map(economy => (
-          <div key={economy.id} className="border border-gray-800 rounded overflow-hidden">
+          <div key={economy.id} className="border border-[var(--border-default)] rounded overflow-hidden">
             {/* 经济体标题 */}
             <div
               onClick={() => setExpandedEconomy(expandedEconomy === economy.id ? null : economy.id)}
-              className="px-2 py-1.5 bg-[#111827] cursor-pointer hover:bg-[#1f2937] flex items-center justify-between"
+              className="px-2 py-1.5 bg-[var(--bg-panel)] cursor-pointer hover:bg-[var(--bg-card)] flex items-center justify-between"
             >
               <div className="flex items-center gap-2">
                 <span className="text-sm">{economy.flag}</span>
-                <span className="text-xs text-gray-300">{economy.name}</span>
+                <span className="text-xs text-[var(--text-primary)]">{economy.name}</span>
                 <span className="text-[10px] text-amber-400">{getImpactStars(economy.impact)}</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-gray-500 text-[10px]">
+                <span className="text-[var(--text-secondary)] text-[10px]">
                   {expandedEconomy === economy.id ? "▼" : "▶"}
                 </span>
               </div>
@@ -97,12 +97,12 @@ export function MacroEconomyPanel({ enabled }: MacroEconomyPanelProps) {
 
             {/* 展开内容 */}
             {expandedEconomy === economy.id && (
-              <div className="px-2 py-2 bg-[#0f1419] space-y-2">
+              <div className="px-2 py-2 bg-[var(--bg-primary)] space-y-2">
                 {/* 经济指标表格 */}
                 <div className="overflow-x-auto">
                   <table className="w-full text-[10px]">
                     <thead>
-                      <tr className="text-gray-500 border-b border-gray-800">
+                      <tr className="text-[var(--text-secondary)] border-b border-[var(--border-default)]">
                         <th className="text-left py-1 pr-2">指标</th>
                         <th className="text-right py-1 px-1">当前</th>
                         <th className="text-right py-1 px-1">前值</th>
@@ -112,12 +112,12 @@ export function MacroEconomyPanel({ enabled }: MacroEconomyPanelProps) {
                     </thead>
                     <tbody>
                       {economy.indicatorNames.map((name, i) => (
-                        <tr key={i} className="border-b border-gray-800/50">
-                          <td className="py-1 pr-2 text-gray-400">{name}</td>
-                          <td className="py-1 px-1 text-right text-gray-500">暂无数据</td>
-                          <td className="py-1 px-1 text-right text-gray-500">暂无数据</td>
-                          <td className="py-1 px-1 text-right text-gray-500">暂无数据</td>
-                          <td className="py-1 pl-1 text-center text-gray-500">-</td>
+                        <tr key={i} className="border-b border-[var(--border-default)]/50">
+                          <td className="py-1 pr-2 text-[var(--text-secondary)]">{name}</td>
+                          <td className="py-1 px-1 text-right text-[var(--text-secondary)]">暂无数据</td>
+                          <td className="py-1 px-1 text-right text-[var(--text-secondary)]">暂无数据</td>
+                          <td className="py-1 px-1 text-right text-[var(--text-secondary)]">暂无数据</td>
+                          <td className="py-1 pl-1 text-center text-[var(--text-secondary)]">-</td>
                         </tr>
                       ))}
                     </tbody>
@@ -125,14 +125,14 @@ export function MacroEconomyPanel({ enabled }: MacroEconomyPanelProps) {
                 </div>
 
                 {/* 政策与描述 */}
-                <div className="space-y-1 pt-1 border-t border-gray-800">
+                <div className="space-y-1 pt-1 border-t border-[var(--border-default)]">
                   <div className="flex items-start gap-2">
-                    <span className="text-[10px] text-gray-500 shrink-0">政策:</span>
-                    <span className="text-[10px] text-gray-500">暂无数据</span>
+                    <span className="text-[10px] text-[var(--text-secondary)] shrink-0">政策:</span>
+                    <span className="text-[10px] text-[var(--text-secondary)]">暂无数据</span>
                   </div>
                   <div className="flex items-start gap-2">
-                    <span className="text-[10px] text-gray-500 shrink-0">概况:</span>
-                    <span className="text-[10px] text-gray-500">暂无数据</span>
+                    <span className="text-[10px] text-[var(--text-secondary)] shrink-0">概况:</span>
+                    <span className="text-[10px] text-[var(--text-secondary)]">暂无数据</span>
                   </div>
                 </div>
               </div>
@@ -142,23 +142,23 @@ export function MacroEconomyPanel({ enabled }: MacroEconomyPanelProps) {
       </div>
 
       {/* 综合评估 */}
-      <div className="p-2 border-t border-amber-500/20 bg-[#0f1419]">
+      <div className="p-2 border-t border-amber-500/20 bg-[var(--bg-primary)]">
         <div className="flex items-center gap-2 mb-1">
           <span className="text-xs text-amber-400">📊</span>
           <span className="text-xs text-amber-400 font-medium">综合评估</span>
         </div>
         <div className="space-y-1 text-[10px]">
           <div className="flex items-start gap-2">
-            <span className="text-gray-500 shrink-0">结论:</span>
-            <span className="text-gray-500">暂无数据</span>
+            <span className="text-[var(--text-secondary)] shrink-0">结论:</span>
+            <span className="text-[var(--text-secondary)]">暂无数据</span>
           </div>
           <div className="flex items-start gap-2">
-            <span className="text-gray-500 shrink-0">策略:</span>
-            <span className="text-gray-500">暂无数据</span>
+            <span className="text-[var(--text-secondary)] shrink-0">策略:</span>
+            <span className="text-[var(--text-secondary)]">暂无数据</span>
           </div>
           <div className="flex items-start gap-2">
-            <span className="text-gray-500 shrink-0">风险:</span>
-            <span className="text-gray-500">暂无数据</span>
+            <span className="text-[var(--text-secondary)] shrink-0">风险:</span>
+            <span className="text-[var(--text-secondary)]">暂无数据</span>
           </div>
         </div>
       </div>

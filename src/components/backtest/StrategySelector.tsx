@@ -135,13 +135,13 @@ export function StrategySelector({ selectedStrategies, onChange, tradeThreshold 
   };
 
   return (
-    <div className="bg-[#111827] rounded border border-gray-800 p-3 space-y-3">
+    <div className="bg-[var(--bg-panel)] rounded border border-[var(--border-default)] p-3 space-y-3">
       {/* 步骤指示器 */}
       <div className="flex items-center gap-2">
         {[1, 2, 3].map(s => (
           <button key={s} onClick={() => setStep(s as 1 | 2 | 3)}
             className={`flex-1 px-2 py-1.5 text-[10px] rounded transition-colors ${
-              step === s ? "bg-blue-500/20 text-blue-400 border border-blue-500/50" : "bg-gray-800/50 text-gray-500 hover:text-gray-400"
+              step === s ? "bg-blue-500/20 text-[var(--accent-blue)] border border-[var(--accent-blue)]/50" : "bg-[var(--bg-card)]/50 text-[var(--text-secondary)] hover:text-[var(--text-secondary)]"
             }`}>
             {s === 1 ? "选择策略" : s === 2 ? "配置权重" : "交易阈值"}
           </button>
@@ -152,11 +152,11 @@ export function StrategySelector({ selectedStrategies, onChange, tradeThreshold 
       {step === 1 && (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] text-gray-500">选择要使用的策略（可多选）</span>
+            <span className="text-[10px] text-[var(--text-secondary)]">选择要使用的策略（可多选）</span>
             <div className="flex gap-1">
               {(["all", "builtin", "custom"] as const).map(f => (
                 <button key={f} onClick={() => setFilter(f)}
-                  className={`px-2 py-0.5 text-[10px] rounded ${filter === f ? "bg-blue-500/20 text-blue-400" : "text-gray-500 hover:text-gray-400"}`}>
+                  className={`px-2 py-0.5 text-[10px] rounded ${filter === f ? "bg-blue-500/20 text-[var(--accent-blue)]" : "text-[var(--text-secondary)] hover:text-[var(--text-secondary)]"}`}>
                   {f === "all" ? "全部" : f === "builtin" ? "内置" : "自定义"}
                 </button>
               ))}
@@ -168,24 +168,24 @@ export function StrategySelector({ selectedStrategies, onChange, tradeThreshold 
               return (
                 <button key={strategy.id} onClick={() => toggleStrategy(strategy.id, strategy.name, strategy.confidence, strategy.isCustom)}
                   className={`flex items-center gap-2 p-2 rounded text-left transition-colors ${
-                    isSelected ? "bg-blue-500/10 border border-blue-500/50" : "bg-gray-800/30 border border-transparent hover:border-gray-700"
+                    isSelected ? "bg-blue-500/10 border border-[var(--accent-blue)]/50" : "bg-[var(--bg-card)]/30 border border-transparent hover:border-[var(--border-default)]"
                   }`}>
                   <div className={`w-4 h-4 rounded border flex items-center justify-center ${
-                    isSelected ? "bg-blue-500 border-blue-500" : "border-gray-600"
+                    isSelected ? "bg-blue-500 border-[var(--accent-blue)]" : "border-[var(--border-default)]"
                   }`}>
-                    {isSelected && <span className="text-[8px] text-white">✓</span>}
+                    {isSelected && <span className="text-[8px] text-[var(--text-primary)]">✓</span>}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-xs text-gray-200 truncate">{strategy.name}</div>
-                    <div className="text-[10px] text-gray-500 truncate">{strategy.description}</div>
+                    <div className="text-xs text-[var(--text-primary)] truncate">{strategy.name}</div>
+                    <div className="text-[10px] text-[var(--text-secondary)] truncate">{strategy.description}</div>
                   </div>
-                  <div className="text-[10px] text-gray-500">置信度 {(strategy.confidence * 100).toFixed(0)}%</div>
+                  <div className="text-[10px] text-[var(--text-secondary)]">置信度 {(strategy.confidence * 100).toFixed(0)}%</div>
                 </button>
               );
             })}
           </div>
           {selectedStrategies.length > 0 && (
-            <div className="text-[10px] text-gray-500">
+            <div className="text-[10px] text-[var(--text-secondary)]">
               已选择 {selectedStrategies.length} 个策略
             </div>
           )}
@@ -196,27 +196,27 @@ export function StrategySelector({ selectedStrategies, onChange, tradeThreshold 
       {step === 2 && (
         <div className="space-y-2">
           {selectedStrategies.length === 0 ? (
-            <div className="text-center text-gray-500 text-xs py-4">请先在第一步选择策略</div>
+            <div className="text-center text-[var(--text-secondary)] text-xs py-4">请先在第一步选择策略</div>
           ) : (
             <>
               <div className="flex gap-2">
-                <button onClick={equalizeWeights} className="flex-1 px-2 py-1 text-[10px] bg-gray-800 text-gray-400 rounded hover:bg-gray-700">一键均分</button>
-                <button onClick={distributeByConfidence} className="flex-1 px-2 py-1 text-[10px] bg-gray-800 text-gray-400 rounded hover:bg-gray-700">按置信度分配</button>
+                <button onClick={equalizeWeights} className="flex-1 px-2 py-1 text-[10px] bg-[var(--bg-card)] text-[var(--text-secondary)] rounded hover:bg-[var(--bg-card)]">一键均分</button>
+                <button onClick={distributeByConfidence} className="flex-1 px-2 py-1 text-[10px] bg-[var(--bg-card)] text-[var(--text-secondary)] rounded hover:bg-[var(--bg-card)]">按置信度分配</button>
               </div>
-              <div className={`text-[10px] ${totalWeight === 100 ? "text-green-400" : "text-red-400"}`}>
+              <div className={`text-[10px] ${totalWeight === 100 ? "text-[var(--accent-green)]" : "text-[var(--accent-red)]"}`}>
                 权重总计：{totalWeight}% {totalWeight !== 100 && "（需等于100%）"}
               </div>
               <div className="space-y-2">
                 {selectedStrategies.map(strategy => (
                   <div key={strategy.strategyId} className="flex items-center gap-2">
-                    <span className="text-xs text-gray-300 w-20 truncate">{strategy.strategyName}</span>
+                    <span className="text-xs text-[var(--text-primary)] w-20 truncate">{strategy.strategyName}</span>
                     <input type="range" min="0" max="100" value={strategy.weight}
                       onChange={(e) => updateWeight(strategy.strategyId, Number(e.target.value))}
-                      className="flex-1 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer" />
+                      className="flex-1 h-1 bg-[var(--bg-card)] rounded-lg appearance-none cursor-pointer" />
                     <input type="number" min="0" max="100" value={strategy.weight}
                       onChange={(e) => updateWeight(strategy.strategyId, Number(e.target.value))}
-                      className="w-12 px-1 py-0.5 bg-[#0a0e17] border border-gray-700 rounded text-[10px] text-gray-200 text-center" />
-                    <span className="text-[10px] text-gray-500 w-6">%</span>
+                      className="w-12 px-1 py-0.5 bg-[var(--bg-primary)] border border-[var(--border-default)] rounded text-[10px] text-[var(--text-primary)] text-center" />
+                    <span className="text-[10px] text-[var(--text-secondary)] w-6">%</span>
                   </div>
                 ))}
               </div>
@@ -229,32 +229,32 @@ export function StrategySelector({ selectedStrategies, onChange, tradeThreshold 
       {step === 3 && (
         <div className="space-y-3">
           <div>
-            <label className="text-[10px] text-gray-500 block mb-1">综合评分阈值</label>
+            <label className="text-[10px] text-[var(--text-secondary)] block mb-1">综合评分阈值</label>
             <div className="flex items-center gap-2">
               <input type="range" min="0" max="100" value={tradeThreshold}
                 onChange={(e) => onThresholdChange?.(Number(e.target.value))}
-                className="flex-1 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer" />
-              <span className="text-xs text-blue-400 w-10 text-right">{tradeThreshold}分</span>
+                className="flex-1 h-1 bg-[var(--bg-card)] rounded-lg appearance-none cursor-pointer" />
+              <span className="text-xs text-[var(--accent-blue)] w-10 text-right">{tradeThreshold}分</span>
             </div>
-            <p className="text-[10px] text-gray-500 mt-1">综合评分达到此分数时自动执行交易</p>
+            <p className="text-[10px] text-[var(--text-secondary)] mt-1">综合评分达到此分数时自动执行交易</p>
           </div>
 
           {/* 策略模板管理 */}
-          <div className="border-t border-gray-800 pt-2">
-            <div className="text-[10px] text-gray-500 mb-1">策略模板</div>
+          <div className="border-t border-[var(--border-default)] pt-2">
+            <div className="text-[10px] text-[var(--text-secondary)] mb-1">策略模板</div>
             <div className="flex gap-1 mb-2">
-              <button onClick={saveTemplate} className="px-2 py-1 text-[10px] bg-blue-500/20 text-blue-400 rounded hover:bg-blue-500/30">保存当前配置</button>
-              <button onClick={exportConfig} className="px-2 py-1 text-[10px] bg-gray-800 text-gray-400 rounded hover:bg-gray-700">导出</button>
-              <button onClick={importConfig} className="px-2 py-1 text-[10px] bg-gray-800 text-gray-400 rounded hover:bg-gray-700">导入</button>
+              <button onClick={saveTemplate} className="px-2 py-1 text-[10px] bg-blue-500/20 text-[var(--accent-blue)] rounded hover:bg-blue-500/30">保存当前配置</button>
+              <button onClick={exportConfig} className="px-2 py-1 text-[10px] bg-[var(--bg-card)] text-[var(--text-secondary)] rounded hover:bg-[var(--bg-card)]">导出</button>
+              <button onClick={importConfig} className="px-2 py-1 text-[10px] bg-[var(--bg-card)] text-[var(--text-secondary)] rounded hover:bg-[var(--bg-card)]">导入</button>
             </div>
             {templates.length > 0 && (
               <div className="space-y-1 max-h-[100px] overflow-y-auto">
                 {templates.map(t => (
-                  <div key={t.id} className="flex items-center justify-between bg-gray-800/50 rounded px-2 py-1">
-                    <span className="text-[10px] text-gray-300">{t.name}</span>
+                  <div key={t.id} className="flex items-center justify-between bg-[var(--bg-card)]/50 rounded px-2 py-1">
+                    <span className="text-[10px] text-[var(--text-primary)]">{t.name}</span>
                     <div className="flex gap-1">
-                      <button onClick={() => loadTemplate(t)} className="text-[10px] text-blue-400 hover:text-blue-300">加载</button>
-                      <button onClick={() => deleteTemplate(t.id)} className="text-[10px] text-red-400 hover:text-red-300">删除</button>
+                      <button onClick={() => loadTemplate(t)} className="text-[10px] text-[var(--accent-blue)] hover:text-blue-300">加载</button>
+                      <button onClick={() => deleteTemplate(t.id)} className="text-[10px] text-[var(--accent-red)] hover:text-red-300">删除</button>
                     </div>
                   </div>
                 ))}
@@ -263,9 +263,9 @@ export function StrategySelector({ selectedStrategies, onChange, tradeThreshold 
           </div>
 
           {/* 综合策略摘要 */}
-          <div className="border-t border-gray-800 pt-2">
-            <div className="text-[10px] text-gray-500 mb-1">当前策略摘要</div>
-            <div className="bg-gray-800/30 rounded p-2 text-[10px] text-gray-400 space-y-0.5">
+          <div className="border-t border-[var(--border-default)] pt-2">
+            <div className="text-[10px] text-[var(--text-secondary)] mb-1">当前策略摘要</div>
+            <div className="bg-[var(--bg-card)]/30 rounded p-2 text-[10px] text-[var(--text-secondary)] space-y-0.5">
               <div>策略数量：{selectedStrategies.length} 个</div>
               <div>交易阈值：{tradeThreshold}分</div>
               <div>策略组合：{selectedStrategies.map(s => `${s.strategyName}(${s.weight}%)`).join(" + ") || "未选择"}</div>

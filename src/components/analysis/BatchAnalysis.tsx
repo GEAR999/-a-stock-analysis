@@ -157,7 +157,7 @@ export function BatchAnalysis() {
 
   if (watchlist.length === 0) {
     return (
-      <div className="p-4 text-center text-sm text-[#94a3b8]">
+      <div className="p-4 text-center text-sm text-[var(--text-secondary)]">
         请先添加股票到自选列表
       </div>
     );
@@ -166,16 +166,16 @@ export function BatchAnalysis() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[#1e293b]">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-default)]">
         <div className="flex items-center gap-3">
-          <span className="text-sm font-medium text-[#e2e8f0]">批量分析</span>
-          <span className="text-xs text-[#94a3b8]">共 {watchlist.length} 只股票</span>
+          <span className="text-sm font-medium text-[var(--text-primary)]">批量分析</span>
+          <span className="text-xs text-[var(--text-secondary)]">共 {watchlist.length} 只股票</span>
         </div>
         <div className="flex items-center gap-2">
           {results.length > 0 && (
             <button
               onClick={exportCSV}
-              className="px-3 py-1.5 text-xs bg-[#1e293b] text-[#e2e8f0] rounded hover:bg-[#334155] transition-colors"
+              className="px-3 py-1.5 text-xs bg-[var(--bg-card)] text-[var(--text-primary)] rounded hover:bg-[var(--bg-card)] transition-colors"
             >
               导出CSV
             </button>
@@ -183,7 +183,7 @@ export function BatchAnalysis() {
           <button
             onClick={runBatchAnalysis}
             disabled={isRunning}
-            className="px-3 py-1.5 text-xs bg-[#3b82f6] text-white rounded hover:bg-[#2563eb] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="px-3 py-1.5 text-xs bg-[var(--accent-blue)] text-[var(--text-primary)] rounded hover:bg-[var(--accent-blue)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {isRunning ? '分析中...' : '开始分析'}
           </button>
@@ -192,14 +192,14 @@ export function BatchAnalysis() {
 
       {/* Progress */}
       {isRunning && (
-        <div className="px-4 py-2 bg-[#111827] border-b border-[#1e293b]">
-          <div className="flex items-center justify-between text-xs text-[#94a3b8] mb-1">
+        <div className="px-4 py-2 bg-[var(--bg-panel)] border-b border-[var(--border-default)]">
+          <div className="flex items-center justify-between text-xs text-[var(--text-secondary)] mb-1">
             <span>分析进度</span>
             <span>{progress.current} / {progress.total}</span>
           </div>
-          <div className="h-1.5 bg-[#1e293b] rounded-full overflow-hidden">
+          <div className="h-1.5 bg-[var(--bg-card)] rounded-full overflow-hidden">
             <div
-              className="h-full bg-[#3b82f6] transition-all duration-300"
+              className="h-full bg-[var(--accent-blue)] transition-all duration-300"
               style={{ width: `${(progress.current / progress.total) * 100}%` }}
             />
           </div>
@@ -209,16 +209,16 @@ export function BatchAnalysis() {
       {/* Results Table */}
       <div className="flex-1 overflow-auto">
         {results.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-sm text-[#94a3b8]">
+          <div className="flex items-center justify-center h-full text-sm text-[var(--text-secondary)]">
             点击"开始分析"对自选股进行批量分析
           </div>
         ) : (
           <table className="w-full text-xs">
-            <thead className="sticky top-0 bg-[#0a0e17] border-b border-[#1e293b]">
-              <tr className="text-[#94a3b8]">
+            <thead className="sticky top-0 bg-[var(--bg-primary)] border-b border-[var(--border-default)]">
+              <tr className="text-[var(--text-secondary)]">
                 <th className="px-3 py-2 text-left font-medium">股票</th>
                 <th
-                  className="px-3 py-2 text-right font-medium cursor-pointer hover:text-[#e2e8f0]"
+                  className="px-3 py-2 text-right font-medium cursor-pointer hover:text-[var(--text-primary)]"
                   onClick={() => handleSort('score')}
                 >
                   评分 {sortBy === 'score' && (sortAsc ? '↑' : '↓')}
@@ -232,29 +232,29 @@ export function BatchAnalysis() {
             </thead>
             <tbody>
               {sortedResults.map((r) => (
-                <tr key={r.code} className="border-b border-[#1e293b]/50 hover:bg-[#111827]">
+                <tr key={r.code} className="border-b border-[var(--border-default)]/50 hover:bg-[var(--bg-panel)]">
                   <td className="px-3 py-2">
-                    <div className="text-[#e2e8f0]">{r.name}</div>
-                    <div className="text-[#94a3b8] text-[10px]">{r.code}</div>
+                    <div className="text-[var(--text-primary)]">{r.name}</div>
+                    <div className="text-[var(--text-secondary)] text-[10px]">{r.code}</div>
                   </td>
                   <td className="px-3 py-2 text-right">
-                    <span className={`font-mono ${r.score >= 60 ? 'text-[#ef4444]' : r.score <= 40 ? 'text-[#22c55e]' : 'text-[#e2e8f0]'}`}>
+                    <span className={`font-mono ${r.score >= 60 ? 'text-[var(--accent-red)]' : r.score <= 40 ? 'text-[var(--accent-green)]' : 'text-[var(--text-primary)]'}`}>
                       {r.score}
                     </span>
                   </td>
                   <td className="px-3 py-2 text-center">
                     <span className={`px-1.5 py-0.5 rounded text-[10px] ${
-                      r.overall === '看多' ? 'bg-[#ef4444]/20 text-[#ef4444]' :
-                      r.overall === '看空' ? 'bg-[#22c55e]/20 text-[#22c55e]' :
-                      'bg-[#94a3b8]/20 text-[#94a3b8]'
+                      r.overall === '看多' ? 'bg-[var(--accent-red)]/20 text-[var(--accent-red)]' :
+                      r.overall === '看空' ? 'bg-[var(--accent-green)]/20 text-[var(--accent-green)]' :
+                      'bg-[var(--text-secondary)]/20 text-[var(--text-secondary)]'
                     }`}>
                       {r.overall}
                     </span>
                   </td>
-                  <td className="px-3 py-2 text-center text-[#94a3b8]">{r.macdSignal}</td>
-                  <td className="px-3 py-2 text-center text-[#94a3b8]">{r.kdjSignal}</td>
-                  <td className="px-3 py-2 text-center text-[#94a3b8]">{r.chanlunSignal}</td>
-                  <td className="px-3 py-2 text-center text-[#94a3b8]">{r.wavePosition}</td>
+                  <td className="px-3 py-2 text-center text-[var(--text-secondary)]">{r.macdSignal}</td>
+                  <td className="px-3 py-2 text-center text-[var(--text-secondary)]">{r.kdjSignal}</td>
+                  <td className="px-3 py-2 text-center text-[var(--text-secondary)]">{r.chanlunSignal}</td>
+                  <td className="px-3 py-2 text-center text-[var(--text-secondary)]">{r.wavePosition}</td>
                 </tr>
               ))}
             </tbody>

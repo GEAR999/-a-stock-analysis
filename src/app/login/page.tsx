@@ -35,24 +35,24 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0a0e17]">
+    <div className="min-h-screen flex items-center justify-center bg-[var(--bg-primary)]">
       <div className="w-full max-w-md p-8">
-        <div className="bg-[#111827] border border-[#1e293b] rounded p-8">
-          <h1 className="text-2xl font-bold text-[#e2e8f0] mb-2 text-center">
+        <div className="bg-[var(--bg-panel)] border border-[var(--border-default)] rounded p-8">
+          <h1 className="text-2xl font-bold text-[var(--text-primary)] mb-2 text-center">
             A股智能分析系统
           </h1>
-          <p className="text-[#94a3b8] text-sm text-center mb-8">
+          <p className="text-[var(--text-secondary)] text-sm text-center mb-8">
             {isRegister ? '创建新账户' : '登录以继续'}
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm text-[#94a3b8] mb-1">邮箱</label>
+              <label className="block text-sm text-[var(--text-secondary)] mb-1">邮箱</label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-[#0a0e17] border border-[#1e293b] rounded px-3 py-2 text-[#e2e8f0] focus:border-[#3b82f6] focus:outline-none"
+                className="w-full bg-[var(--bg-primary)] border border-[var(--border-default)] rounded px-3 py-2 text-[var(--text-primary)] focus:border-[var(--accent-blue)] focus:outline-none"
                 placeholder="your@email.com"
                 required
               />
@@ -60,24 +60,24 @@ export default function LoginPage() {
 
             {isRegister && (
               <div>
-                <label className="block text-sm text-[#94a3b8] mb-1">用户名</label>
+                <label className="block text-sm text-[var(--text-secondary)] mb-1">用户名</label>
                 <input
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="w-full bg-[#0a0e17] border border-[#1e293b] rounded px-3 py-2 text-[#e2e8f0] focus:border-[#3b82f6] focus:outline-none"
+                  className="w-full bg-[var(--bg-primary)] border border-[var(--border-default)] rounded px-3 py-2 text-[var(--text-primary)] focus:border-[var(--accent-blue)] focus:outline-none"
                   placeholder="可选"
                 />
               </div>
             )}
 
             <div>
-              <label className="block text-sm text-[#94a3b8] mb-1">密码</label>
+              <label className="block text-sm text-[var(--text-secondary)] mb-1">密码</label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-[#0a0e17] border border-[#1e293b] rounded px-3 py-2 text-[#e2e8f0] focus:border-[#3b82f6] focus:outline-none"
+                className="w-full bg-[var(--bg-primary)] border border-[var(--border-default)] rounded px-3 py-2 text-[var(--text-primary)] focus:border-[var(--accent-blue)] focus:outline-none"
                 placeholder="至少6个字符"
                 required
                 minLength={6}
@@ -86,12 +86,12 @@ export default function LoginPage() {
 
             {isRegister && (
               <div>
-                <label className="block text-sm text-[#94a3b8] mb-1">确认密码</label>
+                <label className="block text-sm text-[var(--text-secondary)] mb-1">确认密码</label>
                 <input
                   type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full bg-[#0a0e17] border border-[#1e293b] rounded px-3 py-2 text-[#e2e8f0] focus:border-[#3b82f6] focus:outline-none"
+                  className="w-full bg-[var(--bg-primary)] border border-[var(--border-default)] rounded px-3 py-2 text-[var(--text-primary)] focus:border-[var(--accent-blue)] focus:outline-none"
                   placeholder="再次输入密码"
                   required
                 />
@@ -99,7 +99,7 @@ export default function LoginPage() {
             )}
 
             {error && (
-              <div className="text-red-400 text-sm bg-red-900/20 border border-red-900/50 rounded px-3 py-2">
+              <div className="text-[var(--accent-red)] text-sm bg-red-900/20 border border-red-900/50 rounded px-3 py-2">
                 {error}
               </div>
             )}
@@ -107,7 +107,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-[#3b82f6] text-white py-2 rounded hover:bg-[#2563eb] disabled:opacity-50 transition-colors"
+              className="w-full bg-[var(--accent-blue)] text-[var(--text-primary)] py-2 rounded hover:bg-[var(--accent-blue)] disabled:opacity-50 transition-colors"
             >
               {loading ? '处理中...' : isRegister ? '注册' : '登录'}
             </button>
@@ -116,20 +116,20 @@ export default function LoginPage() {
           <div className="mt-6 text-center">
             <button
               onClick={() => { setIsRegister(!isRegister); setError(''); }}
-              className="text-[#3b82f6] text-sm hover:underline"
+              className="text-[var(--accent-blue)] text-sm hover:underline"
             >
               {isRegister ? '已有账户？去登录' : '没有账户？去注册'}
             </button>
           </div>
 
-          <div className="mt-4 pt-4 border-t border-[#1e293b] text-center">
+          <div className="mt-4 pt-4 border-t border-[var(--border-default)] text-center">
             <button
               onClick={() => {
                 // 跳过登录，使用本地数据模式
                 localStorage.setItem('auth_local_mode', 'true');
                 window.location.href = '/';
               }}
-              className="text-[#94a3b8] text-sm hover:text-[#e2e8f0] transition-colors"
+              className="text-[var(--text-secondary)] text-sm hover:text-[var(--text-primary)] transition-colors"
             >
               跳过登录，使用本地数据 →
             </button>

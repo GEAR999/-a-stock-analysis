@@ -85,7 +85,7 @@ export default function Home() {
       </ErrorBoundary>
       <div
         ref={containerRef}
-        className={`flex h-screen w-screen overflow-hidden bg-[#0a0e17] text-[#e2e8f0] ${isDragging ? 'cursor-col-resize select-none' : ''}`}
+        className={`flex h-screen w-screen overflow-hidden bg-[var(--bg-primary)] text-[var(--text-primary)] ${isDragging ? 'cursor-col-resize select-none' : ''}`}
       >
         {/* Left Sidebar */}
         <Sidebar />
@@ -93,13 +93,13 @@ export default function Home() {
         {/* Main Content */}
         <div className="flex-1 flex flex-col min-w-0">
           {/* Tab切换 */}
-          <div className="flex items-center border-b border-gray-800 bg-[#111827]">
+          <div className="flex items-center border-b border-[var(--border-default)] bg-[var(--bg-panel)]">
             <button
               onClick={() => setMainTab('analysis')}
               className={`px-4 py-2 text-xs transition-colors ${
                 mainTab === 'analysis'
-                  ? 'text-blue-400 border-b-2 border-blue-400 bg-blue-400/5'
-                  : 'text-gray-400 hover:text-gray-200'
+                  ? 'text-[var(--accent-blue)] border-b-2 border-blue-400 bg-blue-400/5'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
               }`}
             >
               行情分析
@@ -108,8 +108,8 @@ export default function Home() {
               onClick={() => setMainTab('backtest')}
               className={`px-4 py-2 text-xs transition-colors ${
                 mainTab === 'backtest'
-                  ? 'text-blue-400 border-b-2 border-blue-400 bg-blue-400/5'
-                  : 'text-gray-400 hover:text-gray-200'
+                  ? 'text-[var(--accent-blue)] border-b-2 border-blue-400 bg-blue-400/5'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
               }`}
             >
               模拟回测
@@ -118,8 +118,8 @@ export default function Home() {
               onClick={() => setMainTab('learning')}
               className={`px-4 py-2 text-xs transition-colors ${
                 mainTab === 'learning'
-                  ? 'text-blue-400 border-b-2 border-blue-400 bg-blue-400/5'
-                  : 'text-gray-400 hover:text-gray-200'
+                  ? 'text-[var(--accent-blue)] border-b-2 border-blue-400 bg-blue-400/5'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
               }`}
             >
               📚 学习中心
@@ -132,7 +132,7 @@ export default function Home() {
               {/* 右侧面板收起/展开按钮 */}
               <button
                 onClick={() => setRightPanelCollapsed(!rightPanelCollapsed)}
-                className="p-1.5 rounded hover:bg-[#1e293b] transition-colors text-[#94a3b8] hover:text-[#e2e8f0]"
+                className="p-1.5 rounded hover:bg-[var(--bg-card)] transition-colors text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                 title={rightPanelCollapsed ? '展开分析面板' : '收起分析面板'}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -170,8 +170,8 @@ export default function Home() {
         {!rightPanelCollapsed && mainTab === 'analysis' && (
           <div
             onMouseDown={handleMouseDown}
-            className={`w-1 bg-[#1e293b] cursor-col-resize hover:bg-[#3b82f6] transition-colors ${
-              isDragging ? 'bg-[#3b82f6]' : ''
+            className={`w-1 bg-[var(--bg-card)] cursor-col-resize hover:bg-[var(--accent-blue)] transition-colors ${
+              isDragging ? 'bg-[var(--accent-blue)]' : ''
             }`}
           />
         )}

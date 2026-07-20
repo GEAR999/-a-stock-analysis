@@ -111,9 +111,9 @@ export default function NotificationCenter() {
 
   const getIcon = (type: Notification["type"]) => {
     switch (type) {
-      case "signal": return <TrendingUp className="w-4 h-4 text-blue-400" />;
+      case "signal": return <TrendingUp className="w-4 h-4 text-[var(--accent-blue)]" />;
       case "price": return <DollarSign className="w-4 h-4 text-amber-400" />;
-      case "system": return <Settings className="w-4 h-4 text-gray-400" />;
+      case "system": return <Settings className="w-4 h-4 text-[var(--text-secondary)]" />;
     }
   };
 
@@ -139,12 +139,12 @@ export default function NotificationCenter() {
       {/* Bell Icon */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 rounded-lg text-gray-400 hover:text-gray-200 hover:bg-gray-800/50 transition-colors"
+        className="relative p-2 rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)]/50 transition-colors"
         title="消息通知"
       >
         <Bell className="w-4 h-4" />
         {unreadCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 flex items-center justify-center text-[10px] font-bold text-white bg-red-500 rounded-full">
+          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 flex items-center justify-center text-[10px] font-bold text-[var(--text-primary)] bg-red-500 rounded-full">
             {unreadCount > 99 ? "99+" : unreadCount}
           </span>
         )}
@@ -152,13 +152,13 @@ export default function NotificationCenter() {
 
       {/* Dropdown Panel */}
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-[360px] max-h-[500px] bg-[#111827] border border-gray-700 rounded-lg shadow-2xl overflow-hidden z-50 flex flex-col">
+        <div className="absolute right-0 top-full mt-2 w-[360px] max-h-[500px] bg-[var(--bg-panel)] border border-[var(--border-default)] rounded-lg shadow-2xl overflow-hidden z-50 flex flex-col">
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-default)]">
             <div className="flex items-center gap-2">
-              <h3 className="text-sm font-medium text-gray-200">消息通知</h3>
+              <h3 className="text-sm font-medium text-[var(--text-primary)]">消息通知</h3>
               {unreadCount > 0 && (
-                <span className="px-1.5 py-0.5 text-[10px] bg-red-500/20 text-red-400 rounded">
+                <span className="px-1.5 py-0.5 text-[10px] bg-red-500/20 text-[var(--accent-red)] rounded">
                   {unreadCount} 未读
                 </span>
               )}
@@ -167,7 +167,7 @@ export default function NotificationCenter() {
               {unreadCount > 0 && (
                 <button
                   onClick={markAllRead}
-                  className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                  className="text-xs text-[var(--accent-blue)] hover:text-blue-300 transition-colors"
                   title="全部已读"
                 >
                   <Check className="w-3.5 h-3.5" />
@@ -176,7 +176,7 @@ export default function NotificationCenter() {
               {notifications.length > 0 && (
                 <button
                   onClick={clearAll}
-                  className="text-xs text-gray-400 hover:text-red-400 transition-colors"
+                  className="text-xs text-[var(--text-secondary)] hover:text-[var(--accent-red)] transition-colors"
                   title="清空全部"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
@@ -189,34 +189,34 @@ export default function NotificationCenter() {
           <div className="flex-1 overflow-y-auto">
             {notifications.length === 0 ? (
               <div className="px-4 py-12 text-center">
-                <Bell className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-                <p className="text-xs text-gray-500">暂无通知</p>
+                <Bell className="w-8 h-8 text-[var(--text-muted)] mx-auto mb-2" />
+                <p className="text-xs text-[var(--text-secondary)]">暂无通知</p>
               </div>
             ) : (
               notifications.map(notif => (
                 <div
                   key={notif.id}
                   onClick={() => markAsRead(notif.id)}
-                  className={`flex items-start gap-3 px-4 py-3 border-b border-gray-800 border-l-2 ${getTypeColor(notif.type)} cursor-pointer transition-colors ${
-                    notif.read ? "bg-transparent hover:bg-gray-800/30" : "bg-blue-500/5 hover:bg-blue-500/10"
+                  className={`flex items-start gap-3 px-4 py-3 border-b border-[var(--border-default)] border-l-2 ${getTypeColor(notif.type)} cursor-pointer transition-colors ${
+                    notif.read ? "bg-transparent hover:bg-[var(--bg-card)]/30" : "bg-blue-500/5 hover:bg-blue-500/10"
                   }`}
                 >
                   <div className="shrink-0 mt-0.5">{getIcon(notif.type)}</div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <h4 className={`text-xs truncate ${notif.read ? "text-gray-400" : "text-gray-200 font-medium"}`}>
+                      <h4 className={`text-xs truncate ${notif.read ? "text-[var(--text-secondary)]" : "text-[var(--text-primary)] font-medium"}`}>
                         {notif.title}
                       </h4>
                       {!notif.read && (
                         <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0" />
                       )}
                     </div>
-                    <p className="text-[11px] text-gray-500 mt-0.5 line-clamp-2">{notif.message}</p>
-                    <p className="text-[10px] text-gray-600 mt-1">{formatTime(notif.timestamp)}</p>
+                    <p className="text-[11px] text-[var(--text-secondary)] mt-0.5 line-clamp-2">{notif.message}</p>
+                    <p className="text-[10px] text-[var(--text-muted)] mt-1">{formatTime(notif.timestamp)}</p>
                   </div>
                   <button
                     onClick={(e) => { e.stopPropagation(); deleteNotification(notif.id); }}
-                    className="shrink-0 p-1 text-gray-600 hover:text-red-400 transition-colors"
+                    className="shrink-0 p-1 text-[var(--text-muted)] hover:text-[var(--accent-red)] transition-colors"
                     title="删除"
                   >
                     <X className="w-3 h-3" />
@@ -228,8 +228,8 @@ export default function NotificationCenter() {
 
           {/* Footer */}
           {notifications.length > 0 && (
-            <div className="px-4 py-2 border-t border-gray-700 text-center">
-              <span className="text-[10px] text-gray-500">共 {notifications.length} 条通知</span>
+            <div className="px-4 py-2 border-t border-[var(--border-default)] text-center">
+              <span className="text-[10px] text-[var(--text-secondary)]">共 {notifications.length} 条通知</span>
             </div>
           )}
         </div>

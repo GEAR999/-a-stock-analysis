@@ -9,6 +9,7 @@ import { TradeHistoryPanel } from './TradeHistoryPanel';
 import { getAllAvailableStrategies, calculateWeightsByConfidence } from './strategy-storage';
 import type { BuiltinStrategy } from './strategy-storage';
 import type { Account, QuantStrategy, StrategySource, CustomStrategy, RunMode } from './types';
+import StrategyValidationReport from '../analysis/StrategyValidationReport';
 
 type ToastType = 'success' | 'error' | 'warning' | 'info';
 
@@ -159,12 +160,12 @@ export function BacktestPanel() {
 
   if (!currentAccount) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-gray-500">
+      <div className="flex flex-col items-center justify-center h-full text-[var(--text-secondary)]">
         <Wallet className="w-12 h-12 mb-3 opacity-50" />
         <p className="text-sm mb-3">暂无回测账户</p>
         <button
           onClick={() => setShowNewAccount(true)}
-          className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-blue-500/30 transition-colors"
+          className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded bg-blue-500/20 text-[var(--accent-blue)] border border-[var(--accent-blue)]/30 hover:bg-blue-500/30 transition-colors"
         >
           <Plus className="w-3 h-3" />
           创建账户
@@ -178,23 +179,23 @@ export function BacktestPanel() {
       {/* Toast */}
       {toast && (
         <div className={`fixed top-4 right-4 z-50 px-4 py-2 rounded text-xs font-medium shadow-lg ${
-          toast.type === 'success' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
-          toast.type === 'error' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
-          toast.type === 'warning' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
-          'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+          toast.type === 'success' ? 'bg-green-500/20 text-[var(--accent-green)] border border-green-500/30' :
+          toast.type === 'error' ? 'bg-red-500/20 text-[var(--accent-red)] border border-red-500/30' :
+          toast.type === 'warning' ? 'bg-yellow-500/20 text-[var(--accent-yellow)] border border-yellow-500/30' :
+          'bg-blue-500/20 text-[var(--accent-blue)] border border-[var(--accent-blue)]/30'
         }`}>
           {toast.message}
         </div>
       )}
 
       {/* 账户选择器 */}
-      <div className="flex items-center justify-between p-3 border-b border-gray-800 bg-[var(--bg-panel)]">
+      <div className="flex items-center justify-between p-3 border-b border-[var(--border-default)] bg-[var(--bg-panel)]">
         <div className="flex items-center gap-2">
-          <Wallet className="w-4 h-4 text-blue-400" />
+          <Wallet className="w-4 h-4 text-[var(--accent-blue)]" />
           <select
             value={activeAccountId || ''}
             onChange={(e) => switchAccount(e.target.value)}
-            className="text-xs bg-gray-800/50 border border-gray-700 rounded px-2 py-1 text-gray-200"
+            className="text-xs bg-[var(--bg-card)]/50 border border-[var(--border-default)] rounded px-2 py-1 text-[var(--text-primary)]"
           >
             {accounts.map((a) => (
               <option key={a.id} value={a.id}>{a.name}</option>
@@ -212,7 +213,7 @@ export function BacktestPanel() {
                 setShowChangeStrategy(!showChangeStrategy);
                 setShowNewAccount(false);
               }}
-              className="flex items-center gap-1 px-2 py-1 text-xs text-gray-400 hover:text-gray-200 transition-colors"
+              className="flex items-center gap-1 px-2 py-1 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
               title="修改策略"
             >
               <Settings className="w-3 h-3" />
@@ -221,7 +222,7 @@ export function BacktestPanel() {
           )}
           <button
             onClick={() => { setShowNewAccount(!showNewAccount); setShowChangeStrategy(false); }}
-            className="flex items-center gap-1 px-2 py-1 text-xs text-gray-400 hover:text-gray-200 transition-colors"
+            className="flex items-center gap-1 px-2 py-1 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
           >
             <Plus className="w-3 h-3" />
             新建
@@ -231,28 +232,28 @@ export function BacktestPanel() {
 
       {/* 新建账户表单 */}
       {showNewAccount && (
-        <div className="p-3 border-b border-gray-800 bg-[var(--bg-panel)] space-y-2">
+        <div className="p-3 border-b border-[var(--border-default)] bg-[var(--bg-panel)] space-y-2">
           <input
             type="text"
             value={newAccountName}
             onChange={(e) => setNewAccountName(e.target.value)}
             placeholder="账户名称"
-            className="w-full px-2 py-1 text-xs bg-gray-800/50 border border-gray-700 rounded text-gray-200 placeholder-gray-500"
+            className="w-full px-2 py-1 text-xs bg-[var(--bg-card)]/50 border border-[var(--border-default)] rounded text-[var(--text-primary)] placeholder-gray-500"
           />
           <input
             type="number"
             value={newAccountCapital}
             onChange={(e) => setNewAccountCapital(Number(e.target.value))}
             placeholder="初始资金"
-            className="w-full px-2 py-1 text-xs bg-gray-800/50 border border-gray-700 rounded text-gray-200 placeholder-gray-500"
+            className="w-full px-2 py-1 text-xs bg-[var(--bg-card)]/50 border border-[var(--border-default)] rounded text-[var(--text-primary)] placeholder-gray-500"
           />
           <div className="flex gap-2">
             <button
               onClick={() => setNewAccountType('manual')}
               className={`flex-1 px-2 py-1 text-xs rounded border transition-colors ${
                 newAccountType === 'manual'
-                  ? 'bg-blue-500/20 text-blue-400 border-blue-500/30'
-                  : 'bg-gray-800/50 text-gray-400 border-gray-700 hover:bg-gray-700/50'
+                  ? 'bg-blue-500/20 text-[var(--accent-blue)] border-[var(--accent-blue)]/30'
+                  : 'bg-[var(--bg-card)]/50 text-[var(--text-secondary)] border-[var(--border-default)] hover:bg-[var(--bg-card)]/50'
               }`}
             >
               手动交易
@@ -261,8 +262,8 @@ export function BacktestPanel() {
               onClick={() => setNewAccountType('quant')}
               className={`flex-1 px-2 py-1 text-xs rounded border transition-colors ${
                 newAccountType === 'quant'
-                  ? 'bg-blue-500/20 text-blue-400 border-blue-500/30'
-                  : 'bg-gray-800/50 text-gray-400 border-gray-700 hover:bg-gray-700/50'
+                  ? 'bg-blue-500/20 text-[var(--accent-blue)] border-[var(--accent-blue)]/30'
+                  : 'bg-[var(--bg-card)]/50 text-[var(--text-secondary)] border-[var(--border-default)] hover:bg-[var(--bg-card)]/50'
               }`}
             >
               量化自动
@@ -272,9 +273,9 @@ export function BacktestPanel() {
           {/* 运行模式选择 - 仅量化类型显示 */}
           {newAccountType === 'quant' && (
             <div className="space-y-1">
-              <label className="text-[10px] text-gray-500 flex items-center gap-1">
+              <label className="text-[10px] text-[var(--text-secondary)] flex items-center gap-1">
                 运行模式
-                <span className="text-[9px] text-gray-600">（创建后不可更改）</span>
+                <span className="text-[9px] text-[var(--text-muted)]">（创建后不可更改）</span>
               </label>
               <div className="flex gap-2">
                 <button
@@ -282,7 +283,7 @@ export function BacktestPanel() {
                   className={`flex-1 px-2 py-1 text-xs rounded border transition-colors ${
                     newRunMode === 'backtest'
                       ? 'bg-purple-500/20 text-purple-400 border-purple-500/30'
-                      : 'bg-gray-800/50 text-gray-400 border-gray-700 hover:bg-gray-700/50'
+                      : 'bg-[var(--bg-card)]/50 text-[var(--text-secondary)] border-[var(--border-default)] hover:bg-[var(--bg-card)]/50'
                   }`}
                 >
                   📊 历史回测
@@ -291,14 +292,14 @@ export function BacktestPanel() {
                   onClick={() => setNewRunMode('realtime')}
                   className={`flex-1 px-2 py-1 text-xs rounded border transition-colors ${
                     newRunMode === 'realtime'
-                      ? 'bg-red-500/20 text-red-400 border-red-500/30'
-                      : 'bg-gray-800/50 text-gray-400 border-gray-700 hover:bg-gray-700/50'
+                      ? 'bg-red-500/20 text-[var(--accent-red)] border-red-500/30'
+                      : 'bg-[var(--bg-card)]/50 text-[var(--text-secondary)] border-[var(--border-default)] hover:bg-[var(--bg-card)]/50'
                   }`}
                 >
                   🔴 实时验证
                 </button>
               </div>
-              <div className="text-[9px] text-gray-600">
+              <div className="text-[9px] text-[var(--text-muted)]">
                 {newRunMode === 'backtest' ? '用历史K线数据跑策略，不受交易时间限制' : '用实时行情数据，仅在A股交易时间运行'}
               </div>
             </div>
@@ -309,14 +310,14 @@ export function BacktestPanel() {
             <div className="space-y-2">
               <button
                 onClick={() => setShowStrategyPicker(!showStrategyPicker)}
-                className="flex items-center justify-between w-full px-2 py-1.5 text-xs bg-gray-800/50 border border-gray-700 rounded text-gray-300 hover:bg-gray-700/50 transition-colors"
+                className="flex items-center justify-between w-full px-2 py-1.5 text-xs bg-[var(--bg-card)]/50 border border-[var(--border-default)] rounded text-[var(--text-primary)] hover:bg-[var(--bg-card)]/50 transition-colors"
               >
                 <span>选择策略 ({selectedStrategyIds.length}个已选)</span>
                 {showStrategyPicker ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
               </button>
 
               {showStrategyPicker && (
-                <div className="max-h-48 overflow-y-auto space-y-1 border border-gray-700 rounded bg-[var(--bg-primary)] p-1.5">
+                <div className="max-h-48 overflow-y-auto space-y-1 border border-[var(--border-default)] rounded bg-[var(--bg-primary)] p-1.5">
                   {allStrategies.map((s) => {
                     const isSelected = selectedStrategyIds.includes(s.id);
                     const isBuiltin = s.source === 'builtin';
@@ -326,27 +327,27 @@ export function BacktestPanel() {
                         onClick={() => toggleStrategy(s.id)}
                         className={`w-full text-left px-2 py-1.5 rounded text-xs transition-colors flex items-start gap-2 ${
                           isSelected
-                            ? 'bg-blue-500/15 border border-blue-500/30'
-                            : 'bg-gray-800/30 border border-transparent hover:bg-gray-700/40'
+                            ? 'bg-blue-500/15 border border-[var(--accent-blue)]/30'
+                            : 'bg-[var(--bg-card)]/30 border border-transparent hover:bg-[var(--bg-card)]/40'
                         }`}
                       >
                         <div className={`flex-shrink-0 w-3.5 h-3.5 mt-0.5 rounded border flex items-center justify-center ${
-                          isSelected ? 'bg-blue-500 border-blue-500' : 'border-gray-600'
+                          isSelected ? 'bg-blue-500 border-[var(--accent-blue)]' : 'border-[var(--border-default)]'
                         }`}>
-                          {isSelected && <Check className="w-2.5 h-2.5 text-white" />}
+                          {isSelected && <Check className="w-2.5 h-2.5 text-[var(--text-primary)]" />}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5">
-                            <span className="text-gray-200 font-medium">{s.name}</span>
+                            <span className="text-[var(--text-primary)] font-medium">{s.name}</span>
                             <span className={`px-1 py-0 rounded text-[9px] ${
-                              isBuiltin ? 'bg-blue-500/20 text-blue-400' : 'bg-green-500/20 text-green-400'
+                              isBuiltin ? 'bg-blue-500/20 text-[var(--accent-blue)]' : 'bg-green-500/20 text-[var(--accent-green)]'
                             }`}>
                               {isBuiltin ? '内置' : '自定义'}
                             </span>
-                            <span className="text-gray-500 text-[10px]">置信度 {s.confidence}%</span>
+                            <span className="text-[var(--text-secondary)] text-[10px]">置信度 {s.confidence}%</span>
                           </div>
-                          <div className="text-gray-500 text-[10px] mt-0.5 truncate">{s.description}</div>
-                          <div className="text-gray-600 text-[10px] mt-0.5">
+                          <div className="text-[var(--text-secondary)] text-[10px] mt-0.5 truncate">{s.description}</div>
+                          <div className="text-[var(--text-muted)] text-[10px] mt-0.5">
                             理论: {formatTheories(s.theories)}
                           </div>
                         </div>
@@ -358,7 +359,7 @@ export function BacktestPanel() {
 
               {/* 交易阈值 */}
               <div className="flex items-center gap-2 px-1">
-                <span className="text-[10px] text-gray-500 whitespace-nowrap">交易阈值</span>
+                <span className="text-[10px] text-[var(--text-secondary)] whitespace-nowrap">交易阈值</span>
                 <input
                   type="range"
                   min={40}
@@ -367,14 +368,14 @@ export function BacktestPanel() {
                   onChange={(e) => setTradeThreshold(Number(e.target.value))}
                   className="flex-1 h-1 accent-blue-500"
                 />
-                <span className="text-[10px] text-gray-400 w-6 text-right">{tradeThreshold}</span>
+                <span className="text-[10px] text-[var(--text-secondary)] w-6 text-right">{tradeThreshold}</span>
               </div>
             </div>
           )}
 
           <button
             onClick={handleCreateAccount}
-            className="w-full px-3 py-1.5 text-xs font-medium rounded bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-blue-500/30 transition-colors"
+            className="w-full px-3 py-1.5 text-xs font-medium rounded bg-blue-500/20 text-[var(--accent-blue)] border border-[var(--accent-blue)]/30 hover:bg-blue-500/30 transition-colors"
           >
             创建账户
           </button>
@@ -383,12 +384,12 @@ export function BacktestPanel() {
 
       {/* 修改策略面板 */}
       {showChangeStrategy && currentAccount.type === 'quant' && (
-        <div className="p-3 border-b border-gray-800 bg-[var(--bg-panel)] space-y-2">
+        <div className="p-3 border-b border-[var(--border-default)] bg-[var(--bg-panel)] space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-300 font-medium">修改策略</span>
-            <span className="text-[10px] text-gray-500">当前: {currentAccount.strategy?.name || '默认'}</span>
+            <span className="text-xs text-[var(--text-primary)] font-medium">修改策略</span>
+            <span className="text-[10px] text-[var(--text-secondary)]">当前: {currentAccount.strategy?.name || '默认'}</span>
           </div>
-          <div className="max-h-48 overflow-y-auto space-y-1 border border-gray-700 rounded bg-[var(--bg-primary)] p-1.5">
+          <div className="max-h-48 overflow-y-auto space-y-1 border border-[var(--border-default)] rounded bg-[var(--bg-primary)] p-1.5">
             {allStrategies.map((s) => {
               const isSelected = selectedStrategyIds.includes(s.id);
               const isBuiltin = s.source === 'builtin';
@@ -398,26 +399,26 @@ export function BacktestPanel() {
                   onClick={() => toggleStrategy(s.id)}
                   className={`w-full text-left px-2 py-1.5 rounded text-xs transition-colors flex items-start gap-2 ${
                     isSelected
-                      ? 'bg-blue-500/15 border border-blue-500/30'
-                      : 'bg-gray-800/30 border border-transparent hover:bg-gray-700/40'
+                      ? 'bg-blue-500/15 border border-[var(--accent-blue)]/30'
+                      : 'bg-[var(--bg-card)]/30 border border-transparent hover:bg-[var(--bg-card)]/40'
                   }`}
                 >
                   <div className={`flex-shrink-0 w-3.5 h-3.5 mt-0.5 rounded border flex items-center justify-center ${
-                    isSelected ? 'bg-blue-500 border-blue-500' : 'border-gray-600'
+                    isSelected ? 'bg-blue-500 border-[var(--accent-blue)]' : 'border-[var(--border-default)]'
                   }`}>
-                    {isSelected && <Check className="w-2.5 h-2.5 text-white" />}
+                    {isSelected && <Check className="w-2.5 h-2.5 text-[var(--text-primary)]" />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-gray-200 font-medium">{s.name}</span>
+                      <span className="text-[var(--text-primary)] font-medium">{s.name}</span>
                       <span className={`px-1 py-0 rounded text-[9px] ${
-                        isBuiltin ? 'bg-blue-500/20 text-blue-400' : 'bg-green-500/20 text-green-400'
+                        isBuiltin ? 'bg-blue-500/20 text-[var(--accent-blue)]' : 'bg-green-500/20 text-[var(--accent-green)]'
                       }`}>
                         {isBuiltin ? '内置' : '自定义'}
                       </span>
-                      <span className="text-gray-500 text-[10px]">置信度 {s.confidence}%</span>
+                      <span className="text-[var(--text-secondary)] text-[10px]">置信度 {s.confidence}%</span>
                     </div>
-                    <div className="text-gray-500 text-[10px] mt-0.5">
+                    <div className="text-[var(--text-secondary)] text-[10px] mt-0.5">
                       理论: {formatTheories(s.theories)}
                     </div>
                   </div>
@@ -429,13 +430,13 @@ export function BacktestPanel() {
             <button
               onClick={handleChangeStrategy}
               disabled={selectedStrategyIds.length === 0}
-              className="flex-1 px-3 py-1.5 text-xs font-medium rounded bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-blue-500/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex-1 px-3 py-1.5 text-xs font-medium rounded bg-blue-500/20 text-[var(--accent-blue)] border border-[var(--accent-blue)]/30 hover:bg-blue-500/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               确认修改
             </button>
             <button
               onClick={() => setShowChangeStrategy(false)}
-              className="px-3 py-1.5 text-xs text-gray-400 border border-gray-700 rounded hover:bg-gray-700/50 transition-colors"
+              className="px-3 py-1.5 text-xs text-[var(--text-secondary)] border border-[var(--border-default)] rounded hover:bg-[var(--bg-card)]/50 transition-colors"
             >
               取消
             </button>
@@ -450,22 +451,22 @@ export function BacktestPanel() {
 
         {/* 当前策略信息（量化账户） */}
         {currentAccount.type === 'quant' && currentAccount.strategy && (
-          <div className="px-3 py-2 bg-[var(--bg-panel)] border border-gray-800 rounded">
+          <div className="px-3 py-2 bg-[var(--bg-panel)] border border-[var(--border-default)] rounded">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Settings className="w-3.5 h-3.5 text-purple-400" />
-                <span className="text-xs text-gray-300 font-medium">{currentAccount.strategy.name}</span>
+                <span className="text-xs text-[var(--text-primary)] font-medium">{currentAccount.strategy.name}</span>
               </div>
-              <div className="flex items-center gap-2 text-[10px] text-gray-500">
+              <div className="flex items-center gap-2 text-[10px] text-[var(--text-secondary)]">
                 <span>止损 {currentAccount.strategy.stopLossPercent}%</span>
                 <span>止盈 {currentAccount.strategy.takeProfitPercent}%</span>
                 <span>仓位上限 {currentAccount.strategy.maxPositionPercent}%</span>
               </div>
             </div>
-            <div className="mt-1 text-[10px] text-gray-500">
+            <div className="mt-1 text-[10px] text-[var(--text-secondary)]">
               理论: {formatTheories(currentAccount.strategy.theories)}
               {currentAccount.strategy.autoTrade && (
-                <span className="ml-2 text-green-400">自动交易已开启</span>
+                <span className="ml-2 text-[var(--accent-green)]">自动交易已开启</span>
               )}
             </div>
           </div>
@@ -497,9 +498,22 @@ export function BacktestPanel() {
         {/* 交易记录 */}
         <TradeHistoryPanel account={currentAccount} />
 
+        {/* 策略验证报告 - 仅量化账户且有交易记录时显示 */}
+        {currentAccount.type === 'quant' && currentAccount.trades.length > 0 && (
+          <div className="bg-[var(--bg-panel)] border border-[var(--border-default)] rounded">
+            <div className="px-3 py-2 border-b border-[var(--border-default)] flex items-center gap-2">
+              <Activity className="w-3.5 h-3.5 text-[var(--accent-blue)]" />
+              <span className="text-xs text-[var(--text-primary)] font-medium">策略验证报告</span>
+            </div>
+            <div className="p-3">
+              <StrategyValidationReport account={currentAccount} />
+            </div>
+          </div>
+        )}
+
         {/* 无股票选择提示 */}
         {!selectedStock && (
-          <div className="flex flex-col items-center justify-center py-8 text-gray-500">
+          <div className="flex flex-col items-center justify-center py-8 text-[var(--text-secondary)]">
             <Activity className="w-8 h-8 mb-2 opacity-50" />
             <p className="text-xs">请先选择一只股票开始交易</p>
           </div>

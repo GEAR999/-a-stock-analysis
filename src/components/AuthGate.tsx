@@ -18,8 +18,8 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0a0e17]">
-        <div className="text-[#94a3b8] text-sm">加载中...</div>
+      <div className="min-h-screen flex items-center justify-center bg-[var(--bg-primary)]">
+        <div className="text-[var(--text-secondary)] text-sm">加载中...</div>
       </div>
     );
   }

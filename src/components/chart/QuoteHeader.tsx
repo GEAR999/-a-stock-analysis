@@ -8,12 +8,12 @@ export function QuoteHeader() {
 
   if (!selectedStock || !currentQuote) {
     return (
-      <div className="flex items-center justify-between px-4 py-2 border-b border-[#1e293b] bg-[#0d1117]">
+      <div className="flex items-center justify-between px-4 py-2 border-b border-[var(--border-default)] bg-[var(--bg-primary)]">
         <div className="flex items-center gap-3">
-          <span className="text-sm text-[#94a3b8]">未选择股票</span>
+          <span className="text-sm text-[var(--text-secondary)]">未选择股票</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-[#94a3b8]">实时监控</span>
+          <span className="text-xs text-[var(--text-secondary)]">实时监控</span>
           <Switch checked={isMonitoring} onCheckedChange={setIsMonitoring} />
         </div>
       </div>
@@ -22,14 +22,14 @@ export function QuoteHeader() {
 
   const isUp = currentQuote.changePercent > 0;
   const isDown = currentQuote.changePercent < 0;
-  const colorClass = isUp ? 'text-[#ef4444]' : isDown ? 'text-[#22c55e]' : 'text-[#94a3b8]';
+  const colorClass = isUp ? 'text-[var(--accent-red)]' : isDown ? 'text-[var(--accent-green)]' : 'text-[var(--text-secondary)]';
 
   return (
-    <div className="flex items-center justify-between px-4 py-2 border-b border-[#1e293b] bg-[#0d1117]">
+    <div className="flex items-center justify-between px-4 py-2 border-b border-[var(--border-default)] bg-[var(--bg-primary)]">
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-[#e2e8f0]">{currentQuote.name}</span>
-          <span className="text-xs text-[#94a3b8] font-mono-num">{currentQuote.code}</span>
+          <span className="text-sm font-medium text-[var(--text-primary)]">{currentQuote.name}</span>
+          <span className="text-xs text-[var(--text-secondary)] font-mono-num">{currentQuote.code}</span>
         </div>
         <div className="flex items-center gap-3">
           <span className={`text-lg font-bold font-mono-num ${colorClass}`}>
@@ -45,13 +45,13 @@ export function QuoteHeader() {
       </div>
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-3 text-xs">
-          <span className="text-[#94a3b8]">开 <span className="text-[#e2e8f0] font-mono-num">{currentQuote.open.toFixed(2)}</span></span>
-          <span className="text-[#94a3b8]">高 <span className="text-[#ef4444] font-mono-num">{currentQuote.high.toFixed(2)}</span></span>
-          <span className="text-[#94a3b8]">低 <span className="text-[#22c55e] font-mono-num">{currentQuote.low.toFixed(2)}</span></span>
-          <span className="text-[#94a3b8]">量 <span className="text-[#e2e8f0] font-mono-num">{(currentQuote.volume / 10000).toFixed(0)}万</span></span>
+          <span className="text-[var(--text-secondary)]">开 <span className="text-[var(--text-primary)] font-mono-num">{currentQuote.open.toFixed(2)}</span></span>
+          <span className="text-[var(--text-secondary)]">高 <span className="text-[var(--accent-red)] font-mono-num">{currentQuote.high.toFixed(2)}</span></span>
+          <span className="text-[var(--text-secondary)]">低 <span className="text-[var(--accent-green)] font-mono-num">{currentQuote.low.toFixed(2)}</span></span>
+          <span className="text-[var(--text-secondary)]">量 <span className="text-[var(--text-primary)] font-mono-num">{(currentQuote.volume / 10000).toFixed(0)}万</span></span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-[#94a3b8]">实时监控</span>
+          <span className="text-xs text-[var(--text-secondary)]">实时监控</span>
           <Switch checked={isMonitoring} onCheckedChange={setIsMonitoring} />
         </div>
       </div>

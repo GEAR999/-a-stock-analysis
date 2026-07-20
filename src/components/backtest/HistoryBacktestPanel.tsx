@@ -113,7 +113,7 @@ export function HistoryBacktestPanel() {
 
   if (!selectedStock) {
     return (
-      <div className="p-4 text-center text-xs text-gray-500">
+      <div className="p-4 text-center text-xs text-[var(--text-secondary)]">
         请先选择股票进行回测
       </div>
     );
@@ -122,10 +122,10 @@ export function HistoryBacktestPanel() {
   return (
     <div className="flex flex-col h-full">
       {/* 配置区域 */}
-      <div className="p-3 border-b border-gray-800 space-y-3">
+      <div className="p-3 border-b border-[var(--border-default)] space-y-3">
         {/* 策略选择 */}
         <div>
-          <div className="text-xs text-gray-400 mb-2 flex items-center gap-1">
+          <div className="text-xs text-[var(--text-secondary)] mb-2 flex items-center gap-1">
             <Settings className="w-3 h-3" />
             选择策略（可多选）
           </div>
@@ -137,8 +137,8 @@ export function HistoryBacktestPanel() {
                 onClick={() => toggleStrategy(opt.value)}
                 className={`px-2 py-1 text-[10px] rounded transition-colors ${
                   strategies.includes(opt.value)
-                    ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
-                    : "bg-gray-800/50 text-gray-500 hover:text-gray-300 border border-transparent"
+                    ? "bg-blue-500/20 text-[var(--accent-blue)] border border-[var(--accent-blue)]/30"
+                    : "bg-[var(--bg-card)]/50 text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-transparent"
                 }`}
               >
                 {opt.label}
@@ -156,7 +156,7 @@ export function HistoryBacktestPanel() {
                   className={`px-2 py-1 text-[10px] rounded transition-colors ${
                     strategies.includes(opt.value)
                       ? "bg-purple-500/20 text-purple-400 border border-purple-500/30"
-                      : "bg-gray-800/50 text-gray-500 hover:text-gray-300 border border-transparent"
+                      : "bg-[var(--bg-card)]/50 text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-transparent"
                   }`}
                 >
                   {opt.label}
@@ -169,7 +169,7 @@ export function HistoryBacktestPanel() {
         {/* 时间范围和初始资金 */}
         <div className="flex gap-3 items-end">
           <div className="flex-1">
-            <div className="text-[10px] text-gray-500 mb-1">时间范围</div>
+            <div className="text-[10px] text-[var(--text-secondary)] mb-1">时间范围</div>
             <div className="flex gap-1">
               {TIME_RANGES.map(tr => (
                 <button
@@ -177,8 +177,8 @@ export function HistoryBacktestPanel() {
                   onClick={() => setTimeRange(tr.days)}
                   className={`px-2 py-1 text-[10px] rounded transition-colors ${
                     timeRange === tr.days
-                      ? "bg-blue-500/20 text-blue-400"
-                      : "bg-gray-800/50 text-gray-500 hover:text-gray-300"
+                      ? "bg-blue-500/20 text-[var(--accent-blue)]"
+                      : "bg-[var(--bg-card)]/50 text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                   }`}
                 >
                   {tr.label}
@@ -187,12 +187,12 @@ export function HistoryBacktestPanel() {
             </div>
           </div>
           <div className="w-32">
-            <div className="text-[10px] text-gray-500 mb-1">初始资金</div>
+            <div className="text-[10px] text-[var(--text-secondary)] mb-1">初始资金</div>
             <input
               type="number"
               value={initialCapital}
               onChange={(e) => setInitialCapital(Number(e.target.value))}
-              className="w-full px-2 py-1 text-xs bg-gray-800/50 border border-gray-700 rounded text-gray-200 focus:outline-none focus:border-blue-500/50"
+              className="w-full px-2 py-1 text-xs bg-[var(--bg-card)]/50 border border-[var(--border-default)] rounded text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-blue)]/50"
             />
           </div>
         </div>
@@ -203,13 +203,13 @@ export function HistoryBacktestPanel() {
           disabled={isRunning || strategies.length === 0 || klineData.length === 0}
           className={`w-full py-2 rounded text-xs font-medium transition-colors flex items-center justify-center gap-2 ${
             isRunning
-              ? "bg-gray-700 text-gray-400 cursor-not-allowed"
-              : "bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 border border-blue-500/30"
+              ? "bg-[var(--bg-card)] text-[var(--text-secondary)] cursor-not-allowed"
+              : "bg-blue-500/20 text-[var(--accent-blue)] hover:bg-blue-500/30 border border-[var(--accent-blue)]/30"
           }`}
         >
           {isRunning ? (
             <>
-              <div className="w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+              <div className="w-3 h-3 border-2 border-[var(--text-muted)] border-t-transparent rounded-full animate-spin" />
               {progress.total > 0
                 ? `回测中... ${Math.round((progress.current / progress.total) * 100)}%`
                 : "回测中..."}
@@ -228,73 +228,73 @@ export function HistoryBacktestPanel() {
         <div className="flex-1 overflow-y-auto p-3 space-y-3">
           {/* 关键指标 */}
           <div className="grid grid-cols-3 gap-2">
-            <div className="bg-gray-800/30 rounded p-2">
-              <div className="text-[10px] text-gray-500">总收益率</div>
-              <div className={`text-sm font-mono font-medium ${result.metrics.totalReturn >= 0 ? "text-red-400" : "text-green-400"}`}>
+            <div className="bg-[var(--bg-card)]/30 rounded p-2">
+              <div className="text-[10px] text-[var(--text-secondary)]">总收益率</div>
+              <div className={`text-sm font-mono font-medium ${result.metrics.totalReturn >= 0 ? "text-[var(--accent-red)]" : "text-[var(--accent-green)]"}`}>
                 {formatPercent(result.metrics.totalReturn)}
               </div>
             </div>
-            <div className="bg-gray-800/30 rounded p-2">
-              <div className="text-[10px] text-gray-500">年化收益</div>
-              <div className={`text-sm font-mono font-medium ${result.metrics.annualizedReturn >= 0 ? "text-red-400" : "text-green-400"}`}>
+            <div className="bg-[var(--bg-card)]/30 rounded p-2">
+              <div className="text-[10px] text-[var(--text-secondary)]">年化收益</div>
+              <div className={`text-sm font-mono font-medium ${result.metrics.annualizedReturn >= 0 ? "text-[var(--accent-red)]" : "text-[var(--accent-green)]"}`}>
                 {formatPercent(result.metrics.annualizedReturn)}
               </div>
             </div>
-            <div className="bg-gray-800/30 rounded p-2">
-              <div className="text-[10px] text-gray-500">最大回撤</div>
-              <div className="text-sm font-mono font-medium text-green-400">
+            <div className="bg-[var(--bg-card)]/30 rounded p-2">
+              <div className="text-[10px] text-[var(--text-secondary)]">最大回撤</div>
+              <div className="text-sm font-mono font-medium text-[var(--accent-green)]">
                 {formatPercent(result.metrics.maxDrawdown)}
               </div>
             </div>
-            <div className="bg-gray-800/30 rounded p-2">
-              <div className="text-[10px] text-gray-500">夏普比率</div>
-              <div className="text-sm font-mono font-medium text-gray-200">
+            <div className="bg-[var(--bg-card)]/30 rounded p-2">
+              <div className="text-[10px] text-[var(--text-secondary)]">夏普比率</div>
+              <div className="text-sm font-mono font-medium text-[var(--text-primary)]">
                 {result.metrics.sharpeRatio.toFixed(2)}
               </div>
             </div>
-            <div className="bg-gray-800/30 rounded p-2">
-              <div className="text-[10px] text-gray-500">胜率</div>
-              <div className={`text-sm font-mono font-medium ${result.metrics.winRate >= 0.5 ? "text-red-400" : "text-green-400"}`}>
+            <div className="bg-[var(--bg-card)]/30 rounded p-2">
+              <div className="text-[10px] text-[var(--text-secondary)]">胜率</div>
+              <div className={`text-sm font-mono font-medium ${result.metrics.winRate >= 0.5 ? "text-[var(--accent-red)]" : "text-[var(--accent-green)]"}`}>
                 {formatPercent(result.metrics.winRate)}
               </div>
             </div>
-            <div className="bg-gray-800/30 rounded p-2">
-              <div className="text-[10px] text-gray-500">盈亏比</div>
-              <div className="text-sm font-mono font-medium text-gray-200">
+            <div className="bg-[var(--bg-card)]/30 rounded p-2">
+              <div className="text-[10px] text-[var(--text-secondary)]">盈亏比</div>
+              <div className="text-sm font-mono font-medium text-[var(--text-primary)]">
                 {result.metrics.profitLossRatio.toFixed(2)}
               </div>
             </div>
           </div>
 
           {/* 交易统计 */}
-          <div className="bg-gray-800/30 rounded p-2">
+          <div className="bg-[var(--bg-card)]/30 rounded p-2">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-gray-400">交易统计</span>
+              <span className="text-xs text-[var(--text-secondary)]">交易统计</span>
               <button
                 onClick={exportCSV}
-                className="text-[10px] text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                className="text-[10px] text-[var(--accent-blue)] hover:text-blue-300 flex items-center gap-1"
               >
                 <Download className="w-3 h-3" />
                 导出CSV
               </button>
             </div>
             <div className="flex gap-4 text-xs">
-              <span className="text-gray-400">
-                总交易: <span className="text-gray-200">{result.metrics.totalTrades}笔</span>
+              <span className="text-[var(--text-secondary)]">
+                总交易: <span className="text-[var(--text-primary)]">{result.metrics.totalTrades}笔</span>
               </span>
-              <span className="text-gray-400">
-                盈利: <span className="text-red-400">{result.metrics.winningTrades}笔</span>
+              <span className="text-[var(--text-secondary)]">
+                盈利: <span className="text-[var(--accent-red)]">{result.metrics.winningTrades}笔</span>
               </span>
-              <span className="text-gray-400">
-                亏损: <span className="text-green-400">{result.metrics.losingTrades}笔</span>
+              <span className="text-[var(--text-secondary)]">
+                亏损: <span className="text-[var(--accent-green)]">{result.metrics.losingTrades}笔</span>
               </span>
             </div>
           </div>
 
           {/* 资金曲线简易图 */}
           {result.dailyRecords.length > 0 && (
-            <div className="bg-gray-800/30 rounded p-2">
-              <div className="text-xs text-gray-400 mb-2 flex items-center gap-1">
+            <div className="bg-[var(--bg-card)]/30 rounded p-2">
+              <div className="text-xs text-[var(--text-secondary)] mb-2 flex items-center gap-1">
                 <BarChart3 className="w-3 h-3" />
                 资金曲线
               </div>
@@ -323,35 +323,35 @@ export function HistoryBacktestPanel() {
                   strokeWidth="1.5"
                 />
               </svg>
-              <div className="flex justify-between text-[9px] text-gray-500 mt-1">
+              <div className="flex justify-between text-[9px] text-[var(--text-secondary)] mt-1">
                 <span>{result.dailyRecords[0]?.date}</span>
-                <span className="text-blue-400">● 策略</span>
-                <span className="text-gray-500">- - 基准</span>
+                <span className="text-[var(--accent-blue)]">● 策略</span>
+                <span className="text-[var(--text-secondary)]">- - 基准</span>
                 <span>{result.dailyRecords[result.dailyRecords.length - 1]?.date}</span>
               </div>
             </div>
           )}
 
           {/* 交易记录 */}
-          <div className="bg-gray-800/30 rounded p-2">
-            <div className="text-xs text-gray-400 mb-2">交易记录（最近10笔）</div>
+          <div className="bg-[var(--bg-card)]/30 rounded p-2">
+            <div className="text-xs text-[var(--text-secondary)] mb-2">交易记录（最近10笔）</div>
             <div className="space-y-1 max-h-40 overflow-y-auto">
               {result.trades.slice(-10).reverse().map((trade, i) => (
-                <div key={i} className="flex items-center justify-between text-[10px] py-1 border-b border-gray-800/50 last:border-0">
+                <div key={i} className="flex items-center justify-between text-[10px] py-1 border-b border-[var(--border-default)]/50 last:border-0">
                   <div className="flex items-center gap-2">
                     {trade.type === "buy" ? (
-                      <TrendingUp className="w-3 h-3 text-red-400" />
+                      <TrendingUp className="w-3 h-3 text-[var(--accent-red)]" />
                     ) : (
-                      <TrendingDown className="w-3 h-3 text-green-400" />
+                      <TrendingDown className="w-3 h-3 text-[var(--accent-green)]" />
                     )}
-                    <span className="text-gray-500">{trade.date}</span>
-                    <span className={trade.type === "buy" ? "text-red-400" : "text-green-400"}>
+                    <span className="text-[var(--text-secondary)]">{trade.date}</span>
+                    <span className={trade.type === "buy" ? "text-[var(--accent-red)]" : "text-[var(--accent-green)]"}>
                       {trade.type === "buy" ? "买入" : "卖出"}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-gray-300 font-mono">{trade.price.toFixed(2)}</span>
-                    <span className="text-gray-500">{trade.shares}股</span>
+                    <span className="text-[var(--text-primary)] font-mono">{trade.price.toFixed(2)}</span>
+                    <span className="text-[var(--text-secondary)]">{trade.shares}股</span>
                   </div>
                 </div>
               ))}

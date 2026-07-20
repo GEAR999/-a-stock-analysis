@@ -186,28 +186,28 @@ export default function CommandPalette() {
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsOpen(false)} />
       
       {/* 命令面板 */}
-      <div className="relative w-full max-w-lg bg-[#111827] border border-gray-700 rounded-lg shadow-2xl overflow-hidden">
+      <div className="relative w-full max-w-lg bg-[var(--bg-panel)] border border-[var(--border-default)] rounded-lg shadow-2xl overflow-hidden">
         {/* 搜索框 */}
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-700">
-          <Search className="w-4 h-4 text-gray-500" />
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--border-default)]">
+          <Search className="w-4 h-4 text-[var(--text-secondary)]" />
           <input
             ref={inputRef}
             type="text"
             value={query}
             onChange={(e) => { setQuery(e.target.value); setSelectedIndex(0); }}
             placeholder="输入股票代码/名称搜索，或输入命令..."
-            className="flex-1 bg-transparent text-sm text-gray-200 placeholder-gray-500 outline-none"
+            className="flex-1 bg-transparent text-sm text-[var(--text-primary)] placeholder-gray-500 outline-none"
           />
           {isSearching && (
             <div className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
           )}
-          <kbd className="px-1.5 py-0.5 text-[10px] text-gray-500 bg-gray-800 rounded">ESC</kbd>
+          <kbd className="px-1.5 py-0.5 text-[10px] text-[var(--text-secondary)] bg-[var(--bg-card)] rounded">ESC</kbd>
         </div>
 
         {/* 命令列表 */}
         <div className="max-h-[300px] overflow-y-auto py-2">
           {filtered.length === 0 ? (
-            <div className="px-4 py-8 text-center text-sm text-gray-500">
+            <div className="px-4 py-8 text-center text-sm text-[var(--text-secondary)]">
               未找到匹配的命令
             </div>
           ) : (
@@ -221,7 +221,7 @@ export default function CommandPalette() {
                   return (
                     <div key={cmd.id}>
                       {showCategory && (
-                        <div className="px-4 py-1 text-[10px] text-gray-500 uppercase tracking-wider">
+                        <div className="px-4 py-1 text-[10px] text-[var(--text-secondary)] uppercase tracking-wider">
                           {cmd.category}
                         </div>
                       )}
@@ -232,10 +232,10 @@ export default function CommandPalette() {
                           index === selectedIndex ? "bg-blue-500/10" : "hover:bg-white/5"
                         }`}
                       >
-                        <Icon className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                        <Icon className="w-4 h-4 text-[var(--text-secondary)] flex-shrink-0" />
                         <div className="flex-1 min-w-0">
-                          <div className="text-sm text-gray-200 truncate">{cmd.label}</div>
-                          <div className="text-[10px] text-gray-500 truncate">{cmd.description}</div>
+                          <div className="text-sm text-[var(--text-primary)] truncate">{cmd.label}</div>
+                          <div className="text-[10px] text-[var(--text-secondary)] truncate">{cmd.description}</div>
                         </div>
                       </button>
                     </div>
@@ -247,7 +247,7 @@ export default function CommandPalette() {
         </div>
 
         {/* 底部提示 */}
-        <div className="px-4 py-2 border-t border-gray-700 flex items-center gap-4 text-[10px] text-gray-500">
+        <div className="px-4 py-2 border-t border-[var(--border-default)] flex items-center gap-4 text-[10px] text-[var(--text-secondary)]">
           <span>↑↓ 导航</span>
           <span>↵ 选择</span>
           <span>1-9 切换股票</span>

@@ -46,7 +46,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       const isDev = process.env.NODE_ENV === 'development';
 
       return (
-        <div className="flex items-center justify-center min-h-[200px] bg-[#0a0e17] border border-[#1e293b] rounded-sm p-6">
+        <div className="flex items-center justify-center min-h-[200px] bg-[var(--bg-primary)] border border-[var(--border-default)] rounded-sm p-6">
           <div className="text-center max-w-md">
             <div className="text-amber-500 text-lg font-medium mb-2">
               该模块加载异常
@@ -56,7 +56,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             </div>
             <button
               onClick={this.handleRetry}
-              className="px-4 py-1.5 bg-[#1e293b] hover:bg-[#334155] text-slate-300 text-sm rounded border border-[#334155] transition-colors"
+              className="px-4 py-1.5 bg-[var(--bg-card)] hover:bg-[var(--bg-card)] text-slate-300 text-sm rounded border border-[var(--border-default)] transition-colors"
             >
               重试
             </button>
@@ -65,8 +65,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                 <summary className="text-slate-500 text-xs cursor-pointer hover:text-slate-400">
                   错误详情 (开发模式)
                 </summary>
-                <div className="mt-2 p-3 bg-[#111827] rounded border border-[#1e293b] overflow-auto max-h-48">
-                  <div className="text-red-400 text-xs font-mono mb-2">
+                <div className="mt-2 p-3 bg-[var(--bg-panel)] rounded border border-[var(--border-default)] overflow-auto max-h-48">
+                  <div className="text-[var(--accent-red)] text-xs font-mono mb-2">
                     {this.state.error.message}
                   </div>
                   {this.state.error.stack && (

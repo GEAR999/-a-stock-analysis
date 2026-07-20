@@ -137,15 +137,15 @@ export function AIInterpretation({
   const { summary, details, sentiment } = generateInterpretation();
 
   const sentimentColor = {
-    bullish: 'text-red-400',
-    bearish: 'text-green-400',
-    neutral: 'text-gray-400',
+    bullish: 'text-[var(--accent-red)]',
+    bearish: 'text-[var(--accent-green)]',
+    neutral: 'text-[var(--text-secondary)]',
   };
 
   const sentimentBg = {
     bullish: 'bg-red-500/10 border-red-500/20',
     bearish: 'bg-green-500/10 border-green-500/20',
-    neutral: 'bg-gray-500/10 border-gray-500/20',
+    neutral: 'bg-[var(--text-secondary)]/10 border-[var(--text-secondary)]/20',
   };
 
   const sentimentIcon = {
@@ -161,28 +161,28 @@ export function AIInterpretation({
         onClick={() => setExpanded(!expanded)}
       >
         <div className="flex items-center gap-2">
-          <Lightbulb className="w-4 h-4 text-yellow-400" />
-          <span className="text-sm font-medium text-gray-200">AI 大白话解读</span>
+          <Lightbulb className="w-4 h-4 text-[var(--accent-yellow)]" />
+          <span className="text-sm font-medium text-[var(--text-primary)]">AI 大白话解读</span>
           <span className={`text-sm ${sentimentColor[sentiment]}`}>
             {sentimentIcon[sentiment]} {summary}
           </span>
         </div>
         {expanded ? (
-          <ChevronUp className="w-4 h-4 text-gray-400" />
+          <ChevronUp className="w-4 h-4 text-[var(--text-secondary)]" />
         ) : (
-          <ChevronDown className="w-4 h-4 text-gray-400" />
+          <ChevronDown className="w-4 h-4 text-[var(--text-secondary)]" />
         )}
       </div>
       
       {expanded && details.length > 0 && (
         <div className="mt-3 space-y-2">
           {details.map((detail, index) => (
-            <div key={index} className="flex items-start gap-2 text-sm text-gray-300">
-              <span className="text-gray-500 mt-0.5">•</span>
+            <div key={index} className="flex items-start gap-2 text-sm text-[var(--text-primary)]">
+              <span className="text-[var(--text-secondary)] mt-0.5">•</span>
               <span>{detail}</span>
             </div>
           ))}
-          <div className="mt-3 pt-2 border-t border-gray-700/50 text-xs text-gray-500">
+          <div className="mt-3 pt-2 border-t border-[var(--border-default)]/50 text-xs text-[var(--text-secondary)]">
             * 以上解读仅供参考，不构成投资建议。投资有风险，入市需谨慎。
           </div>
         </div>

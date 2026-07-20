@@ -22,8 +22,8 @@ interface CustomStrategyPanelProps {
 // 理论选项
 const THEORY_OPTIONS: { value: StrategySource; label: string; color: string }[] = [
   { value: 'chanlun', label: '缠论', color: 'text-purple-400 bg-purple-900/30' },
-  { value: 'wave', label: '波浪理论', color: 'text-blue-400 bg-blue-900/30' },
-  { value: 'technical', label: '技术指标', color: 'text-green-400 bg-green-900/30' },
+  { value: 'wave', label: '波浪理论', color: 'text-[var(--accent-blue)] bg-blue-900/30' },
+  { value: 'technical', label: '技术指标', color: 'text-[var(--accent-green)] bg-green-900/30' },
 ];
 
 // 价格条件选项
@@ -115,19 +115,19 @@ export default function CustomStrategyPanel({ onUseStrategy, onClose }: CustomSt
   }
 
   return (
-    <div className="bg-[#0d1117] rounded-lg p-4">
+    <div className="bg-[var(--bg-primary)] rounded-lg p-4">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-white font-bold text-lg">自定义策略</h3>
+        <h3 className="text-[var(--text-primary)] font-bold text-lg">自定义策略</h3>
         <button
           onClick={handleCreate}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm flex items-center gap-1"
+          className="bg-blue-600 hover:bg-blue-700 text-[var(--text-primary)] px-4 py-2 rounded text-sm flex items-center gap-1"
         >
           <span>+</span> 新建策略
         </button>
       </div>
 
       {strategies.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">
+        <div className="text-center py-8 text-[var(--text-secondary)]">
           <p className="text-4xl mb-2">📋</p>
           <p>暂无自定义策略</p>
           <p className="text-sm mt-1">点击"新建策略"创建您的第一个策略</p>
@@ -149,19 +149,19 @@ export default function CustomStrategyPanel({ onUseStrategy, onClose }: CustomSt
       {/* 删除确认弹窗 */}
       {deleteConfirm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-[#1a1f2e] rounded-lg p-6 max-w-sm">
-            <h4 className="text-white font-bold mb-2">确认删除</h4>
-            <p className="text-gray-400 text-sm mb-4">确定要删除这个策略吗？此操作不可撤销。</p>
+          <div className="bg-[var(--bg-panel)] rounded-lg p-6 max-w-sm">
+            <h4 className="text-[var(--text-primary)] font-bold mb-2">确认删除</h4>
+            <p className="text-[var(--text-secondary)] text-sm mb-4">确定要删除这个策略吗？此操作不可撤销。</p>
             <div className="flex gap-2 justify-end">
               <button
                 onClick={() => setDeleteConfirm(null)}
-                className="px-4 py-2 text-gray-400 hover:text-white"
+                className="px-4 py-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
               >
                 取消
               </button>
               <button
                 onClick={() => handleDelete(deleteConfirm)}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded"
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-[var(--text-primary)] rounded"
               >
                 删除
               </button>
@@ -191,30 +191,30 @@ function StrategyCard({
   });
 
   return (
-    <div className="bg-[#1a1f2e] rounded-lg p-4 border border-gray-800 hover:border-gray-600 transition-colors">
+    <div className="bg-[var(--bg-panel)] rounded-lg p-4 border border-[var(--border-default)] hover:border-[var(--border-default)] transition-colors">
       <div className="flex items-start justify-between mb-2">
         <div>
-          <h4 className="text-white font-medium">{strategy.name}</h4>
+          <h4 className="text-[var(--text-primary)] font-medium">{strategy.name}</h4>
           {strategy.description && (
-            <p className="text-gray-500 text-xs mt-1">{strategy.description}</p>
+            <p className="text-[var(--text-secondary)] text-xs mt-1">{strategy.description}</p>
           )}
         </div>
         <div className="flex gap-1">
           <button
             onClick={onUse}
-            className="text-xs px-2 py-1 bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 rounded"
+            className="text-xs px-2 py-1 bg-blue-600/20 text-[var(--accent-blue)] hover:bg-blue-600/30 rounded"
           >
             使用
           </button>
           <button
             onClick={onEdit}
-            className="text-xs px-2 py-1 bg-gray-700 text-gray-300 hover:bg-gray-600 rounded"
+            className="text-xs px-2 py-1 bg-[var(--bg-card)] text-[var(--text-primary)] hover:bg-[var(--text-muted)] rounded"
           >
             编辑
           </button>
           <button
             onClick={onDelete}
-            className="text-xs px-2 py-1 bg-red-900/30 text-red-400 hover:bg-red-900/50 rounded"
+            className="text-xs px-2 py-1 bg-red-900/30 text-[var(--accent-red)] hover:bg-red-900/50 rounded"
           >
             删除
           </button>
@@ -232,18 +232,18 @@ function StrategyCard({
         })}
       </div>
 
-      <div className="grid grid-cols-3 gap-2 text-xs text-gray-400">
+      <div className="grid grid-cols-3 gap-2 text-xs text-[var(--text-secondary)]">
         <div>
-          <span className="text-gray-500">仓位:</span>{' '}
-          <span className="text-white">{(strategy.positionRatio * 100).toFixed(0)}%</span>
+          <span className="text-[var(--text-secondary)]">仓位:</span>{' '}
+          <span className="text-[var(--text-primary)]">{(strategy.positionRatio * 100).toFixed(0)}%</span>
         </div>
         <div>
-          <span className="text-gray-500">止损:</span>{' '}
-          <span className="text-red-400">{(strategy.stopLoss * 100).toFixed(0)}%</span>
+          <span className="text-[var(--text-secondary)]">止损:</span>{' '}
+          <span className="text-[var(--accent-red)]">{(strategy.stopLoss * 100).toFixed(0)}%</span>
         </div>
         <div>
-          <span className="text-gray-500">止盈:</span>{' '}
-          <span className="text-green-400">{(strategy.takeProfit * 100).toFixed(0)}%</span>
+          <span className="text-[var(--text-secondary)]">止盈:</span>{' '}
+          <span className="text-[var(--accent-green)]">{(strategy.takeProfit * 100).toFixed(0)}%</span>
         </div>
       </div>
     </div>
@@ -287,21 +287,21 @@ function StrategyEditor({
   ];
 
   return (
-    <div className="bg-[#0d1117] rounded-lg p-4">
+    <div className="bg-[var(--bg-primary)] rounded-lg p-4">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-white font-bold text-lg">
+        <h3 className="text-[var(--text-primary)] font-bold text-lg">
           {strategy.name === '新策略' ? '新建策略' : '编辑策略'}
         </h3>
         <div className="flex gap-2">
           <button
             onClick={onCancel}
-            className="px-4 py-2 text-gray-400 hover:text-white"
+            className="px-4 py-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
           >
             取消
           </button>
           <button
             onClick={onSave}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded"
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-[var(--text-primary)] rounded"
           >
             保存
           </button>
@@ -309,15 +309,15 @@ function StrategyEditor({
       </div>
 
       {/* Tab导航 */}
-      <div className="flex gap-1 mb-4 border-b border-gray-800">
+      <div className="flex gap-1 mb-4 border-b border-[var(--border-default)]">
         {tabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={`px-4 py-2 text-sm ${
               activeTab === tab.id
-                ? 'text-blue-400 border-b-2 border-blue-400'
-                : 'text-gray-400 hover:text-white'
+                ? 'text-[var(--accent-blue)] border-b-2 border-blue-400'
+                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
             }`}
           >
             {tab.label}
@@ -329,26 +329,26 @@ function StrategyEditor({
       {activeTab === 'basic' && (
         <div className="space-y-4">
           <div>
-            <label className="text-gray-400 text-sm block mb-1">策略名称</label>
+            <label className="text-[var(--text-secondary)] text-sm block mb-1">策略名称</label>
             <input
               type="text"
               value={strategy.name}
               onChange={(e) => onChange({ ...strategy, name: e.target.value })}
-              className="w-full bg-[#1a1f2e] text-white px-3 py-2 rounded border border-gray-700 focus:border-blue-500 outline-none"
+              className="w-full bg-[var(--bg-panel)] text-[var(--text-primary)] px-3 py-2 rounded border border-[var(--border-default)] focus:border-[var(--accent-blue)] outline-none"
               placeholder="输入策略名称"
             />
           </div>
           <div>
-            <label className="text-gray-400 text-sm block mb-1">策略描述</label>
+            <label className="text-[var(--text-secondary)] text-sm block mb-1">策略描述</label>
             <textarea
               value={strategy.description || ''}
               onChange={(e) => onChange({ ...strategy, description: e.target.value })}
-              className="w-full bg-[#1a1f2e] text-white px-3 py-2 rounded border border-gray-700 focus:border-blue-500 outline-none h-20 resize-none"
+              className="w-full bg-[var(--bg-panel)] text-[var(--text-primary)] px-3 py-2 rounded border border-[var(--border-default)] focus:border-[var(--accent-blue)] outline-none h-20 resize-none"
               placeholder="描述策略的核心逻辑"
             />
           </div>
           <div>
-            <label className="text-gray-400 text-sm block mb-2">分析理论组合</label>
+            <label className="text-[var(--text-secondary)] text-sm block mb-2">分析理论组合</label>
             <div className="flex flex-wrap gap-2">
               {THEORY_OPTIONS.map(opt => (
                 <label
@@ -356,7 +356,7 @@ function StrategyEditor({
                   className={`flex items-center gap-2 px-3 py-2 rounded cursor-pointer transition-colors ${
                     strategy.theories.includes(opt.value)
                       ? opt.color
-                      : 'bg-gray-800 text-gray-400'
+                      : 'bg-[var(--bg-card)] text-[var(--text-secondary)]'
                   }`}
                 >
                   <input
@@ -395,7 +395,7 @@ function StrategyEditor({
       {activeTab === 'risk' && (
         <div className="space-y-4">
           <div>
-            <label className="text-gray-400 text-sm block mb-1">
+            <label className="text-[var(--text-secondary)] text-sm block mb-1">
               默认仓位比例: {(strategy.positionRatio * 100).toFixed(0)}%
             </label>
             <input
@@ -407,14 +407,14 @@ function StrategyEditor({
               onChange={(e) => onChange({ ...strategy, positionRatio: parseFloat(e.target.value) })}
               className="w-full"
             />
-            <div className="flex justify-between text-xs text-gray-500 mt-1">
+            <div className="flex justify-between text-xs text-[var(--text-secondary)] mt-1">
               <span>10%</span>
               <span>50%</span>
               <span>100%</span>
             </div>
           </div>
           <div>
-            <label className="text-gray-400 text-sm block mb-1">
+            <label className="text-[var(--text-secondary)] text-sm block mb-1">
               止损比例: {(strategy.stopLoss * 100).toFixed(0)}%
             </label>
             <input
@@ -426,14 +426,14 @@ function StrategyEditor({
               onChange={(e) => onChange({ ...strategy, stopLoss: parseFloat(e.target.value) })}
               className="w-full"
             />
-            <div className="flex justify-between text-xs text-gray-500 mt-1">
+            <div className="flex justify-between text-xs text-[var(--text-secondary)] mt-1">
               <span>2%</span>
               <span>15%</span>
               <span>30%</span>
             </div>
           </div>
           <div>
-            <label className="text-gray-400 text-sm block mb-1">
+            <label className="text-[var(--text-secondary)] text-sm block mb-1">
               止盈比例: {(strategy.takeProfit * 100).toFixed(0)}%
             </label>
             <input
@@ -445,7 +445,7 @@ function StrategyEditor({
               onChange={(e) => onChange({ ...strategy, takeProfit: parseFloat(e.target.value) })}
               className="w-full"
             />
-            <div className="flex justify-between text-xs text-gray-500 mt-1">
+            <div className="flex justify-between text-xs text-[var(--text-secondary)] mt-1">
               <span>5%</span>
               <span>50%</span>
               <span>100%</span>
@@ -470,8 +470,8 @@ function TradeConditionsEditor({
   return (
     <div className="space-y-4">
       {/* 价格条件 */}
-      <div className="bg-[#1a1f2e] rounded p-3">
-        <h5 className="text-white text-sm font-medium mb-2">价格条件</h5>
+      <div className="bg-[var(--bg-panel)] rounded p-3">
+        <h5 className="text-[var(--text-primary)] text-sm font-medium mb-2">价格条件</h5>
         <div className="flex gap-2">
           <select
             value={conditions.priceCondition?.type || ''}
@@ -487,7 +487,7 @@ function TradeConditionsEditor({
                 onChange({ priceCondition: undefined });
               }
             }}
-            className="bg-[#0d1117] text-white px-3 py-2 rounded border border-gray-700 text-sm flex-1"
+            className="bg-[var(--bg-primary)] text-[var(--text-primary)] px-3 py-2 rounded border border-[var(--border-default)] text-sm flex-1"
           >
             <option value="">不设置</option>
             {PRICE_CONDITION_OPTIONS.map(opt => (
@@ -504,7 +504,7 @@ function TradeConditionsEditor({
                   value: parseFloat(e.target.value) || 0,
                 },
               })}
-              className="bg-[#0d1117] text-white px-3 py-2 rounded border border-gray-700 text-sm w-24"
+              className="bg-[var(--bg-primary)] text-[var(--text-primary)] px-3 py-2 rounded border border-[var(--border-default)] text-sm w-24"
               placeholder="数值"
             />
           )}
@@ -512,8 +512,8 @@ function TradeConditionsEditor({
       </div>
 
       {/* 成交量条件 */}
-      <div className="bg-[#1a1f2e] rounded p-3">
-        <h5 className="text-white text-sm font-medium mb-2">成交量条件</h5>
+      <div className="bg-[var(--bg-panel)] rounded p-3">
+        <h5 className="text-[var(--text-primary)] text-sm font-medium mb-2">成交量条件</h5>
         <div className="flex gap-2">
           <select
             value={conditions.volumeCondition?.type || ''}
@@ -529,7 +529,7 @@ function TradeConditionsEditor({
                 onChange({ volumeCondition: undefined });
               }
             }}
-            className="bg-[#0d1117] text-white px-3 py-2 rounded border border-gray-700 text-sm flex-1"
+            className="bg-[var(--bg-primary)] text-[var(--text-primary)] px-3 py-2 rounded border border-[var(--border-default)] text-sm flex-1"
           >
             <option value="">不设置</option>
             {VOLUME_CONDITION_OPTIONS.map(opt => (
@@ -547,7 +547,7 @@ function TradeConditionsEditor({
                   multiplier: parseFloat(e.target.value) || 1,
                 },
               })}
-              className="bg-[#0d1117] text-white px-3 py-2 rounded border border-gray-700 text-sm w-24"
+              className="bg-[var(--bg-primary)] text-[var(--text-primary)] px-3 py-2 rounded border border-[var(--border-default)] text-sm w-24"
               placeholder="倍数"
             />
           )}
@@ -555,16 +555,16 @@ function TradeConditionsEditor({
       </div>
 
       {/* 形态条件 */}
-      <div className="bg-[#1a1f2e] rounded p-3">
-        <h5 className="text-white text-sm font-medium mb-2">形态条件</h5>
+      <div className="bg-[var(--bg-panel)] rounded p-3">
+        <h5 className="text-[var(--text-primary)] text-sm font-medium mb-2">形态条件</h5>
         <div className="flex flex-wrap gap-2">
           {PATTERN_OPTIONS.map(opt => (
             <label
               key={opt.value}
               className={`flex items-center gap-1 px-2 py-1 rounded text-xs cursor-pointer ${
                 conditions.patternConditions?.includes(opt.value)
-                  ? 'bg-blue-600/30 text-blue-400'
-                  : 'bg-gray-800 text-gray-400'
+                  ? 'bg-blue-600/30 text-[var(--accent-blue)]'
+                  : 'bg-[var(--bg-card)] text-[var(--text-secondary)]'
               }`}
             >
               <input

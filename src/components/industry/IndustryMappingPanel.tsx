@@ -89,9 +89,9 @@ export function IndustryMappingPanel({ stockCode }: IndustryMappingPanelProps) {
 
   const getRelevanceColor = (relevance: string) => {
     switch (relevance) {
-      case "高": return "text-red-400 bg-red-500/10";
-      case "中": return "text-yellow-400 bg-yellow-500/10";
-      default: return "text-gray-400 bg-gray-500/10";
+      case "高": return "text-[var(--accent-red)] bg-red-500/10";
+      case "中": return "text-[var(--accent-yellow)] bg-yellow-500/10";
+      default: return "text-[var(--text-secondary)] bg-[var(--text-secondary)]/10";
     }
   };
 
@@ -105,7 +105,7 @@ export function IndustryMappingPanel({ stockCode }: IndustryMappingPanelProps) {
   };
 
   return (
-    <div className="bg-[#0a0e17] border border-purple-500/30 rounded overflow-hidden">
+    <div className="bg-[var(--bg-primary)] border border-purple-500/30 rounded overflow-hidden">
       {/* 标题 */}
       <div className="px-3 py-2 bg-gradient-to-r from-purple-500/10 to-transparent border-b border-purple-500/20">
         <div className="flex items-center justify-between">
@@ -113,7 +113,7 @@ export function IndustryMappingPanel({ stockCode }: IndustryMappingPanelProps) {
             <span className="text-purple-400 text-sm">🔗</span>
             <span className="text-xs font-medium text-purple-400">产业链映射分析</span>
           </div>
-          <span className="text-[10px] text-gray-500">
+          <span className="text-[10px] text-[var(--text-secondary)]">
             {stockCode ? `关联 ${relatedChains.length} 条产业链` : `${INDUSTRY_CHAINS.length} 条产业链`}
           </span>
         </div>
@@ -122,24 +122,24 @@ export function IndustryMappingPanel({ stockCode }: IndustryMappingPanelProps) {
       {/* 产业链列表 */}
       <div className="p-2 space-y-1 max-h-[400px] overflow-y-auto">
         {relatedChains.map(chain => (
-          <div key={chain.id} className="border border-gray-800 rounded overflow-hidden">
+          <div key={chain.id} className="border border-[var(--border-default)] rounded overflow-hidden">
             {/* 产业链标题 */}
             <div
               onClick={() => setExpandedChain(expandedChain === chain.id ? null : chain.id)}
-              className="px-2 py-1.5 bg-[#111827] cursor-pointer hover:bg-[#1f2937] flex items-center justify-between"
+              className="px-2 py-1.5 bg-[var(--bg-panel)] cursor-pointer hover:bg-[var(--bg-card)] flex items-center justify-between"
             >
               <div className="flex items-center gap-2">
                 <span className="text-[10px]">{getMarketLabel(chain.foreignLeader.market)}</span>
-                <span className="text-xs text-gray-300">{chain.name}</span>
+                <span className="text-xs text-[var(--text-primary)]">{chain.name}</span>
                 <span className="text-[10px] text-purple-400">
                   {chain.foreignLeader.name}
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] text-gray-500">
+                <span className="text-[10px] text-[var(--text-secondary)]">
                   {chain.aStocks.length} 只A股
                 </span>
-                <span className="text-gray-500 text-[10px]">
+                <span className="text-[var(--text-secondary)] text-[10px]">
                   {expandedChain === chain.id ? "▼" : "▶"}
                 </span>
               </div>
@@ -147,36 +147,36 @@ export function IndustryMappingPanel({ stockCode }: IndustryMappingPanelProps) {
 
             {/* 展开内容 */}
             {expandedChain === chain.id && (
-              <div className="px-2 py-2 bg-[#0f1419] space-y-2">
+              <div className="px-2 py-2 bg-[var(--bg-primary)] space-y-2">
                 {/* 传导逻辑 */}
                 <div className="p-1.5 rounded bg-purple-500/5 border border-purple-500/20">
                   <span className="text-[10px] text-purple-400">传导逻辑: </span>
-                  <span className="text-[10px] text-gray-400">{chain.logic}</span>
+                  <span className="text-[10px] text-[var(--text-secondary)]">{chain.logic}</span>
                 </div>
 
                 {/* 海外龙头 */}
-                <div className="flex items-center justify-between p-1.5 rounded bg-[#1a1a2e]">
+                <div className="flex items-center justify-between p-1.5 rounded bg-[var(--bg-panel)]">
                   <div className="flex items-center gap-2">
                     <span className="text-[10px]">{getMarketLabel(chain.foreignLeader.market)}</span>
-                    <span className="text-[10px] text-gray-300">{chain.foreignLeader.name}</span>
-                    <span className="text-[10px] text-gray-500">({chain.foreignLeader.code})</span>
+                    <span className="text-[10px] text-[var(--text-primary)]">{chain.foreignLeader.name}</span>
+                    <span className="text-[10px] text-[var(--text-secondary)]">({chain.foreignLeader.code})</span>
                   </div>
-                  <span className="text-[10px] text-gray-500">暂无数据</span>
+                  <span className="text-[10px] text-[var(--text-secondary)]">暂无数据</span>
                 </div>
 
                 {/* A股关联标的 */}
                 <div className="space-y-1">
-                  <span className="text-[10px] text-gray-500">A股关联标的:</span>
+                  <span className="text-[10px] text-[var(--text-secondary)]">A股关联标的:</span>
                   {chain.aStocks.map(stock => (
-                    <div key={stock.code} className="flex items-center justify-between p-1 rounded hover:bg-[#1a1a2e]">
+                    <div key={stock.code} className="flex items-center justify-between p-1 rounded hover:bg-[var(--bg-panel)]">
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-gray-300">{stock.name}</span>
-                        <span className="text-[10px] text-gray-500">({stock.code})</span>
+                        <span className="text-[10px] text-[var(--text-primary)]">{stock.name}</span>
+                        <span className="text-[10px] text-[var(--text-secondary)]">({stock.code})</span>
                         <span className={`text-[9px] px-1 rounded ${getRelevanceColor(stock.relevance)}`}>
                           {stock.relevance}
                         </span>
                       </div>
-                      <span className="text-[10px] text-gray-500">暂无数据</span>
+                      <span className="text-[10px] text-[var(--text-secondary)]">暂无数据</span>
                     </div>
                   ))}
                 </div>

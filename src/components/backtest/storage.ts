@@ -900,3 +900,357 @@ export function calculateSlippageStats(account: Account): SlippageStats | null {
     totalSlippageCost: Math.round(totalCost),
   };
 }
+
+// ==================== 策略验证报告 ====================
+
+// 信号质量统计
+export interface SignalQuality {
+  strategyName: string;
+  strategyKey: string;
+  totalSignals: number;
+  hitCount: number;
+  missCount: number;
+  hitRate: number;
+  falsePositiveRate: number;
+}
+
+// 收益归因
+export interface ProfitAttribution {
+  strategyName: string;
+  strategyKey: string;
+  totalProfit: number;
+  tradeCount: number;
+  avgProfit: number;
+  winRate: number;
+  profitPercent: number; // 占总盈亏百分比
+}
+
+// 策略相关性
+export interface StrategyCorrelation {
+  strategy1: string;
+  strategy2: string;
+  correlation: number;
+  overlapRate: number;
+}
+
+// 时间分布
+export interface TimeDistributionCell {
+  day: number;    // 0-4 (周一到周五)
+  hour: number;   // 9-15
+  count: number;
+  profit: number;
+}
+
+// 连续亏损
+export interface ConsecutiveLossInfo {
+  strategyName: string;
+  strategyKey: string;
+  maxConsecutive: number;
+  currentConsecutive: number;
+  totalLossStreaks: number; // 连续亏损次数
+}
+
+// 综合评级
+export interface OverallRating {
+  score: number;         // 0-100
+  grade: "A" | "B" | "C" | "D";
+  signalScore: number;   // 信号命中率得分
+  profitScore: number;   // 收益贡献得分
+  riskScore: number;     // 风险控制得分
+  diversityScore: number;// 策略多样性得分
+  suggestions: string[]; // 改进建议
+}
+
+// 策略标签映射
+const STRATEGY_LABELS: Record<string, string> = {
+  chanlun: "缠论",
+  wave: "波浪理论",
+  technical: "技术指标",
+  composite: "综合策略",
+  manual: "手动交易",
+};
+
+// 计算信号质量
+export function calculateSignalQuality(account: Account): SignalQuality[] {
+  const trades = account.trades.filter(t => t.strategy);
+  const strategyMap = new Map<string, { total: number; hit: number; miss: number }>();
+
+  // 统计每个策略的信号
+  for (const trade of trades) {
+    const key = trade.strategy || "manual";
+    if (!strategyMap.has(key)) {
+      strategyMap.set(key, { total: 0, hit: 0, miss: 0 });
+    }
+    const stats = strategyMap.get(key)!;
+    stats.total++;
+    // 买入信号：如果后续卖出时盈利则命中
+    if (trade.direction === "buy") {
+      // 查找对应的卖出交易
+      const sellTrade = trades.find(t =>
+        t.stockCode === trade.stockCode &&
+        t.direction === "sell" &&
+        t.timestamp > trade.timestamp
+      );
+      if (sellTrade && (sellTrade.pnl ?? 0) > 0) {
+        stats.hit++;
+      } else if (sellTrade) {
+        stats.miss++;
+      }
+    }
+  }
+
+  return Array.from(strategyMap.entries()).map(([key, stats]) => ({
+    strategyName: STRATEGY_LABELS[key] || key,
+    strategyKey: key,
+    totalSignals: stats.total,
+    hitCount: stats.hit,
+    missCount: stats.miss,
+    hitRate: stats.hit + stats.miss > 0
+      ? Math.round((stats.hit / (stats.hit + stats.miss)) * 10000) / 100
+      : 0,
+    falsePositiveRate: stats.total > 0
+      ? Math.round((stats.miss / stats.total) * 10000) / 100
+      : 0,
+  }));
+}
+
+// 计算收益归因
+export function calculateProfitAttribution(account: Account): ProfitAttribution[] {
+  const trades = account.trades.filter(t => t.pnl !== undefined && t.pnl !== 0);
+  const strategyMap = new Map<string, { totalProfit: number; count: number; wins: number }>();
+
+  let grandTotal = 0;
+  for (const trade of trades) {
+    const key = trade.strategy || "manual";
+    if (!strategyMap.has(key)) {
+      strategyMap.set(key, { totalProfit: 0, count: 0, wins: 0 });
+    }
+    const stats = strategyMap.get(key)!;
+    const pnl = trade.pnl ?? 0;
+    stats.totalProfit += pnl;
+    stats.count++;
+    grandTotal += Math.abs(pnl);
+    if (pnl > 0) stats.wins++;
+  }
+
+  return Array.from(strategyMap.entries()).map(([key, stats]) => ({
+    strategyName: STRATEGY_LABELS[key] || key,
+    strategyKey: key,
+    totalProfit: Math.round(stats.totalProfit * 100) / 100,
+    tradeCount: stats.count,
+    avgProfit: stats.count > 0 ? Math.round((stats.totalProfit / stats.count) * 100) / 100 : 0,
+    winRate: stats.count > 0 ? Math.round((stats.wins / stats.count) * 10000) / 100 : 0,
+    profitPercent: grandTotal > 0
+      ? Math.round((Math.abs(stats.totalProfit) / grandTotal) * 10000) / 100
+      : 0,
+  }));
+}
+
+// 计算策略相关性
+export function calculateStrategyCorrelation(account: Account): StrategyCorrelation[] {
+  const trades = account.trades.filter(t => t.strategy);
+  const strategies = [...new Set(trades.map(t => t.strategy!))];
+  
+  if (strategies.length < 2) return [];
+
+  // 为每个策略构建信号时间序列（按股票+日期）
+  const strategySignals = new Map<string, Set<string>>();
+  for (const s of strategies) {
+    const signals = new Set<string>();
+    for (const t of trades) {
+      if (t.strategy === s) {
+        const dateKey = `${t.stockCode}_${new Date(t.timestamp).toISOString().slice(0, 10)}`;
+        signals.add(dateKey);
+      }
+    }
+    strategySignals.set(s, signals);
+  }
+
+  const correlations: StrategyCorrelation[] = [];
+  for (let i = 0; i < strategies.length; i++) {
+    for (let j = i + 1; j < strategies.length; j++) {
+      const s1 = strategies[i];
+      const s2 = strategies[j];
+      const set1 = strategySignals.get(s1)!;
+      const set2 = strategySignals.get(s2)!;
+      
+      // 计算重合率
+      const union = new Set([...set1, ...set2]);
+      const intersection = new Set([...set1].filter(x => set2.has(x)));
+      const overlapRate = union.size > 0
+        ? Math.round((intersection.size / union.size) * 10000) / 100
+        : 0;
+      
+      // Jaccard相似度作为相关性
+      correlations.push({
+        strategy1: s1,
+        strategy2: s2,
+        correlation: Math.round((overlapRate / 100) * 100) / 100,
+        overlapRate,
+      });
+    }
+  }
+
+  return correlations;
+}
+
+// 计算时间分布
+export function calculateTimeDistribution(account: Account): TimeDistributionCell[] {
+  const trades = account.trades;
+  const cellMap = new Map<string, { count: number; profit: number }>();
+
+  for (const trade of trades) {
+    const date = new Date(trade.timestamp);
+    const day = date.getDay(); // 0=Sun, 1=Mon...
+    if (day === 0 || day === 6) continue; // 跳过周末
+    const hour = date.getHours();
+    if (hour < 9 || hour > 15) continue; // 跳过非交易时间
+    
+    const dayIdx = day - 1; // 0=Mon, 4=Fri
+    const key = `${dayIdx}_${hour}`;
+    if (!cellMap.has(key)) {
+      cellMap.set(key, { count: 0, profit: 0 });
+    }
+    const cell = cellMap.get(key)!;
+    cell.count++;
+    cell.profit += trade.pnl ?? 0;
+  }
+
+  const result: TimeDistributionCell[] = [];
+  for (let day = 0; day < 5; day++) {
+    for (let hour = 9; hour <= 15; hour++) {
+      const key = `${day}_${hour}`;
+      const cell = cellMap.get(key) || { count: 0, profit: 0 };
+      result.push({
+        day,
+        hour,
+        count: cell.count,
+        profit: Math.round(cell.profit * 100) / 100,
+      });
+    }
+  }
+  return result;
+}
+
+// 按策略计算连续亏损
+export function calculateConsecutiveLossesByStrategy(account: Account): ConsecutiveLossInfo[] {
+  const trades = account.trades
+    .filter(t => t.pnl !== undefined)
+    .sort((a, b) => a.timestamp - b.timestamp);
+  
+  const strategies = [...new Set(trades.map(t => t.strategy || "manual"))];
+  
+  return strategies.map(key => {
+    const strategyTrades = trades
+      .filter(t => (t.strategy || "manual") === key && t.direction === "sell")
+      .sort((a, b) => a.timestamp - b.timestamp);
+    
+    let maxConsecutive = 0;
+    let currentConsecutive = 0;
+    let totalLossStreaks = 0;
+    let inStreak = false;
+    
+    for (const trade of strategyTrades) {
+      if ((trade.pnl ?? 0) < 0) {
+        currentConsecutive++;
+        if (!inStreak) {
+          inStreak = true;
+          totalLossStreaks++;
+        }
+        maxConsecutive = Math.max(maxConsecutive, currentConsecutive);
+      } else {
+        currentConsecutive = 0;
+        inStreak = false;
+      }
+    }
+    
+    return {
+      strategyName: STRATEGY_LABELS[key] || key,
+      strategyKey: key,
+      maxConsecutive,
+      currentConsecutive,
+      totalLossStreaks,
+    };
+  });
+}
+
+// 计算综合评级
+export function calculateOverallRating(
+  signalQuality: SignalQuality[],
+  profitAttribution: ProfitAttribution[],
+  consecutiveLosses: ConsecutiveLossInfo[],
+  correlations: StrategyCorrelation[]
+): OverallRating {
+  const suggestions: string[] = [];
+  
+  // 1. 信号命中率得分 (30%)
+  const avgHitRate = signalQuality.length > 0
+    ? signalQuality.reduce((sum, s) => sum + s.hitRate, 0) / signalQuality.length
+    : 50;
+  const signalScore = Math.min(100, Math.round(avgHitRate * 1.5));
+  
+  // 2. 收益贡献得分 (30%)
+  const profitableStrategies = profitAttribution.filter(p => p.totalProfit > 0);
+  const totalProfit = profitAttribution.reduce((sum, p) => sum + p.totalProfit, 0);
+  const profitScore = totalProfit > 0
+    ? Math.min(100, Math.round((profitableStrategies.length / Math.max(1, profitAttribution.length)) * 100))
+    : 20;
+  
+  // 3. 风险控制得分 (20%)
+  const maxConsecutive = consecutiveLosses.length > 0
+    ? Math.max(...consecutiveLosses.map(c => c.maxConsecutive))
+    : 0;
+  const riskScore = maxConsecutive <= 2 ? 100 : maxConsecutive <= 5 ? 60 : 20;
+  
+  // 4. 策略多样性得分 (20%)
+  const highCorrelations = correlations.filter(c => c.overlapRate > 70);
+  const diversityScore = highCorrelations.length === 0
+    ? 100
+    : Math.max(20, 100 - highCorrelations.length * 30);
+  
+  // 综合得分
+  const score = Math.round(
+    signalScore * 0.3 +
+    profitScore * 0.3 +
+    riskScore * 0.2 +
+    diversityScore * 0.2
+  );
+  
+  // 评级
+  const grade: "A" | "B" | "C" | "D" = 
+    score >= 85 ? "A" :
+    score >= 70 ? "B" :
+    score >= 50 ? "C" : "D";
+  
+  // 生成建议
+  if (avgHitRate < 40) {
+    suggestions.push("信号命中率偏低，建议检查策略参数或降低交易频率");
+  }
+  if (maxConsecutive > 5) {
+    suggestions.push("连续亏损次数过多，建议加强止损机制");
+  }
+  for (const corr of highCorrelations) {
+    const name1 = STRATEGY_LABELS[corr.strategy1] || corr.strategy1;
+    const name2 = STRATEGY_LABELS[corr.strategy2] || corr.strategy2;
+    suggestions.push(`建议移除${name1}或${name2}，两者信号重合率${corr.overlapRate}%，高度冗余`);
+  }
+  if (totalProfit <= 0) {
+    suggestions.push("整体收益为负，建议暂停交易并复盘策略");
+  }
+  if (profitAttribution.length === 1 && profitAttribution[0].tradeCount > 10) {
+    suggestions.push("策略过于单一，建议增加其他策略分散风险");
+  }
+  if (suggestions.length === 0) {
+    suggestions.push("策略表现良好，继续保持当前配置");
+  }
+  
+  return {
+    score,
+    grade,
+    signalScore,
+    profitScore,
+    riskScore,
+    diversityScore,
+    suggestions,
+  };
+}

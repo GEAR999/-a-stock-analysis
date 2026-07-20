@@ -73,13 +73,13 @@ export default function OverseasMapping({ stockCode, stockName }: OverseasMappin
   }
 
   const correlationColor = {
-    '强联动': 'text-red-400 bg-red-500/10 border-red-500/30',
-    '中等联动': 'text-yellow-400 bg-yellow-500/10 border-yellow-500/30',
-    '弱联动': 'text-gray-400 bg-gray-500/10 border-gray-500/30',
+    '强联动': 'text-[var(--accent-red)] bg-red-500/10 border-red-500/30',
+    '中等联动': 'text-[var(--accent-yellow)] bg-yellow-500/10 border-yellow-500/30',
+    '弱联动': 'text-[var(--text-secondary)] bg-[var(--text-secondary)]/10 border-[var(--text-secondary)]/30',
   };
 
   return (
-    <div className="rounded border border-orange-500/30 bg-[#0f0f1a] overflow-hidden">
+    <div className="rounded border border-orange-500/30 bg-[var(--bg-primary)] overflow-hidden">
       {/* 头部 */}
       <div className="flex items-center justify-between px-3 py-2 bg-orange-500/10 border-b border-orange-500/30">
         <div className="flex items-center gap-2">
@@ -93,16 +93,16 @@ export default function OverseasMapping({ stockCode, stockName }: OverseasMappin
 
       <div className="p-3 space-y-3">
         {/* 产业链说明 */}
-        <div className="p-2 rounded bg-[#1a1a2e]">
+        <div className="p-2 rounded bg-[var(--bg-panel)]">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs text-gray-400">所属产业链</span>
+            <span className="text-xs text-[var(--text-secondary)]">所属产业链</span>
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Info className="w-3 h-3 text-gray-500 cursor-help" />
+                  <Info className="w-3 h-3 text-[var(--text-secondary)] cursor-help" />
                 </TooltipTrigger>
-                <TooltipContent side="right" className="max-w-[250px] bg-[#0f0f1a] border-orange-500/30">
-                  <p className="text-xs text-gray-300">{mapping.description}</p>
+                <TooltipContent side="right" className="max-w-[250px] bg-[var(--bg-primary)] border-orange-500/30">
+                  <p className="text-xs text-[var(--text-primary)]">{mapping.description}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -112,16 +112,16 @@ export default function OverseasMapping({ stockCode, stockName }: OverseasMappin
 
         {/* 关联海外龙头 */}
         <div className="space-y-2">
-          <span className="text-xs text-gray-400">关联海外龙头</span>
+          <span className="text-xs text-[var(--text-secondary)]">关联海外龙头</span>
           {mapping.overseas.map((name, i) => (
-            <div key={i} className="p-2 rounded bg-[#1a1a2e]">
+            <div key={i} className="p-2 rounded bg-[var(--bg-panel)]">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-xs text-gray-300">{name}</span>
-                <span className="text-xs text-gray-500">暂无数据</span>
+                <span className="text-xs text-[var(--text-primary)]">{name}</span>
+                <span className="text-xs text-[var(--text-secondary)]">暂无数据</span>
               </div>
               <div className="flex items-center justify-between text-xs">
-                <span className="text-gray-500">近5日</span>
-                <span className="text-gray-500">暂无数据</span>
+                <span className="text-[var(--text-secondary)]">近5日</span>
+                <span className="text-[var(--text-secondary)]">暂无数据</span>
               </div>
             </div>
           ))}
@@ -136,13 +136,13 @@ export default function OverseasMapping({ stockCode, stockName }: OverseasMappin
                 <TooltipTrigger asChild>
                   <Info className="w-3 h-3 text-orange-400/60 cursor-help" />
                 </TooltipTrigger>
-                <TooltipContent side="right" className="max-w-[250px] bg-[#0f0f1a] border-orange-500/30">
-                  <p className="text-xs text-gray-300">需要接入美股行情数据后方可显示联动分析</p>
+                <TooltipContent side="right" className="max-w-[250px] bg-[var(--bg-primary)] border-orange-500/30">
+                  <p className="text-xs text-[var(--text-primary)]">需要接入美股行情数据后方可显示联动分析</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
           </div>
-          <div className="text-xs text-gray-500 space-y-1">
+          <div className="text-xs text-[var(--text-secondary)] space-y-1">
             <p>• 海外龙头涨跌数据：暂无数据</p>
             <p>• 历史联动统计：暂无数据</p>
             <p>• 联动强度：{mapping.correlation}</p>

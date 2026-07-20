@@ -45,18 +45,18 @@ export function HistoricalSignalsPanel() {
 
   const getSignalIcon = (type: string) => {
     switch (type) {
-      case "buy": return <TrendingUp className="w-3 h-3 text-red-400" />;
-      case "sell": return <TrendingDown className="w-3 h-3 text-green-400" />;
-      default: return <Minus className="w-3 h-3 text-gray-400" />;
+      case "buy": return <TrendingUp className="w-3 h-3 text-[var(--accent-red)]" />;
+      case "sell": return <TrendingDown className="w-3 h-3 text-[var(--accent-green)]" />;
+      default: return <Minus className="w-3 h-3 text-[var(--text-secondary)]" />;
     }
   };
 
   const getScoreColor = (score: number) => {
-    if (score >= 30) return "text-red-400";
+    if (score >= 30) return "text-[var(--accent-red)]";
     if (score >= 10) return "text-red-300";
-    if (score <= -30) return "text-green-400";
+    if (score <= -30) return "text-[var(--accent-green)]";
     if (score <= -10) return "text-green-300";
-    return "text-gray-400";
+    return "text-[var(--text-secondary)]";
   };
 
   const formatDate = (timestamp: number) => {
@@ -65,7 +65,7 @@ export function HistoricalSignalsPanel() {
 
   if (!selectedStock) {
     return (
-      <div className="p-4 text-center text-xs text-gray-500">
+      <div className="p-4 text-center text-xs text-[var(--text-secondary)]">
         请先选择股票查看历史信号
       </div>
     );
@@ -74,21 +74,21 @@ export function HistoricalSignalsPanel() {
   return (
     <div className="flex flex-col h-full">
       {/* 统计信息 */}
-      <div className="px-3 py-2 border-b border-gray-800 flex items-center justify-between">
+      <div className="px-3 py-2 border-b border-[var(--border-default)] flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Clock className="w-3.5 h-3.5 text-gray-500" />
-          <span className="text-xs text-gray-400">
+          <Clock className="w-3.5 h-3.5 text-[var(--text-secondary)]" />
+          <span className="text-xs text-[var(--text-secondary)]">
             {selectedStock.name} 历史信号 ({signals.length})
           </span>
         </div>
         {accuracy && accuracy.total > 0 && (
           <div className="flex items-center gap-1">
-            <BarChart3 className="w-3 h-3 text-gray-500" />
-            <span className="text-[10px] text-gray-500">
-              准确率: <span className={accuracy.accuracy >= 50 ? "text-red-400" : "text-green-400"}>
+            <BarChart3 className="w-3 h-3 text-[var(--text-secondary)]" />
+            <span className="text-[10px] text-[var(--text-secondary)]">
+              准确率: <span className={accuracy.accuracy >= 50 ? "text-[var(--accent-red)]" : "text-[var(--accent-green)]"}>
                 {accuracy.accuracy.toFixed(0)}%
               </span>
-              <span className="text-gray-600"> ({accuracy.correct}/{accuracy.total})</span>
+              <span className="text-[var(--text-muted)]"> ({accuracy.correct}/{accuracy.total})</span>
             </span>
           </div>
         )}
@@ -97,27 +97,27 @@ export function HistoricalSignalsPanel() {
       {/* 信号列表 */}
       <div className="flex-1 overflow-y-auto">
         {isLoading ? (
-          <div className="p-4 text-center text-xs text-gray-500">加载中...</div>
+          <div className="p-4 text-center text-xs text-[var(--text-secondary)]">加载中...</div>
         ) : signals.length === 0 ? (
-          <div className="p-4 text-center text-xs text-gray-500">
-            <Clock className="w-6 h-6 mx-auto mb-2 text-gray-600" />
+          <div className="p-4 text-center text-xs text-[var(--text-secondary)]">
+            <Clock className="w-6 h-6 mx-auto mb-2 text-[var(--text-muted)]" />
             暂无历史信号记录
-            <p className="text-[10px] text-gray-600 mt-1">分析引擎运行后会自动保存信号</p>
+            <p className="text-[10px] text-[var(--text-muted)] mt-1">分析引擎运行后会自动保存信号</p>
           </div>
         ) : (
           <div className="divide-y divide-gray-800/50">
             {signals.map(signal => (
-              <div key={signal.id} className="px-3 py-2 hover:bg-gray-800/30 transition-colors group">
+              <div key={signal.id} className="px-3 py-2 hover:bg-[var(--bg-card)]/30 transition-colors group">
                 <div className="flex items-center justify-between mb-1">
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-gray-500 font-mono">{signal.date}</span>
+                    <span className="text-[10px] text-[var(--text-secondary)] font-mono">{signal.date}</span>
                     <span className={`text-xs font-mono font-medium ${getScoreColor(signal.score)}`}>
                       {signal.score >= 0 ? "+" : ""}{signal.score}
                     </span>
                   </div>
                   <button
                     onClick={() => signal.id && handleDelete(signal.id)}
-                    className="opacity-0 group-hover:opacity-100 p-0.5 text-gray-600 hover:text-red-400 transition-all"
+                    className="opacity-0 group-hover:opacity-100 p-0.5 text-[var(--text-muted)] hover:text-[var(--accent-red)] transition-all"
                     title="删除"
                   >
                     <Trash2 className="w-3 h-3" />
@@ -130,9 +130,9 @@ export function HistoricalSignalsPanel() {
                     <span
                       key={i}
                       className={`inline-flex items-center gap-0.5 px-1 py-0.5 text-[9px] rounded ${
-                        sig.type === "buy" ? "bg-red-500/10 text-red-400" :
-                        sig.type === "sell" ? "bg-green-500/10 text-green-400" :
-                        "bg-gray-500/10 text-gray-400"
+                        sig.type === "buy" ? "bg-red-500/10 text-[var(--accent-red)]" :
+                        sig.type === "sell" ? "bg-green-500/10 text-[var(--accent-green)]" :
+                        "bg-[var(--text-secondary)]/10 text-[var(--text-secondary)]"
                       }`}
                     >
                       {getSignalIcon(sig.type)}
@@ -140,12 +140,12 @@ export function HistoricalSignalsPanel() {
                     </span>
                   ))}
                   {signal.signals.length > 5 && (
-                    <span className="text-[9px] text-gray-600">+{signal.signals.length - 5}</span>
+                    <span className="text-[9px] text-[var(--text-muted)]">+{signal.signals.length - 5}</span>
                   )}
                 </div>
 
                 {/* 结论 */}
-                <p className="text-[10px] text-gray-500 line-clamp-2">{signal.conclusion}</p>
+                <p className="text-[10px] text-[var(--text-secondary)] line-clamp-2">{signal.conclusion}</p>
               </div>
             ))}
           </div>

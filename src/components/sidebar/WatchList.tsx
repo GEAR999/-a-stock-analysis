@@ -36,7 +36,7 @@ export function WatchList() {
 
   if (watchlist.length === 0) {
     return (
-      <div className="px-3 py-4 text-center text-xs text-[#94a3b8]">
+      <div className="px-3 py-4 text-center text-xs text-[var(--text-secondary)]">
         搜索股票并添加到自选
       </div>
     );
@@ -60,29 +60,29 @@ export function WatchList() {
             onClick={() => setSelectedStock({ code: item.code, name: item.name, market: item.market, type: 'stock' })}
             className={`
               flex items-center justify-between px-3 py-2 cursor-pointer transition-all
-              ${isSelected ? 'bg-[#1e293b] border-l-2 border-l-[#3b82f6]' : 'hover:bg-[#1e293b]/50 border-l-2 border-l-transparent'}
+              ${isSelected ? 'bg-[var(--bg-card)] border-l-2 border-l-[#3b82f6]' : 'hover:bg-[var(--bg-hover)]/50 border-l-2 border-l-transparent'}
               ${isDragging ? 'opacity-50' : ''}
               ${isDragOver ? 'border-t-2 border-t-[#3b82f6]' : ''}
             `}
           >
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1">
-                <span className="text-sm text-[#e2e8f0] truncate">{item.name}</span>
+                <span className="text-sm text-[var(--text-primary)] truncate">{item.name}</span>
               </div>
-              <span className="text-xs text-[#94a3b8] font-mono-num">{item.code}</span>
+              <span className="text-xs text-[var(--text-secondary)] font-mono-num">{item.code}</span>
             </div>
             <div className="flex items-center gap-2">
               {currentQuote && selectedStock?.code === item.code && (
                 <span className={`text-xs font-mono-num ${
-                  currentQuote.changePercent > 0 ? 'text-[#ef4444]' :
-                  currentQuote.changePercent < 0 ? 'text-[#22c55e]' : 'text-[#94a3b8]'
+                  currentQuote.changePercent > 0 ? 'text-[var(--accent-red)]' :
+                  currentQuote.changePercent < 0 ? 'text-[var(--accent-green)]' : 'text-[var(--text-secondary)]'
                 }`}>
                   {currentQuote.changePercent > 0 ? '+' : ''}{currentQuote.changePercent.toFixed(2)}%
                 </span>
               )}
               <button
                 onClick={(e) => { e.stopPropagation(); removeFromWatchlist(item.code); }}
-                className="text-[#94a3b8] hover:text-[#ef4444] text-xs p-1 transition-colors"
+                className="text-[var(--text-secondary)] hover:text-[var(--accent-red)] text-xs p-1 transition-colors"
                 title="删除"
               >
                 ×
