@@ -12,7 +12,7 @@ import {
   executeSell,
   canBuyStock,
 } from '../storage';
-import type { Account, AccountSummary, AccountType, StrategyWeight } from '../types';
+import type { Account, AccountSummary, AccountType, StrategyWeight, QuantStrategy } from '../types';
 
 export interface ToastMessage {
   id: string;
@@ -66,8 +66,8 @@ export function useAccountManager() {
     if (acc) setAccount(acc);
   }, []);
 
-  const handleCreateAccount = useCallback((name: string, capital: number, accountType: AccountType) => {
-    const acc = createAccount(name, capital, accountType);
+  const handleCreateAccount = useCallback((name: string, capital: number, accountType: AccountType, strategy?: QuantStrategy) => {
+    const acc = createAccount(name, capital, accountType, strategy);
     setActiveAccountId(acc.id);
     setActiveAccountIdState(acc.id);
     setAccount(acc);
