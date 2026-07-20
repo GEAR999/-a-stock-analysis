@@ -2,13 +2,13 @@
 
 import { useState } from 'react';
 import { StockSearch } from '@/components/sidebar/StockSearch';
-import { WatchList } from '@/components/sidebar/WatchList';
-import { SentimentPanel } from '@/components/sentiment/SentimentPanel';
 import { useAppState } from '@/hooks/useAppState';
 import { Switch } from '@/components/ui/switch';
 import ThemeSwitcher from '@/components/ui/ThemeSwitcher';
+import { getAllAccounts, calculateMetrics } from '@/components/backtest/storage';
+import type { Account } from '@/components/backtest/types';
 
-type SidebarView = 'stocks' | 'dashboard';
+type SidebarView = 'stocks' | 'dashboard' | 'learning';
 
 // 预设分组
 const STOCK_GROUPS: Record<string, { label: string; color: string; codes: string[] }> = {
@@ -43,7 +43,7 @@ export function Sidebar() {
 
   return (
     <div className="w-[260px] shrink-0 bg-[#0d1117] border-r border-[#1e293b] flex flex-col h-full overflow-hidden">
-      {/* Logo + Dashboard Entry */}
+      {/* Logo + Theme Switcher */}
       <div className="px-3 py-3 border-b border-[#1e293b]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -74,6 +74,14 @@ export function Sidebar() {
           >
             仪表盘
           </button>
+          <button
+            onClick={() => setView('learning')}
+            className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
+              view === 'learning' ? 'bg-[#3b82f6] text-white' : 'text-[#94a3b8] hover:text-[#e2e8f0]'
+            }`}
+          >
+            学习
+          </button>
         </div>
       </div>
 
@@ -93,68 +101,63 @@ export function Sidebar() {
 
       {/* Content */}
       {view === 'stocks' ? (
-        <div className="flex flex-col flex-1 min-h-0">
+        <div className="flex flex-col flex-1 min-h-0 overflow-y-auto">
           {/* Grouped Watchlist */}
-          <div className="flex-1 overflow-y-auto">
-            {Object.entries(STOCK_GROUPS).map(([key, group]) => {
-              const groupStocks = getGroupStocks(group.codes);
-              if (groupStocks.length === 0) return null;
-              const isExpanded = expandedGroups.has(key);
-              return (
-                <div key={key} className="border-b border-[#1e293b]">
-                  <button
-                    onClick={() => toggleGroup(key)}
-                    className="w-full flex items-center justify-between px-3 py-2 hover:bg-[#1e293b]/50 transition-colors"
+          {Object.entries(STOCK_GROUPS).map(([key, group]) => {
+            const groupStocks = getGroupStocks(group.codes);
+            if (groupStocks.length === 0) return null;
+            const isExpanded = expandedGroups.has(key);
+            return (
+              <div key={key} className="border-b border-[#1e293b]">
+                <button
+                  onClick={() => toggleGroup(key)}
+                  className="w-full flex items-center justify-between px-3 py-2 hover:bg-[#1e293b]/50 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: group.color }} />
+                    <span className="text-xs font-medium text-[#e2e8f0]">{group.label}</span>
+                    <span className="text-xs text-[#94a3b8]">({groupStocks.length})</span>
+                  </div>
+                  <svg
+                    className={`w-3 h-3 text-[#94a3b8] transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                    fill="none" stroke="currentColor" viewBox="0 0 24 24"
                   >
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: group.color }} />
-                      <span className="text-xs font-medium text-[#e2e8f0]">{group.label}</span>
-                      <span className="text-xs text-[#94a3b8]">({groupStocks.length})</span>
-                    </div>
-                    <svg
-                      className={`w-3 h-3 text-[#94a3b8] transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                      fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                  {isExpanded && (
-                    <div>
-                      {groupStocks.map(stock => (
-                        <WatchListItem key={stock.code} stock={stock} groupColor={group.color} />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-            {/* Ungrouped stocks */}
-            {ungroupedStocks.length > 0 && (
-              <div className="border-b border-[#1e293b]">
-                <div className="px-3 py-2">
-                  <span className="text-xs font-medium text-[#94a3b8]">其他 ({ungroupedStocks.length})</span>
-                </div>
-                {ungroupedStocks.map(stock => (
-                  <WatchListItem key={stock.code} stock={stock} />
-                ))}
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {isExpanded && (
+                  <div>
+                    {groupStocks.map(stock => (
+                      <WatchListItem key={stock.code} stock={stock} groupColor={group.color} />
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
-            {/* Empty state */}
-            {watchlist.length === 0 && (
-              <div className="px-3 py-4 text-center text-xs text-[#94a3b8]">
-                搜索股票并添加到自选
+            );
+          })}
+          {/* Ungrouped stocks */}
+          {ungroupedStocks.length > 0 && (
+            <div className="border-b border-[#1e293b]">
+              <div className="px-3 py-2">
+                <span className="text-xs font-medium text-[#94a3b8]">其他 ({ungroupedStocks.length})</span>
               </div>
-            )}
-          </div>
+              {ungroupedStocks.map(stock => (
+                <WatchListItem key={stock.code} stock={stock} />
+              ))}
+            </div>
+          )}
+          {/* Empty state */}
+          {watchlist.length === 0 && (
+            <div className="px-3 py-4 text-center text-xs text-[#94a3b8]">
+              搜索股票并添加到自选
+            </div>
+          )}
         </div>
-      ) : (
+      ) : view === 'dashboard' ? (
         <DashboardView />
+      ) : (
+        <LearningEntry />
       )}
-
-      {/* Sentiment */}
-      <div className="border-t border-[#1e293b] max-h-[300px] overflow-y-auto">
-        <SentimentPanel stockCode={selectedStock?.code || '600519'} stockName={selectedStock?.name || '贵州茅台'} sectorName="白酒" />
-      </div>
     </div>
   );
 }
@@ -191,74 +194,185 @@ function WatchListItem({ stock, groupColor }: { stock: { code: string; name: str
   );
 }
 
-// 仪表盘视图
-function DashboardView() {
-  const { selectedStock, currentQuote } = useAppState();
-
-  // 模拟持仓数据
-  const mockPositions = [
-    { code: '300308', name: '中际旭创', shares: 200, avgCost: 128.5, currentPrice: 135.2, pnl: 1340 },
-    { code: '688256', name: '寒武纪', shares: 100, avgCost: 215.0, currentPrice: 208.5, pnl: -650 },
-    { code: '600519', name: '贵州茅台', shares: 50, avgCost: 1680.0, currentPrice: 1725.0, pnl: 2250 },
+// 学习入口
+function LearningEntry() {
+  const { setSelectedStock } = useAppState();
+  
+  const learningModules = [
+    { id: 'chanlun', icon: '📐', title: '缠论基础', desc: '分型、笔、线段、中枢、买卖点' },
+    { id: 'wave', icon: '🌊', title: '波浪理论', desc: '8浪循环、铁律、各浪特征' },
+    { id: 'indicator', icon: '📊', title: '技术指标', desc: 'MACD、KDJ、RSI、BOLL、MA' },
+    { id: 'pattern', icon: '🕯️', title: 'K线形态', desc: '单K线、双K线、三K线组合' },
+    { id: 'position', icon: '💼', title: '仓位管理', desc: '建仓、止损、止盈策略' },
+    { id: 'cases', icon: '📚', title: '经典案例', desc: '实战案例分析' },
+    { id: 'compare', icon: '🔄', title: '多理论对比', desc: '同一走势多视角分析' },
+    { id: 'review', icon: '🔍', title: '实战复盘', desc: '交易复盘与总结' },
   ];
 
-  const totalPnl = mockPositions.reduce((sum, p) => sum + p.pnl, 0);
-  const totalValue = mockPositions.reduce((sum, p) => sum + p.shares * p.currentPrice, 0);
+  return (
+    <div className="flex-1 overflow-y-auto p-3">
+      <div className="text-xs text-[#94a3b8] mb-3">选择学习模块</div>
+      <div className="space-y-2">
+        {learningModules.map(mod => (
+          <button
+            key={mod.id}
+            onClick={() => {
+              // Navigate to learning center in main area
+              window.dispatchEvent(new CustomEvent('navigate-learning', { detail: mod.id }));
+            }}
+            className="w-full flex items-center gap-3 p-3 bg-[#111827] rounded border border-[#1e293b] hover:border-[#3b82f6]/50 transition-colors text-left"
+          >
+            <span className="text-xl">{mod.icon}</span>
+            <div>
+              <div className="text-sm text-[#e2e8f0]">{mod.title}</div>
+              <div className="text-xs text-[#94a3b8]">{mod.desc}</div>
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// 仪表盘视图 - 使用真实回测账户数据
+function DashboardView() {
+  const { selectedStock, currentQuote } = useAppState();
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [selectedAccountId, setSelectedAccountId] = useState<string>('');
+
+  // 加载账户列表
+  useState(() => {
+    const allAccounts = getAllAccounts();
+    setAccounts(allAccounts);
+    if (allAccounts.length > 0 && !selectedAccountId) {
+      setSelectedAccountId(allAccounts[0].id);
+    }
+  });
+
+  const selectedAccount = accounts.find(a => a.id === selectedAccountId);
+  const metrics = selectedAccount ? calculateMetrics(selectedAccount) : null;
+  const positions = selectedAccount?.positions || [];
+  const marketValue = positions.reduce((sum, p) => sum + (p.marketValue || 0), 0);
+  const totalPnl = positions.reduce((sum, p) => sum + (p.pnl || 0), 0);
 
   return (
     <div className="flex-1 overflow-y-auto p-3 space-y-3">
-      {/* 总资产卡片 */}
+      {/* 账户选择 */}
       <div className="bg-[#111827] rounded p-3 border border-[#1e293b]">
-        <div className="text-xs text-[#94a3b8] mb-1">持仓总览</div>
-        <div className="text-lg font-bold text-[#e2e8f0] font-mono-num">
-          ¥{totalValue.toLocaleString()}
-        </div>
-        <div className={`text-sm font-mono-num ${totalPnl >= 0 ? 'text-[#ef4444]' : 'text-[#22c55e]'}`}>
-          {totalPnl >= 0 ? '+' : ''}¥{totalPnl.toLocaleString()}
-        </div>
+        <div className="text-xs text-[#94a3b8] mb-2">选择账户</div>
+        {accounts.length === 0 ? (
+          <div className="text-xs text-[#94a3b8]">暂无账户，请在回测面板创建</div>
+        ) : (
+          <select
+            value={selectedAccountId}
+            onChange={(e) => setSelectedAccountId(e.target.value)}
+            className="w-full bg-[#1e293b] border border-[#374151] rounded px-2 py-1.5 text-xs text-[#e2e8f0] focus:outline-none focus:border-[#3b82f6]"
+          >
+            {accounts.map(acc => (
+              <option key={acc.id} value={acc.id}>{acc.name}</option>
+            ))}
+          </select>
+        )}
       </div>
 
-      {/* 今日盈亏 */}
-      <div className="bg-[#111827] rounded p-3 border border-[#1e293b]">
-        <div className="text-xs text-[#94a3b8] mb-1">今日盈亏</div>
-        <div className="text-lg font-bold text-[#ef4444] font-mono-num">+¥2,840</div>
-        <div className="text-xs text-[#94a3b8]">较昨日 +0.85%</div>
-      </div>
+      {/* 持仓总览 */}
+      {selectedAccount && metrics && (
+        <>
+          <div className="bg-[#111827] rounded p-3 border border-[#1e293b]">
+            <div className="text-xs text-[#94a3b8] mb-1">持仓市值</div>
+            <div className="text-lg font-bold text-[#e2e8f0] font-mono-num">
+              ¥{marketValue.toLocaleString()}
+            </div>
+            <div className={`text-sm font-mono-num ${totalPnl >= 0 ? 'text-[#ef4444]' : 'text-[#22c55e]'}`}>
+              {totalPnl >= 0 ? '+' : ''}¥{totalPnl.toLocaleString()}
+            </div>
+          </div>
 
-      {/* 风险预警 */}
-      <div className="bg-[#111827] rounded p-3 border border-[#1e293b]">
-        <div className="flex items-center gap-2 mb-2">
-          <div className="w-2 h-2 rounded-full bg-[#f59e0b] animate-pulse" />
-          <span className="text-xs font-medium text-[#e2e8f0]">风险预警</span>
-        </div>
-        <div className="space-y-1">
-          <div className="text-xs text-[#f59e0b]">• 寒武纪连续3日下跌，注意止损</div>
-          <div className="text-xs text-[#94a3b8]">• 大盘情绪偏谨慎，建议控制仓位</div>
-        </div>
-      </div>
-
-      {/* 重点关注 */}
-      <div className="bg-[#111827] rounded p-3 border border-[#1e293b]">
-        <div className="text-xs font-medium text-[#e2e8f0] mb-2">重点关注</div>
-        <div className="space-y-2">
-          {mockPositions.map(p => (
-            <div key={p.code} className="flex items-center justify-between">
+          {/* 账户统计 */}
+          <div className="bg-[#111827] rounded p-3 border border-[#1e293b]">
+            <div className="text-xs text-[#94a3b8] mb-2">账户统计</div>
+            <div className="grid grid-cols-2 gap-2">
               <div>
-                <div className="text-xs text-[#e2e8f0]">{p.name}</div>
-                <div className="text-xs text-[#94a3b8] font-mono-num">{p.code}</div>
-              </div>
-              <div className="text-right">
-                <div className={`text-xs font-mono-num ${p.pnl >= 0 ? 'text-[#ef4444]' : 'text-[#22c55e]'}`}>
-                  {p.pnl >= 0 ? '+' : ''}¥{p.pnl}
+                <div className="text-xs text-[#94a3b8]">累计收益</div>
+                <div className={`text-sm font-mono-num ${metrics.totalReturn >= 0 ? 'text-[#ef4444]' : 'text-[#22c55e]'}`}>
+                  {metrics.totalReturn >= 0 ? '+' : ''}{metrics.totalReturn.toFixed(2)}%
                 </div>
-                <div className="text-xs text-[#94a3b8] font-mono-num">
-                  {((p.currentPrice - p.avgCost) / p.avgCost * 100).toFixed(2)}%
+              </div>
+              <div>
+                <div className="text-xs text-[#94a3b8]">可用资金</div>
+                <div className="text-sm font-mono-num text-[#e2e8f0]">
+                  ¥{selectedAccount.currentCapital.toLocaleString()}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-[#94a3b8]">最大回撤</div>
+                <div className="text-sm font-mono-num text-[#f59e0b]">
+                  {metrics.maxDrawdown.toFixed(2)}%
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-[#94a3b8]">胜率</div>
+                <div className="text-sm font-mono-num text-[#e2e8f0]">
+                  {metrics.winRate.toFixed(1)}%
                 </div>
               </div>
             </div>
-          ))}
+          </div>
+        </>
+      )}
+
+      {/* 持仓列表 */}
+      {positions.length > 0 && (
+        <div className="bg-[#111827] rounded p-3 border border-[#1e293b]">
+          <div className="text-xs font-medium text-[#e2e8f0] mb-2">当前持仓 ({positions.length})</div>
+          <div className="space-y-2">
+            {positions.map(p => (
+              <div key={p.stockCode} className="flex items-center justify-between">
+                <div>
+                  <div className="text-xs text-[#e2e8f0]">{p.stockName}</div>
+                  <div className="text-xs text-[#94a3b8] font-mono-num">{p.stockCode}</div>
+                </div>
+                <div className="text-right">
+                  <div className={`text-xs font-mono-num ${p.pnl >= 0 ? 'text-[#ef4444]' : 'text-[#22c55e]'}`}>
+                    {p.pnl >= 0 ? '+' : ''}¥{p.pnl.toFixed(0)}
+                  </div>
+                  <div className={`text-xs font-mono-num ${p.pnlPercent >= 0 ? 'text-[#ef4444]' : 'text-[#22c55e]'}`}>
+                    {p.pnlPercent >= 0 ? '+' : ''}{p.pnlPercent.toFixed(2)}%
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* 无持仓提示 */}
+      {selectedAccount && positions.length === 0 && (
+        <div className="bg-[#111827] rounded p-3 border border-[#1e293b]">
+          <div className="text-xs text-[#94a3b8] text-center">暂无持仓</div>
+        </div>
+      )}
+
+      {/* 风险预警 */}
+      {selectedAccount && (
+        <div className="bg-[#111827] rounded p-3 border border-[#1e293b]">
+          <div className="flex items-center gap-2 mb-2">
+            <div className={`w-2 h-2 rounded-full ${marketValue / (selectedAccount.initialCapital || 1) > 0.7 ? 'bg-[#ef4444]' : 'bg-[#22c55e]'} animate-pulse`} />
+            <span className="text-xs font-medium text-[#e2e8f0]">风险状态</span>
+          </div>
+          <div className="space-y-1">
+            {marketValue / (selectedAccount.initialCapital || 1) > 0.7 && (
+              <div className="text-xs text-[#ef4444]">• 仓位过重，建议降低仓位</div>
+            )}
+            {totalPnl < 0 && Math.abs(totalPnl) / (selectedAccount.initialCapital || 1) > 0.05 && (
+              <div className="text-xs text-[#f59e0b]">• 亏损超过5%，注意止损</div>
+            )}
+            {positions.length === 0 && (
+              <div className="text-xs text-[#94a3b8]">• 空仓状态</div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 当前股票信息 */}
       {selectedStock && currentQuote && (

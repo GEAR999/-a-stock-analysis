@@ -10,7 +10,7 @@ import { ComprehensiveAnalysis } from '@/components/analysis/ComprehensiveAnalys
 import { AdvicePanel } from '@/components/analysis/AdvicePanel';
 import { MacroEconomyPanel } from '@/components/macro/MacroEconomyPanel';
 import { IndustryMappingPanel } from '@/components/industry/IndustryMappingPanel';
-import { SentimentPanel } from '@/components/sentiment/SentimentPanel';
+import { SentimentSummary } from '@/components/sentiment/SentimentSummary';
 import OverseasMapping from '@/components/analysis/OverseasMapping';
 import { BacktestPanel } from '@/components/backtest/BacktestPanel';
 import { SignalSummaryBar } from '@/components/analysis/SignalSummaryBar';
@@ -208,14 +208,14 @@ export function RightPanel() {
           <OverseasMapping stockCode={selectedStock?.code || ''} stockName={selectedStock?.name || ''} />
         </AccordionSection>
 
-        {/* 4. 情绪分析 - 手风琴模式 */}
+        {/* 4. 情绪分析 - 摘要模式 */}
         <AccordionSection 
           title="情绪分析" 
           icon="📈"
           defaultOpen={true}
           summary="大盘/板块/个股"
         >
-          <SentimentPanel />
+          <SentimentSummary stockCode={selectedStock?.code} stockName={selectedStock?.name} />
         </AccordionSection>
 
         {/* 5. 综合建议 - 手风琴模式 */}
