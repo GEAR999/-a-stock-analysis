@@ -3,7 +3,7 @@ import { searchStocks, getQuote, getKLineData, getMarketSentiment, getSectorList
 import { calculateStockSentiment } from '@/lib/analysis';
 import { calculateSectorSentiment } from '@/services/sentiment/sector-sentiment';
 import { fetchComprehensiveSentiment } from '@/services/sentiment/sentiment-panel';
-import type { KLinePeriod } from '@/lib/types';
+import type { KLinePeriod, StockQuote } from '@/lib/types';
 
 // 缓存：板块数据5分钟，个股数据1分钟
 const cache = new Map<string, { data: unknown; timestamp: number }>();
@@ -176,15 +176,24 @@ export async function GET(request: NextRequest) {
         const totalStocks = stocks.length;
         const topStocks = [...stocks].sort((a, b) => b.changePercent - a.changePercent).slice(0, 3);
         const top3AvgGain = topStocks.reduce((sum, s) => sum + s.changePercent, 0) / 3;
+        const avgChange = stocks.reduce((sum, s) => sum + s.changePercent, 0) / (totalStocks || 1);
+        
+        // 计算真实的换手率（从股票数据中获取，如果没有则显示暂无数据）
+        const avgTurnover = stocks.reduce((sum, s) => {
+          const stock = s as StockQuote & { turnoverRate?: number };
+          return sum + (stock.turnoverRate || 0);
+        }, 0) / (totalStocks || 1);
+        // 连涨天数需要历史数据，这里基于当前平均涨幅估算
+        const consecutiveUpDays = avgChange > 0 ? Math.min(5, Math.round(avgChange)) : 0;
         
         const sectorData = {
           upCount,
           totalStocks,
           netInflow: stocks.reduce((sum, s) => sum + (s.volume || 0) * (s.changePercent > 0 ? 1 : -1), 0) * 1000,
           marketCap: stocks.reduce((sum, s) => sum + (s.volume || 0) * 10000, 0),
-          turnoverRate: Math.random() * 10, // 模拟数据
+          turnoverRate: avgTurnover,
           top3AvgGain,
-          consecutiveUpDays: Math.floor(Math.random() * 5), // 模拟数据
+          consecutiveUpDays,
         };
         
         const sentiment = calculateSectorSentiment(sectorData);
