@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import type { Account } from "../backtest/types";
+import { callEmbeddedAI, type AIEmbedResponse } from "@/lib/ai-embed";
 import {
   calculateSignalQuality,
   calculateProfitAttribution,
@@ -10,8 +11,9 @@ import {
   calculateConsecutiveLossesByStrategy,
   calculateOverallRating,
 } from "../backtest/storage";
+import { AIAnalysis } from "../ai/AIAnalysis";
 
-type TabKey = "signal" | "profit" | "time" | "loss" | "correlation" | "rating";
+type TabKey = "signal" | "profit" | "time" | "loss" | "correlation" | "rating" | "ai";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "signal", label: "信号质量" },
@@ -20,6 +22,7 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "loss", label: "连续亏损" },
   { key: "correlation", label: "策略相关性" },
   { key: "rating", label: "综合评级" },
+  { key: "ai", label: "🤖 AI优化" },
 ];
 
 const STRATEGY_COLORS: Record<string, string> = {
@@ -83,6 +86,7 @@ export default function StrategyValidationReport({ account }: { account: Account
         {activeTab === "loss" && <ConsecutiveLossTab data={data.consecutiveLosses} />}
         {activeTab === "correlation" && <CorrelationTab data={data.correlations} strategies={data.signalQuality.map(s => ({ key: s.strategyKey, name: s.strategyName }))} />}
         {activeTab === "rating" && <RatingTab data={data.rating} />}
+        {activeTab === "ai" && <AIOptimizationTab data={data} />}
       </div>
     </div>
   );
@@ -575,6 +579,110 @@ function RatingTab({ data }: { data: ReturnType<typeof calculateOverallRating> }
             {suggestion}
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+// ==================== Tab 7: AI优化建议 ====================
+interface StrategyReportData {
+  signalQuality: Array<{
+    strategyName: string;
+    hitRate: number;
+    falsePositiveRate: number;
+    totalSignals: number;
+  }>;
+  profitAttribution: Array<{
+    strategyName: string;
+    totalProfit: number;
+    winRate: number;
+    tradeCount: number;
+  }>;
+  consecutiveLosses: Array<{
+    strategyName: string;
+    maxConsecutive: number;
+    currentConsecutive: number;
+  }>;
+  rating: {
+    grade: string;
+    score: number;
+  };
+}
+
+function AIOptimizationTab({ data }: { data: StrategyReportData }) {
+  const [aiResponse, setAiResponse] = useState<string>("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchAIAdvice = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const context = {
+          signalQuality: data.signalQuality.map(s => ({
+            strategy: s.strategyName,
+            hitRate: s.hitRate,
+            falsePositiveRate: s.falsePositiveRate,
+            totalSignals: s.totalSignals,
+          })),
+          profitAttribution: data.profitAttribution.map(p => ({
+            strategy: p.strategyName,
+            totalProfit: p.totalProfit,
+            winRate: p.winRate,
+            tradeCount: p.tradeCount,
+          })),
+          consecutiveLosses: data.consecutiveLosses.map(c => ({
+            strategy: c.strategyName,
+            maxConsecutive: c.maxConsecutive,
+            currentConsecutive: c.currentConsecutive,
+          })),
+          rating: data.rating,
+        };
+
+        const response = await callEmbeddedAI({
+          prompt: "请分析这个策略验证报告，给出优化建议。要求：1) 指出哪些策略表现差及原因；2) 参数调整建议；3) 策略组合优化方向。请给出3-5条具体建议，每条带优先级标签（高/中/低）。",
+          context,
+        });
+        setAiResponse(response.content || "AI分析暂不可用");
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "AI分析失败");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchAIAdvice();
+  }, [data]);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-2">
+        <div className="h-4 bg-[var(--bg-card)] rounded animate-pulse w-3/4" />
+        <div className="h-4 bg-[var(--bg-card)] rounded animate-pulse w-1/2" />
+        <div className="h-4 bg-[var(--bg-card)] rounded animate-pulse w-2/3" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-4 text-[var(--text-secondary)] text-sm">
+        <span className="text-[var(--accent-yellow)]">⚠️</span> {error}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 px-3 py-2 rounded bg-[var(--bg-card)] border border-[var(--border-default)]">
+        <span className="text-sm">🤖</span>
+        <span className="text-xs text-[var(--text-secondary)]">AI优化建议</span>
+      </div>
+      <div className="px-3 py-2 rounded bg-[var(--bg-card)] border border-[var(--border-default)]">
+        <div className="text-xs text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed">
+          {aiResponse || "暂无建议"}
+        </div>
       </div>
     </div>
   );

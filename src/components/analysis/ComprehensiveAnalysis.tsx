@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useAppState } from '@/hooks/useAppState';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Info } from 'lucide-react';
+import { AIAnalysis } from '@/components/ai/AIAnalysis';
 
 interface AnalysisSettings {
   chanlun: boolean;
@@ -307,6 +308,23 @@ export function ComprehensiveAnalysis({ settings }: ComprehensiveAnalysisProps) 
             </div>
           )}
         </div>
+
+        {/* AI综合点评 */}
+        <AIAnalysis
+          type="summary"
+          prompt="请对当前股票的技术分析结果进行综合点评，包括趋势判断、关键信号解读和操作建议。要求简洁专业，2-3句话概括。"
+          context={{
+            stockCode: selectedStock?.code || '',
+            stockName: selectedStock?.name || '',
+            conclusions,
+            overallDirection,
+            riskLevel,
+            hasResonance,
+            hasDivergence,
+          }}
+          title="AI综合点评"
+          visible={!!selectedStock}
+        />
       </div>
     </div>
   );

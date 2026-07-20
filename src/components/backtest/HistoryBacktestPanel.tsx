@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { Play, Square, Download, Settings, TrendingUp, TrendingDown, BarChart3, Search, X, Loader2 } from "lucide-react";
+import { useState, useCallback, useEffect } from "react";
+import { Play, Square, Download, Settings, TrendingUp, TrendingDown, BarChart3, Search, X, Loader2, Bot } from "lucide-react";
 import { runBacktest, type BacktestConfig, type BacktestResult, type StrategyType } from "@/lib/backtest-engine";
 import type { KLineData } from "@/lib/types";
 import { fetchKLineData as fetchFromDataSource, type DataSourceResult } from "@/lib/data-source";
+import { isAIEmbedEnabled, callEmbeddedAI } from "@/lib/ai-embed";
 
 const STRATEGY_OPTIONS: { value: StrategyType; label: string; group: string }[] = [
   { value: "macd_golden_cross", label: "MACD金叉", group: "MACD" },
@@ -52,6 +53,111 @@ interface KLineFetchResult {
   success: boolean;
   data?: KLineData[];
   error?: string;
+}
+
+// AI复盘总结组件
+function AIBacktestReview({
+  stockCode,
+  stockName,
+  metrics,
+  trades,
+}: {
+  stockCode: string;
+  stockName: string;
+  metrics: {
+    totalReturn: number;
+    annualizedReturn: number;
+    maxDrawdown: number;
+    sharpeRatio: number;
+    winRate: number;
+    profitLossRatio: number;
+    totalTrades: number;
+    winningTrades: number;
+    losingTrades: number;
+  };
+  trades: Array<{ type: string; price: number; shares: number; date: string }>;
+}) {
+  const aiEnabled = isAIEmbedEnabled();
+  const [review, setReview] = useState<string>("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!aiEnabled || !metrics) return;
+
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    const context = {
+      stockCode,
+      stockName,
+      metrics: {
+        totalReturn: `${(metrics.totalReturn * 100).toFixed(2)}%`,
+        annualizedReturn: `${(metrics.annualizedReturn * 100).toFixed(2)}%`,
+        maxDrawdown: `${(metrics.maxDrawdown * 100).toFixed(2)}%`,
+        sharpeRatio: metrics.sharpeRatio.toFixed(2),
+        winRate: `${(metrics.winRate * 100).toFixed(1)}%`,
+        profitLossRatio: metrics.profitLossRatio.toFixed(2),
+        totalTrades: metrics.totalTrades,
+      },
+      recentTrades: trades.slice(-5).map(t => ({
+        type: t.type === "buy" ? "买入" : "卖出",
+        price: t.price.toFixed(2),
+        shares: t.shares,
+        date: t.date,
+      })),
+    };
+
+    callEmbeddedAI({
+      prompt: `请对以下股票历史回测结果进行复盘总结：
+1. 整体评价（1句话概括回测表现）
+2. 关键发现（哪些交易决策好/差，为什么）
+3. 改进建议（止损策略/仓位管理/信号过滤等方面）
+
+要求：简洁专业，给出具体可操作的建议。`,
+      context,
+    })
+      .then((result) => {
+        if (!cancelled) {
+          setReview(result.content || "AI分析暂不可用");
+          setLoading(false);
+        }
+      })
+      .catch((err: Error) => {
+        if (!cancelled) {
+          setError(err.message);
+          setLoading(false);
+        }
+      });
+
+    return () => { cancelled = true; };
+  }, [aiEnabled, stockCode, stockName, metrics, trades]);
+
+  if (!aiEnabled) return null;
+
+  return (
+    <div className="bg-[var(--bg-panel)]/50 border border-[var(--border-default)] rounded-lg p-3">
+      <div className="flex items-center gap-2 mb-2">
+        <Bot className="w-4 h-4 text-[var(--accent-blue)]" />
+        <span className="text-xs font-medium text-[var(--text-primary)]">AI复盘总结</span>
+        {loading && <span className="text-[10px] text-[var(--text-muted)] animate-pulse">分析中...</span>}
+      </div>
+      {loading && (
+        <div className="space-y-2">
+          <div className="h-3 bg-[var(--bg-card)]/50 rounded animate-pulse" />
+          <div className="h-3 bg-[var(--bg-card)]/50 rounded animate-pulse w-3/4" />
+          <div className="h-3 bg-[var(--bg-card)]/50 rounded animate-pulse w-1/2" />
+        </div>
+      )}
+      {error && (
+        <p className="text-[10px] text-[var(--text-muted)]">{error}</p>
+      )}
+      {review && (
+        <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed whitespace-pre-wrap">{review}</p>
+      )}
+    </div>
+  );
 }
 
 export function HistoryBacktestPanel() {
@@ -738,6 +844,14 @@ export function HistoryBacktestPanel() {
                   ))}
                 </div>
               </div>
+
+              {/* AI复盘总结 */}
+              <AIBacktestReview
+                stockCode={activeResult.stockCode}
+                stockName={activeResult.stockName}
+                metrics={activeResult.result.metrics}
+                trades={activeResult.result.trades}
+              />
             </>
           )}
         </div>

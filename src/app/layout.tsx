@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { ThemeProvider } from '@/hooks/useTheme';
 import { AuthProvider } from '@/hooks/useAuth';
+import { AIEmbedProvider } from '@/components/ai/AIEmbedToggle';
 import ClientBody from './client-body';
 
 export const metadata: Metadata = {
@@ -19,7 +20,9 @@ export default function RootLayout({
       <ClientBody>
         <ThemeProvider>
           <AuthProvider>
-            {children}
+            <AIEmbedProvider>
+              {children}
+            </AIEmbedProvider>
           </AuthProvider>
         </ThemeProvider>
       </ClientBody>
