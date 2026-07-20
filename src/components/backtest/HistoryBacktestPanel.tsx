@@ -4,7 +4,7 @@ import { useState, useCallback } from "react";
 import { Play, Square, Download, Settings, TrendingUp, TrendingDown, BarChart3, Search, X, Loader2 } from "lucide-react";
 import { runBacktest, type BacktestConfig, type BacktestResult, type StrategyType } from "@/lib/backtest-engine";
 import type { KLineData } from "@/lib/types";
-import { getCachedKline } from "@/lib/idb-cache";
+import { fetchKLineData as fetchFromDataSource, type DataSourceResult } from "@/lib/data-source";
 
 const STRATEGY_OPTIONS: { value: StrategyType; label: string; group: string }[] = [
   { value: "macd_golden_cross", label: "MACD金叉", group: "MACD" },
@@ -93,29 +93,19 @@ export function HistoryBacktestPanel() {
     }
   }, []);
 
-  // 获取K线数据（优先缓存，其次API，返回错误信息）
+  // 获取K线数据（使用统一数据源管理器：Tushare → 东方财富 → 缓存）
   const fetchKLineData = useCallback(async (code: string): Promise<KLineFetchResult> => {
-    // 1. 先尝试 IndexedDB 缓存
-    try {
-      const cached = await getCachedKline(code, 'daily');
-      if (cached && cached.length > 0) {
-        return { success: true, data: cached as KLineData[] };
-      }
-    } catch (e) {
-      // ignore cache errors
+    const result: DataSourceResult = await fetchFromDataSource(code, "daily", { limit: 1000 });
+    
+    if (result.success && result.data.length > 0) {
+      return { success: true, data: result.data };
     }
-
-    // 2. 尝试 API 获取
-    try {
-      const res = await fetch(`/api/stock?action=kline&code=${encodeURIComponent(code)}&period=daily&limit=1000`);
-      const data = await res.json();
-      if (data.data && Array.isArray(data.data) && data.data.length > 0) {
-        return { success: true, data: data.data };
-      }
-      return { success: false, error: "API返回数据为空，该股票暂无K线数据" };
-    } catch (e) {
-      return { success: false, error: `网络请求失败: ${e instanceof Error ? e.message : '未知错误'}` };
-    }
+    
+    // 返回具体错误信息
+    return { 
+      success: false, 
+      error: result.error || "数据源返回空数据，该股票暂无K线数据" 
+    };
   }, []);
 
   // 处理添加股票
