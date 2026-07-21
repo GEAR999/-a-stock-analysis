@@ -11,7 +11,7 @@
 const MOOTDX_SERVER_URL = process.env.MOOTDX_SERVER_URL || 'http://47.122.115.203:8888';
 
 // 请求超时时间（毫秒）
-const REQUEST_TIMEOUT = 5000;
+const REQUEST_TIMEOUT = 10000; // 10秒超时
 
 // 缓存健康状态，避免频繁请求不可用的服务
 let isHealthy = true;
