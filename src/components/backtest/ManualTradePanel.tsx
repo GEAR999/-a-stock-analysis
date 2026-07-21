@@ -24,6 +24,10 @@ export function ManualTradePanel({ account, stockCode, stockName, currentPrice, 
   const canBuyResult = canBuyStock(account, stockCode, buyCost);
 
   const handleBuy = () => {
+    if (!isFinite(buyPrice) || buyPrice <= 0 || !isFinite(buyQty) || buyQty <= 0) {
+      onToast('error', '请输入有效的价格和数量');
+      return;
+    }
     if (buyCost > account.currentCapital) {
       onToast('error', '资金不足');
       return;
@@ -38,6 +42,10 @@ export function ManualTradePanel({ account, stockCode, stockName, currentPrice, 
   };
 
   const handleSell = () => {
+    if (!isFinite(sellPrice) || sellPrice <= 0 || !isFinite(sellQty) || sellQty <= 0) {
+      onToast('error', '请输入有效的价格和数量');
+      return;
+    }
     if (!position) {
       onToast('error', '没有持仓，无法卖出');
       return;

@@ -49,43 +49,48 @@ export function calculateMACD(data: KLineData[], short = 12, long = 26, signal =
   }));
 }
 
-// Calculate KDJ (with warmup period detection)
+// Calculate KDJ (iterative sliding window, O(n) with proper K/D smoothing)
 export function calculateKDJ(data: KLineData[], period = 9) {
-  const KDJ_WARMUP = 8; // 前8根为预热期
-  return data.map((_, i) => {
+  const KDJ_WARMUP = 8;
+  const results: Array<{ k: number; d: number; j: number; isWarmup: boolean }> = [];
+
+  let prevK = 50;
+  let prevD = 50;
+
+  for (let i = 0; i < data.length; i++) {
     const isWarmup = i < KDJ_WARMUP;
-    if (i < period - 1) return { k: 50, d: 50, j: 50, isWarmup: true };
-    const slice = data.slice(i - period + 1, i + 1);
-    const high = Math.max(...slice.map(d => d.high));
-    const low = Math.min(...slice.map(d => d.low));
+    if (i < period - 1) {
+      results.push({ k: 50, d: 50, j: 50, isWarmup: true });
+      continue;
+    }
+
+    // Sliding window: find high/low in [i-period+1, i]
+    let high = -Infinity;
+    let low = Infinity;
+    for (let j = i - period + 1; j <= i; j++) {
+      if (data[j].high > high) high = data[j].high;
+      if (data[j].low < low) low = data[j].low;
+    }
+
     const rsv = high === low ? 50 : ((data[i].close - low) / (high - low)) * 100;
 
-    const prevK = i > 0 ? calculateKDJSingle(data, i - 1, period).k : 50;
-    const prevD = i > 0 ? calculateKDJSingle(data, i - 1, period).d : 50;
-
+    // Proper K/D smoothing: K = 2/3 * prevK + 1/3 * RSV
     const k = (2 / 3) * prevK + (1 / 3) * rsv;
     const d = (2 / 3) * prevD + (1 / 3) * k;
     const j = 3 * k - 2 * d;
 
-    return {
+    prevK = k;
+    prevD = d;
+
+    results.push({
       k: Math.round(k * 100) / 100,
       d: Math.round(d * 100) / 100,
       j: Math.round(j * 100) / 100,
       isWarmup,
-    };
-  });
-}
+    });
+  }
 
-function calculateKDJSingle(data: KLineData[], index: number, period: number) {
-  if (index < period - 1) return { k: 50, d: 50, j: 50 };
-  const slice = data.slice(index - period + 1, index + 1);
-  const high = Math.max(...slice.map(d => d.high));
-  const low = Math.min(...slice.map(d => d.low));
-  const rsv = high === low ? 50 : ((data[index].close - low) / (high - low)) * 100;
-  const k = rsv;
-  const d = k;
-  const j = 3 * k - 2 * d;
-  return { k, d, j };
+  return results;
 }
 
 // Calculate RSI

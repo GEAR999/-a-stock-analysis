@@ -168,7 +168,7 @@ export function getTotalAssets(account: Account): number {
 
 // 计算最大回撤
 function calculateMaxDrawdown(account: Account): number {
-  if (account.trades.length < 2) return 0;
+  if (account.trades.length < 2 || account.initialCapital <= 0) return 0;
 
   // 按时间排序的交易
   const sortedTrades = [...account.trades].sort((a, b) => a.timestamp - b.timestamp);
@@ -178,13 +178,16 @@ function calculateMaxDrawdown(account: Account): number {
   let currentAssets = account.initialCapital;
 
   for (const trade of sortedTrades) {
+    if (!isFinite(trade.amount)) continue;
     if (trade.direction === "buy") {
       currentAssets -= trade.amount;
     } else {
       currentAssets += trade.amount + (trade.pnl || 0);
       if (currentAssets > peak) peak = currentAssets;
-      const drawdown = ((peak - currentAssets) / peak) * 100;
-      if (drawdown > maxDrawdown) maxDrawdown = drawdown;
+      if (peak > 0) {
+        const drawdown = ((peak - currentAssets) / peak) * 100;
+        if (drawdown > maxDrawdown) maxDrawdown = drawdown;
+      }
     }
   }
 
@@ -305,6 +308,9 @@ export function generateDemoEquityCurve(initialCapital: number = 1000000): Equit
 
 // 检查是否可以买入
 export function canBuyStock(account: Account, code: string, buyBudget: number): { can: boolean; reason: string } {
+  // NaN 防护
+  if (!isFinite(buyBudget) || buyBudget <= 0) return { can: false, reason: '买入金额无效' };
+
   const limit = account.stockLimits[code];
   if (limit !== undefined) {
     const currentHolding = account.positions
@@ -324,10 +330,13 @@ export function canBuyStock(account: Account, code: string, buyBudget: number): 
 
 // 执行买入
 export function executeBuy(account: Account, code: string, name: string, price: number, buyBudget: number, reason: string, isAuto: boolean = false): Account {
+  // NaN/Infinity 防护
+  if (!isFinite(price) || price <= 0 || !isFinite(buyBudget) || buyBudget <= 0) return account;
+
   // 自动交易应用滑点
   const actualPrice = isAuto ? applySlippage(price, 'buy') : price;
   const quantity = Math.floor(buyBudget / actualPrice / 100) * 100; // A股100股整数倍
-  if (quantity <= 0) return account;
+  if (!isFinite(quantity) || quantity <= 0) return account;
 
   // buyCost = 买入总花费（元）= price × quantity
   const buyCost = quantity * actualPrice;
@@ -398,6 +407,9 @@ export function executeBuy(account: Account, code: string, name: string, price: 
 
 // 执行卖出
 export function executeSell(account: Account, code: string, price: number, quantity: number, reason: string, isAuto: boolean = false): Account {
+  // NaN/Infinity 防护
+  if (!isFinite(price) || price <= 0 || !isFinite(quantity) || quantity <= 0) return account;
+
   const existingPos = account.positions.find((p) => p.stockCode === code);
   if (!existingPos || existingPos.quantity < quantity) return account;
 
