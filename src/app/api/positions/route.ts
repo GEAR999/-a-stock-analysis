@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query, execute } from '@/lib/db';
+import { query } from '@/lib/db';
 
 // GET /api/positions - 获取持仓列表
 export async function GET(request: NextRequest) {
@@ -12,6 +12,12 @@ export async function GET(request: NextRequest) {
         { success: false, error: '缺少 accountId 参数' },
         { status: 400 }
       );
+    }
+
+    // UUID 格式校验
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(accountId)) {
+      return NextResponse.json({ success: true, data: [] });
     }
 
     const positions = await query`
@@ -32,7 +38,7 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { accountId, stockCode, quantity, costPrice, avgPrice } = body;
+    const { accountId, stockCode, quantity, avgCost, currentPrice, marketValue, profitLoss, profitLossRatio } = body;
 
     if (!accountId || !stockCode) {
       return NextResponse.json(
@@ -44,8 +50,11 @@ export async function PUT(request: NextRequest) {
     const result = await query`
       UPDATE positions SET 
         quantity = COALESCE(${quantity}, quantity),
-        cost_price = COALESCE(${costPrice}, cost_price),
-        avg_price = COALESCE(${avgPrice}, avg_price),
+        avg_cost = COALESCE(${avgCost}, avg_cost),
+        current_price = COALESCE(${currentPrice}, current_price),
+        market_value = COALESCE(${marketValue}, market_value),
+        profit_loss = COALESCE(${profitLoss}, profit_loss),
+        profit_loss_ratio = COALESCE(${profitLossRatio}, profit_loss_ratio),
         updated_at = NOW()
       WHERE account_id = ${accountId} AND stock_code = ${stockCode}
       RETURNING *

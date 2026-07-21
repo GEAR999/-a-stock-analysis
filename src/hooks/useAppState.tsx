@@ -1,8 +1,9 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
 import type { StockInfo, StockQuote, WatchlistItem, AnalysisSettings, ChatMessage, KLineData, KLinePeriod } from '@/lib/types';
 import { fetchWithRetry, onOnlineStatusChange } from '@/lib/api-client';
+import * as CloudAPI from '@/lib/api-client-db';
 
 interface AppState {
   // Stock
@@ -123,6 +124,64 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     safeSetItem('stock-watchlist', { _version: 1, data: watchlist });
   }, [watchlist, safeSetItem]);
+
+  // 自选股云端同步：watchlist 变化时异步同步到 Neon
+  const _watchlistSyncRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (_watchlistSyncRef.current) clearTimeout(_watchlistSyncRef.current);
+    _watchlistSyncRef.current = setTimeout(() => {
+      // 防抖 500ms，批量同步
+      (async () => {
+        try {
+          // 先拉取云端列表，对比差异
+          const cloudList = await CloudAPI.fetchWatchlist();
+          const cloudCodes = new Set(cloudList.map(w => w.stock_code));
+          const localCodes = new Set(watchlist.map(w => w.code));
+
+          // 新增：本地有、云端没有
+          for (const item of watchlist) {
+            if (!cloudCodes.has(item.code)) {
+              await CloudAPI.addToWatchlist({ stockCode: item.code, stockName: item.name });
+            }
+          }
+          // 删除：云端有、本地没有
+          for (const cloud of cloudList) {
+            if (!localCodes.has(cloud.stock_code)) {
+              await CloudAPI.removeFromWatchlist(cloud.stock_code);
+            }
+          }
+        } catch {
+          // 静默失败，不影响本地使用
+        }
+      })();
+    }, 500);
+    return () => { if (_watchlistSyncRef.current) clearTimeout(_watchlistSyncRef.current); };
+  }, [watchlist]);
+
+  // 初始化时尝试从云端加载自选股（仅当本地为空时）
+  const _cloudInitRef = useRef(false);
+  useEffect(() => {
+    if (_cloudInitRef.current) return;
+    _cloudInitRef.current = true;
+    const savedWatchlist = safeGetItem<WatchlistItem[]>('stock-watchlist', []);
+    if (savedWatchlist.length === 0) {
+      (async () => {
+        try {
+          const cloudList = await CloudAPI.fetchWatchlist();
+          if (cloudList.length > 0) {
+            setWatchlist(cloudList.map(w => ({
+              code: w.stock_code,
+              name: w.stock_name,
+              market: w.stock_code.startsWith('6') ? 'sh' : 'sz',
+              order: w.sort_order || 0,
+            })));
+          }
+        } catch {
+          // 静默失败
+        }
+      })();
+    }
+  }, [safeGetItem]);
 
   // Save chat to localStorage (with version)
   useEffect(() => {

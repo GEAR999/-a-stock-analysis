@@ -28,7 +28,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     // 获取交易记录
     const transactions = await query`
-      SELECT * FROM transactions WHERE account_id = ${id} ORDER BY trade_time DESC LIMIT 100
+      SELECT * FROM transactions WHERE account_id = ${id} ORDER BY traded_at DESC LIMIT 100
     `;
 
     return NextResponse.json({
@@ -53,14 +53,16 @@ export async function PUT(request: NextRequest, context: RouteContext) {
   try {
     const { id } = await context.params;
     const body = await request.json();
-    const { name, strategy_config, status } = body;
+    const { name, quant_threshold, auto_trade, max_position_ratio, stop_loss_ratio, take_profit_ratio } = body;
 
-    // 构建更新字段
     const account = await query`
       UPDATE accounts SET 
         name = COALESCE(${name}, name),
-        strategy_config = COALESCE(${JSON.stringify(strategy_config)}, strategy_config),
-        status = COALESCE(${status}, status),
+        quant_threshold = COALESCE(${quant_threshold}, quant_threshold),
+        auto_trade = COALESCE(${auto_trade}, auto_trade),
+        max_position_ratio = COALESCE(${max_position_ratio}, max_position_ratio),
+        stop_loss_ratio = COALESCE(${stop_loss_ratio}, stop_loss_ratio),
+        take_profit_ratio = COALESCE(${take_profit_ratio}, take_profit_ratio),
         updated_at = NOW()
       WHERE id = ${id}
       RETURNING *

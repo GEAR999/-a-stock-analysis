@@ -14,12 +14,16 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // UUID 格式校验
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(accountId)) {
+      return NextResponse.json({ success: true, data: [] });
+    }
+
     const weights = await query`
-      SELECT sw.*, st.name as strategy_name, st.description, st.theories, st.confidence
-      FROM strategy_weights sw
-      LEFT JOIN strategy_templates st ON sw.strategy_id = st.id
-      WHERE sw.account_id = ${accountId}
-      ORDER BY sw.sort_order, sw.strategy_id
+      SELECT * FROM strategy_weights
+      WHERE account_id = ${accountId}
+      ORDER BY sort_order, strategy_id
     `;
 
     return NextResponse.json({ success: true, data: weights });
@@ -53,10 +57,10 @@ export async function POST(request: NextRequest) {
     // 插入新权重
     const results = [];
     for (let i = 0; i < weights.length; i++) {
-      const { strategyId, weight, enabled } = weights[i];
+      const { strategyId, strategyName, strategyType, weight, confidence, enabled } = weights[i];
       const result = await query`
-        INSERT INTO strategy_weights (account_id, strategy_id, weight, enabled, sort_order)
-        VALUES (${accountId}, ${strategyId}, ${weight}, ${enabled !== false}, ${i})
+        INSERT INTO strategy_weights (account_id, strategy_id, strategy_name, strategy_type, weight, confidence, is_enabled, sort_order)
+        VALUES (${accountId}, ${strategyId}, ${strategyName || strategyId}, ${strategyType || 'builtin'}, ${weight}, ${confidence || 0.70}, ${enabled !== false}, ${i})
         RETURNING *
       `;
       results.push(result[0]);

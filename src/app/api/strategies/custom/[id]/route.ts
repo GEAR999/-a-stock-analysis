@@ -8,11 +8,12 @@ export const PUT = withAuth(async (req: AuthRequest, { params }: { params: Promi
     const body = await req.json();
     const { name, description, theories, buy_conditions, sell_conditions, position_ratio, stop_loss, take_profit, is_active } = body;
 
+    const theoriesArr = theories ? `{${theories.join(',')}}` : null;
     await execute`
       UPDATE custom_strategies SET
         name = COALESCE(${name}, name),
         description = COALESCE(${description}, description),
-        theories = COALESCE(${JSON.stringify(theories)}, theories),
+        theories = COALESCE(${theoriesArr}, theories),
         buy_conditions = COALESCE(${JSON.stringify(buy_conditions)}, buy_conditions),
         sell_conditions = COALESCE(${JSON.stringify(sell_conditions)}, sell_conditions),
         position_ratio = COALESCE(${position_ratio}, position_ratio),

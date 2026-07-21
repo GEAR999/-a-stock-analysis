@@ -22,9 +22,11 @@ export const POST = withAuth(async (req: AuthRequest) => {
 
     if (!name) return apiError('策略名称不能为空');
 
+    const theoriesArr = theories || [];
+    const pgTheories = `{${theoriesArr.join(',')}}`;
     const rows = await execute<{ id: string }>`
       INSERT INTO custom_strategies (user_id, name, description, theories, buy_conditions, sell_conditions, position_ratio, stop_loss, take_profit)
-      VALUES (${req.user.userId}, ${name}, ${description || null}, ${JSON.stringify(theories || [])}, ${JSON.stringify(buy_conditions || {})}, ${JSON.stringify(sell_conditions || {})}, ${position_ratio || 0.25}, ${stop_loss || 0.05}, ${take_profit || 0.10})
+      VALUES (${req.user.userId}, ${name}, ${description || null}, ${pgTheories}, ${JSON.stringify(buy_conditions || {})}, ${JSON.stringify(sell_conditions || {})}, ${position_ratio || 0.25}, ${stop_loss || 0.05}, ${take_profit || 0.10})
       RETURNING id
     `;
     return apiSuccess({ id: rows[0].id });

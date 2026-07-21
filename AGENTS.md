@@ -19,7 +19,12 @@ src/
 │   └── globals.css            # 全局样式 + 交易终端主题
 ├── components/
 │   ├── SentimentTooltip.tsx   # 情绪指标Tooltip组件 (hover显示计算过程)
-│   ├── ai/AIAssistant.tsx     # AI对话助手 (分析/调试模式)
+│   ├── SyncStatusIndicator.tsx # 云端同步状态指示器 (顶部工具栏)
+│   ├── ai/
+│   │   ├── AIAssistant.tsx    # AI对话助手 (分析/调试模式)
+│   │   ├── AIChatWidget.tsx   # AI悬浮对话窗 (右下角浮动)
+│   │   ├── AIAnalysis.tsx     # AI嵌入式分析通用组件
+│   │   └── AIEmbedToggle.tsx  # AI增强开关组件
 │   ├── analysis/
 │   │   ├── AnalysisPanel.tsx  # 分析引擎开关面板 (三个理论开关)
 │   │   ├── AnalysisTooltip.tsx # 分析结果Tooltip组件 (缠论/波浪/技术指标)
@@ -60,6 +65,10 @@ src/
 │   └── useAppState.tsx        # 全局状态管理 (Context)
 ├── lib/
 │   ├── api/stock.ts           # 数据获取层 (东方财富API, 含分页拉取)
+│   ├── api-client-db.ts       # 统一云端API客户端 (账户/交易/持仓/自选股/策略/缓存)
+│   ├── db.ts                  # Neon数据库连接 (serverless PostgreSQL)
+│   ├── data-source.ts         # 统一数据源管理器 (Tushare→东方财富→缓存 三级降级)
+│   ├── ai-embed.ts            # AI嵌入式分析工具库 (callEmbeddedAI/useAIEmbed)
 │   ├── analysis.ts            # 分析引擎 (缠论/波浪/技术指标)
 │   ├── backtest-engine.ts     # 历史回测引擎 (基础策略+分析引擎策略适配器+进度回调)
 │   ├── idb-cache.ts           # IndexedDB K线缓存 (24h有效期, LRU清理)
@@ -85,6 +94,22 @@ src/
 - `GET /api/stock?action=sector_sentiment&sector={code}` - 板块情绪分析（实时数据，支持板块代码或名称）
 - `GET /api/stock?action=stock_sentiment&code={code}` - 个股情绪分析（实时数据，技术强度/量能/动量/支撑压力）
 - `GET /api/stock?action=comprehensive_sentiment` - 综合情绪评估（大盘/板块/个股三维度）
+
+### Neon 数据库 API（云端持久化）
+- `GET /api/migrate` - 检查数据库迁移状态（10张表）
+- `GET/POST /api/accounts` - 账户管理（CRUD）
+- `GET/PUT/DELETE /api/accounts/[id]` - 账户详情/更新/删除
+- `GET/POST /api/transactions` - 交易记录（买入/卖出）
+- `GET/DELETE /api/transactions/[id]` - 交易详情/删除
+- `GET /api/positions` - 持仓列表
+- `DELETE /api/positions/[id]` - 平仓操作
+- `GET/POST/DELETE /api/watchlist` - 自选股管理
+- `GET /api/strategies` - 策略列表（含内置+自定义）
+- `GET/POST/DELETE /api/strategies/custom` - 自定义策略管理
+- `GET/PUT /api/strategy-weights` - 策略权重配置
+- `GET/POST/DELETE /api/analysis-cache` - 分析结果缓存
+- `POST /api/ai/chat` - DeepSeek AI 对话（流式输出）
+- `GET/POST /api/learning/progress` - 学习进度管理
 
 K线周期: daily/weekly/monthly/60min/30min/15min/5min
 
@@ -124,6 +149,15 @@ K线周期: daily/weekly/monthly/60min/30min/15min/5min
 - 历史回测引擎：支持10种基础技术指标策略 + 6种分析引擎策略（缠论买卖点、波浪起点/终点、指标共振买卖）
 - 分析引擎策略互通：历史回测复用 analysis.ts 的 analyzeChanlun/analyzeWaves/getAllIndicators
 - 回测进度回调：onProgress(current, total) 实时显示回测进度
+
+## 云端数据同步
+- **双写模式**：localStorage 为主存储（快速响应），Neon PostgreSQL 为云端备份
+- **防抖同步**：账户数据变更后 1 秒防抖，自动同步到云端
+- **UUID 校验**：API 端对 accountId/userId 做 UUID 格式校验，非法值返回空列表（兼容旧数据）
+- **自选股同步**：watchlist 变更时自动同步到云端
+- **同步状态指示**：SyncStatusIndicator 组件显示实时同步状态（idle/syncing/synced/error）
+- **数据库迁移**：GET /api/migrate 检查 10 张表是否全部创建
+- **存储层函数**：syncAccountToCloud / syncWatchlistToCloud / debouncedSyncAccount（storage.ts 底部）
 
 ## 开发命令
 - `pnpm dev` - 启动开发服务

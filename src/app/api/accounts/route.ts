@@ -6,7 +6,8 @@ export async function GET() {
   try {
     const accounts = await query`
       SELECT id, user_id, name, type, initial_capital, current_capital, 
-             run_mode, strategy_config, status, created_at, updated_at
+             quant_threshold, auto_trade, max_position_ratio, stop_loss_ratio, take_profit_ratio,
+             created_at, updated_at
       FROM accounts
       ORDER BY created_at DESC
     `;
@@ -24,7 +25,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { user_id, name, type, initial_capital, run_mode, strategy_config } = body;
+    const { user_id, name, type, initial_capital, quant_threshold, auto_trade, max_position_ratio, stop_loss_ratio, take_profit_ratio } = body;
 
     if (!name || !type || !initial_capital) {
       return NextResponse.json(
@@ -34,8 +35,8 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await query`
-      INSERT INTO accounts (user_id, name, type, initial_capital, current_capital, run_mode, strategy_config)
-      VALUES (${user_id || null}, ${name}, ${type}, ${initial_capital}, ${initial_capital}, ${run_mode || 'realtime'}, ${JSON.stringify(strategy_config || {})})
+      INSERT INTO accounts (user_id, name, type, initial_capital, current_capital, quant_threshold, auto_trade, max_position_ratio, stop_loss_ratio, take_profit_ratio)
+      VALUES (${user_id || null}, ${name}, ${type}, ${initial_capital}, ${initial_capital}, ${quant_threshold || 70}, ${auto_trade || false}, ${max_position_ratio || 0.25}, ${stop_loss_ratio || 0.05}, ${take_profit_ratio || 0.10})
       RETURNING *
     `;
 

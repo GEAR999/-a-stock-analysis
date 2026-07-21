@@ -20,13 +20,13 @@ export async function GET(request: NextRequest) {
       cache = await query`
         SELECT * FROM analysis_cache 
         WHERE stock_code = ${stockCode} AND analysis_type = ${analysisType}
-        ORDER BY updated_at DESC LIMIT 1
+        ORDER BY computed_at DESC LIMIT 1
       `;
     } else {
       cache = await query`
         SELECT * FROM analysis_cache 
         WHERE stock_code = ${stockCode}
-        ORDER BY updated_at DESC
+        ORDER BY computed_at DESC
       `;
     }
 
@@ -44,9 +44,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { stockCode, analysisType, resultData } = body;
+    const { stockCode, analysisType, result, score, signal, expiresAt } = body;
 
-    if (!stockCode || !analysisType || !resultData) {
+    if (!stockCode || !analysisType || !result) {
       return NextResponse.json(
         { success: false, error: '缺少必要参数' },
         { status: 400 }
@@ -59,25 +59,25 @@ export async function POST(request: NextRequest) {
       WHERE stock_code = ${stockCode} AND analysis_type = ${analysisType}
     `;
 
-    let result;
+    let cacheResult;
     if (existing.length > 0) {
       // 更新
-      result = await query`
+      cacheResult = await query`
         UPDATE analysis_cache 
-        SET result_data = ${JSON.stringify(resultData)}, updated_at = NOW()
+        SET result = ${JSON.stringify(result)}, score = ${score || null}, signal = ${signal || null}, computed_at = NOW(), expires_at = ${expiresAt || null}
         WHERE stock_code = ${stockCode} AND analysis_type = ${analysisType}
         RETURNING *
       `;
     } else {
       // 插入
-      result = await query`
-        INSERT INTO analysis_cache (stock_code, analysis_type, result_data)
-        VALUES (${stockCode}, ${analysisType}, ${JSON.stringify(resultData)})
+      cacheResult = await query`
+        INSERT INTO analysis_cache (stock_code, analysis_type, result, score, signal, expires_at)
+        VALUES (${stockCode}, ${analysisType}, ${JSON.stringify(result)}, ${score || null}, ${signal || null}, ${expiresAt || null})
         RETURNING *
       `;
     }
 
-    return NextResponse.json({ success: true, data: result[0] });
+    return NextResponse.json({ success: true, data: cacheResult[0] });
   } catch (error) {
     console.error('Failed to save analysis cache:', error);
     return NextResponse.json(
@@ -92,25 +92,23 @@ export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const stockCode = searchParams.get('stockCode');
-    const daysOld = parseInt(searchParams.get('daysOld') || '7');
 
     if (stockCode) {
-      // 删除特定股票的缓存
       await execute`
         DELETE FROM analysis_cache WHERE stock_code = ${stockCode}
       `;
     } else {
-      // 删除过期缓存
+      // 清理过期缓存
       await execute`
-        DELETE FROM analysis_cache WHERE updated_at < NOW() - INTERVAL '${daysOld} days'
+        DELETE FROM analysis_cache WHERE expires_at IS NOT NULL AND expires_at < NOW()
       `;
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Failed to delete analysis cache:', error);
+    console.error('Failed to clear analysis cache:', error);
     return NextResponse.json(
-      { success: false, error: '删除分析缓存失败' },
+      { success: false, error: '清理缓存失败' },
       { status: 500 }
     );
   }

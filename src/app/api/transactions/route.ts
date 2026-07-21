@@ -5,7 +5,7 @@ import { query, execute } from '@/lib/db';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { account_id, stock_code, stock_name, type, price, quantity, amount, commission, strategy_name } = body;
+    const { account_id, stock_code, stock_name, type, price, quantity, amount, fee, strategy_signals, note } = body;
 
     if (!account_id || !stock_code || !type || !price || !quantity) {
       return NextResponse.json(
@@ -24,13 +24,12 @@ export async function POST(request: NextRequest) {
     const account = accounts[0];
     const currentCapital = Number(account.current_capital);
 
-    // 开始事务（使用BEGIN/COMMIT）
+    // 开始事务
     await execute`BEGIN`;
 
     try {
       if (type === 'buy') {
-        // 买入：检查资金
-        const totalCost = Number(amount) + Number(commission || 0);
+        const totalCost = Number(amount) + Number(fee || 0);
         if (totalCost > currentCapital) {
           await execute`ROLLBACK`;
           return NextResponse.json({ success: false, error: '资金不足' }, { status: 400 });
@@ -49,21 +48,20 @@ export async function POST(request: NextRequest) {
         if (existingPositions.length > 0) {
           const pos = existingPositions[0];
           const oldQty = Number(pos.quantity);
-          const oldCost = Number(pos.cost_price);
+          const oldCost = Number(pos.avg_cost);
           const newQty = oldQty + Number(quantity);
           const newCost = (oldCost * oldQty + Number(price) * Number(quantity)) / newQty;
           await execute`
-            UPDATE positions SET quantity = ${newQty}, cost_price = ${newCost}, updated_at = NOW()
+            UPDATE positions SET quantity = ${newQty}, avg_cost = ${newCost}, updated_at = NOW()
             WHERE account_id = ${account_id} AND stock_code = ${stock_code}
           `;
         } else {
           await execute`
-            INSERT INTO positions (account_id, stock_code, stock_name, quantity, cost_price, avg_price)
-            VALUES (${account_id}, ${stock_code}, ${stock_name || ''}, ${quantity}, ${price}, ${price})
+            INSERT INTO positions (account_id, stock_code, stock_name, quantity, avg_cost, open_date)
+            VALUES (${account_id}, ${stock_code}, ${stock_name || ''}, ${quantity}, ${price}, CURRENT_DATE)
           `;
         }
       } else if (type === 'sell') {
-        // 卖出：检查持仓
         const positions = await query`
           SELECT * FROM positions WHERE account_id = ${account_id} AND stock_code = ${stock_code} AND quantity > 0
         `;
@@ -72,7 +70,6 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ success: false, error: '持仓不足' }, { status: 400 });
         }
 
-        // 更新持仓
         const pos = positions[0];
         const newQty = Number(pos.quantity) - Number(quantity);
         if (newQty === 0) {
@@ -87,8 +84,7 @@ export async function POST(request: NextRequest) {
           `;
         }
 
-        // 更新账户余额
-        const proceeds = Number(amount) - Number(commission || 0);
+        const proceeds = Number(amount) - Number(fee || 0);
         await execute`
           UPDATE accounts SET current_capital = current_capital + ${proceeds}, updated_at = NOW() WHERE id = ${account_id}
         `;
@@ -96,8 +92,8 @@ export async function POST(request: NextRequest) {
 
       // 记录交易
       const result = await query`
-        INSERT INTO transactions (account_id, stock_code, stock_name, type, price, quantity, amount, commission, strategy_name)
-        VALUES (${account_id}, ${stock_code}, ${stock_name || ''}, ${type}, ${price}, ${quantity}, ${amount}, ${commission || 0}, ${strategy_name || null})
+        INSERT INTO transactions (account_id, stock_code, stock_name, type, price, quantity, amount, fee, strategy_signals, note)
+        VALUES (${account_id}, ${stock_code}, ${stock_name || ''}, ${type}, ${price}, ${quantity}, ${amount}, ${fee || 0}, ${strategy_signals ? JSON.stringify(strategy_signals) : '{}'}, ${note || null})
         RETURNING *
       `;
 
@@ -125,27 +121,31 @@ export async function GET(request: NextRequest) {
     const limit = searchParams.get('limit') || '100';
     const offset = searchParams.get('offset') || '0';
 
-    let sql;
-    if (accountId && stockCode) {
-      sql = await query`
+    let result;
+    // UUID 格式校验
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const validAccountId = accountId && uuidRegex.test(accountId) ? accountId : null;
+    
+    if (validAccountId && stockCode) {
+      result = await query`
         SELECT * FROM transactions 
-        WHERE account_id = ${accountId} AND stock_code = ${stockCode}
-        ORDER BY trade_time DESC LIMIT ${limit} OFFSET ${offset}
+        WHERE account_id = ${validAccountId} AND stock_code = ${stockCode}
+        ORDER BY traded_at DESC LIMIT ${parseInt(limit)} OFFSET ${parseInt(offset)}
       `;
-    } else if (accountId) {
-      sql = await query`
+    } else if (validAccountId) {
+      result = await query`
         SELECT * FROM transactions 
-        WHERE account_id = ${accountId}
-        ORDER BY trade_time DESC LIMIT ${limit} OFFSET ${offset}
+        WHERE account_id = ${validAccountId}
+        ORDER BY traded_at DESC LIMIT ${parseInt(limit)} OFFSET ${parseInt(offset)}
       `;
     } else {
-      sql = await query`
+      result = await query`
         SELECT * FROM transactions 
-        ORDER BY trade_time DESC LIMIT ${limit} OFFSET ${offset}
+        ORDER BY traded_at DESC LIMIT ${parseInt(limit)} OFFSET ${parseInt(offset)}
       `;
     }
 
-    return NextResponse.json({ success: true, data: sql });
+    return NextResponse.json({ success: true, data: result });
   } catch (error) {
     console.error('Failed to fetch transactions:', error);
     return NextResponse.json(

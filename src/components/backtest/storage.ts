@@ -1,5 +1,6 @@
 import type { Account, AccountSummary, Trade, Position, StrategyMetrics, EquityPoint, SingleStrategyStats, FailureStats, FailureReason, StrategySource, AccountType, QuantStrategy, RunMode } from "./types";
 import { applySlippage } from "@/lib/slippage";
+import * as CloudAPI from "@/lib/api-client-db";
 
 const STORAGE_PREFIX = "backtest_account_";
 const ACTIVE_ACCOUNT_KEY = "backtest_active_account";
@@ -9,10 +10,12 @@ export function generateId(): string {
   return `acc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-// 保存账户到localStorage
+// 保存账户到localStorage + 触发云端同步
 export function saveAccount(account: Account): void {
   account.updatedAt = Date.now();
   localStorage.setItem(`${STORAGE_PREFIX}${account.id}`, JSON.stringify(account));
+  // 异步同步到云端（防抖）
+  debouncedSyncAccount(account.id);
 }
 
 // 从localStorage加载账户
@@ -1254,3 +1257,130 @@ export function calculateOverallRating(
     suggestions,
   };
 }
+
+// ==================== 云端同步层 ====================
+
+// 同步队列（防抖）
+const _syncQueue = new Map<string, number>();
+let _syncTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * 防抖同步账户到云端（300ms 内多次调用只同步一次）
+ */
+function debouncedSyncAccount(accountId: string): void {
+  _syncQueue.set(accountId, Date.now());
+  if (_syncTimer) clearTimeout(_syncTimer);
+  _syncTimer = setTimeout(() => {
+    _syncTimer = null;
+    const ids = Array.from(_syncQueue.keys());
+    _syncQueue.clear();
+    for (const id of ids) {
+      const account = loadAccount(id);
+      if (account) {
+        syncAccountToCloud(account).catch(() => {});
+      }
+    }
+  }, 300);
+}
+
+/**
+ * 同步单个账户到云端
+ */
+export async function syncAccountToCloud(account: Account): Promise<boolean> {
+  try {
+    const result = await CloudAPI.syncAccountToDb({
+      id: account.id,
+      name: account.name,
+      type: account.type,
+      initialCapital: account.initialCapital,
+      currentCapital: account.currentCapital,
+      positions: account.positions.map((p) => ({
+        stockCode: p.stockCode,
+        stockName: p.stockName,
+        quantity: p.quantity,
+        avgCost: p.avgCost,
+        currentPrice: p.currentPrice,
+        marketValue: p.marketValue,
+        pnl: p.pnl,
+        pnlPercent: p.pnlPercent,
+      })),
+      trades: account.trades.map((t) => ({
+        stockCode: t.stockCode,
+        stockName: t.stockName,
+        direction: t.direction,
+        price: t.price,
+        quantity: t.quantity,
+        amount: t.amount,
+        reason: t.reason,
+        timestamp: t.timestamp,
+      })),
+    });
+    return result;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 从云端加载账户（用于首次登录或跨设备同步）
+ */
+export async function loadAccountFromCloud(accountId: string): Promise<Account | null> {
+  try {
+    const detail = await CloudAPI.fetchAccountDetail(accountId);
+    if (!detail) return null;
+
+    const { account: dbAccount, positions, transactions } = detail;
+
+    // 转换为前端 Account 类型
+    const account: Account = {
+      id: dbAccount.id,
+      name: dbAccount.name,
+      type: dbAccount.type as AccountType,
+      initialCapital: Number(dbAccount.initial_capital),
+      currentCapital: Number(dbAccount.current_capital),
+      positions: positions.map((p) => ({
+        stockCode: p.stock_code,
+        stockName: p.stock_name,
+        quantity: Number(p.quantity),
+        avgCost: Number(p.avg_cost),
+        currentPrice: Number(p.current_price || p.avg_cost),
+        marketValue: Number(p.market_value || 0),
+        pnl: Number(p.profit_loss || 0),
+        pnlPercent: Number(p.profit_loss_ratio || 0),
+        positionPercent: 0,
+      })),
+      trades: transactions.map((t) => ({
+        id: t.id,
+        timestamp: new Date(t.traded_at || t.created_at || Date.now()).getTime(),
+        stockCode: t.stock_code,
+        stockName: t.stock_name,
+        direction: t.type,
+        price: Number(t.price),
+        quantity: Number(t.quantity),
+        amount: Number(t.amount),
+        reason: t.note || "",
+      })),
+      trackingList: [],
+      stockLimits: {},
+      createdAt: new Date(dbAccount.created_at || Date.now()).getTime(),
+      updatedAt: new Date(dbAccount.updated_at || Date.now()).getTime(),
+    };
+
+    // 保存到 localStorage
+    saveAccount(account);
+    return account;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 检查云端数据库连接状态
+ */
+export async function checkCloudConnection(): Promise<boolean> {
+  return CloudAPI.checkDbConnection();
+}
+
+// 重新导出同步状态相关函数
+export { CloudAPI };
+export { getSyncStatus, getLastSyncTime, getSyncError, onSyncStatusChange } from "@/lib/api-client-db";

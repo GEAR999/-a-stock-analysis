@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query, execute } from '@/lib/db';
+import { query } from '@/lib/db';
 
-// GET /api/strategies - 获取所有策略（系统默认+用户自定义）
+// GET /api/strategies - 获取所有策略模板
 export async function GET() {
   try {
     const strategies = await query`
-      SELECT * FROM strategy_templates ORDER BY is_builtin DESC, name
+      SELECT * FROM strategy_templates ORDER BY is_default DESC, name
     `;
 
     return NextResponse.json({ success: true, data: strategies });
@@ -18,11 +18,11 @@ export async function GET() {
   }
 }
 
-// POST /api/strategies - 创建自定义策略
+// POST /api/strategies - 创建策略模板
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, description, theories, confidence, params } = body;
+    const { user_id, name, description, config, is_default } = body;
 
     if (!name) {
       return NextResponse.json(
@@ -32,8 +32,8 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await query`
-      INSERT INTO strategy_templates (name, description, theories, confidence, params, is_builtin)
-      VALUES (${name}, ${description || ''}, ${JSON.stringify(theories || [])}, ${confidence || 50}, ${JSON.stringify(params || {})}, false)
+      INSERT INTO strategy_templates (user_id, name, description, config, is_default)
+      VALUES (${user_id || null}, ${name}, ${description || ''}, ${JSON.stringify(config || {})}, ${is_default || false})
       RETURNING *
     `;
 
@@ -47,11 +47,11 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PUT /api/strategies - 更新策略
+// PUT /api/strategies - 更新策略模板
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, name, description, theories, confidence, params } = body;
+    const { id, name, description, config, is_default } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -64,9 +64,8 @@ export async function PUT(request: NextRequest) {
       UPDATE strategy_templates SET 
         name = COALESCE(${name}, name),
         description = COALESCE(${description}, description),
-        theories = COALESCE(${theories ? JSON.stringify(theories) : null}, theories),
-        confidence = COALESCE(${confidence}, confidence),
-        params = COALESCE(${params ? JSON.stringify(params) : null}, params),
+        config = COALESCE(${config ? JSON.stringify(config) : null}, config),
+        is_default = COALESCE(${is_default}, is_default),
         updated_at = NOW()
       WHERE id = ${id}
       RETURNING *
@@ -82,7 +81,7 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// DELETE /api/strategies - 删除自定义策略
+// DELETE /api/strategies - 删除策略模板
 export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -95,21 +94,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // 检查是否为内置策略
-    const strategy = await query`
-      SELECT * FROM strategy_templates WHERE id = ${id}
-    `;
-    if (strategy.length === 0) {
-      return NextResponse.json({ success: false, error: '策略不存在' }, { status: 404 });
-    }
-    if (strategy[0].is_builtin) {
-      return NextResponse.json({ success: false, error: '内置策略不可删除' }, { status: 400 });
-    }
-
-    await execute`
-      DELETE FROM strategy_templates WHERE id = ${id}
-    `;
-
+    await query`DELETE FROM strategy_templates WHERE id = ${id}`;
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Failed to delete strategy:', error);
