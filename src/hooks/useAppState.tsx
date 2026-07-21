@@ -229,12 +229,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Track current stock code to prevent race conditions
+  const quoteRequestIdRef = useRef<string | null>(null);
+
   const refreshQuote = useCallback(async () => {
     if (!selectedStock) return;
+    const code = selectedStock.code;
+    quoteRequestIdRef.current = code;
     try {
-      const res = await fetchWithRetry(`/api/stock?action=quote&code=${selectedStock.code}`);
+      const res = await fetchWithRetry(`/api/stock?action=quote&code=${code}`);
       const json = await res.json();
-      if (json.success) setCurrentQuote(json.data);
+      // Only update if this is still the latest request
+      if (json.success && quoteRequestIdRef.current === code) {
+        setCurrentQuote(json.data);
+      }
     } catch {
       // ignore
     }
@@ -253,8 +261,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!selectedStock) {
       setCurrentQuote(null);
+      quoteRequestIdRef.current = null;
       return;
     }
+    // Clear stale quote immediately to avoid showing old stock data
+    setCurrentQuote(null);
     refreshQuote();
   }, [selectedStock, refreshQuote]);
 
