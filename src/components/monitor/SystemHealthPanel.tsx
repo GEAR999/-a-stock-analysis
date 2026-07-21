@@ -103,14 +103,22 @@ export default function SystemHealthPanel() {
     <div className="p-4 space-y-6 max-w-5xl mx-auto">
       {/* 标题 */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold flex items-center gap-2">
-            <span className="text-2xl">📊</span>
-            系统监控
-          </h1>
-          <p className="text-xs opacity-50 mt-1">
-            数据源健康状态 · 自动刷新 · 上次更新: {lastRefresh || '--'}
-          </p>
+        <div className="flex items-center gap-3">
+          <a
+            href="/"
+            className="px-2.5 py-1.5 text-xs rounded-lg bg-[var(--bg-card)] border border-[var(--border)] hover:bg-[var(--bg-hover)] transition-all flex items-center gap-1.5"
+          >
+            ← 返回
+          </a>
+          <div>
+            <h1 className="text-xl font-bold flex items-center gap-2">
+              <span className="text-2xl">📊</span>
+              系统监控
+            </h1>
+            <p className="text-xs opacity-50 mt-1">
+              数据源健康状态 · 自动刷新 · 上次更新: {lastRefresh || '--'}
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <span className={`text-sm font-medium ${overallColor}`}>
