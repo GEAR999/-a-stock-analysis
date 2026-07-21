@@ -4,7 +4,8 @@ import type {
   MarketSentimentResult, 
   SectorSentimentResult, 
   StockSentimentResult, 
-  ComprehensiveSentiment 
+  ComprehensiveSentiment,
+  SentimentDetail
 } from './types';
 import { fetchMarketSentiment } from './market-sentiment';
 import { fetchSectorSentiment } from './sector-sentiment';
@@ -84,16 +85,44 @@ function evaluateRiskLevel(
   return '低';
 }
 
-// 主函数：生成综合评估
+// 主函数：生成综合评估（支持null值，null表示"暂无数据"）
 export function calculateComprehensiveSentiment(
-  market: MarketSentimentResult,
-  sector: SectorSentimentResult,
-  stock: StockSentimentResult
+  market: MarketSentimentResult | null,
+  sector: SectorSentimentResult | null,
+  stock: StockSentimentResult | null
 ): ComprehensiveSentiment {
-  const overallScore = calculateOverallScore(market, sector, stock);
-  const suggestion = generateSuggestion(overallScore, market, sector, stock);
-  const riskLevel = evaluateRiskLevel(overallScore, market, stock);
-  
+  // 如果所有维度都无数据，返回"暂无数据"
+  if (!market && !sector && !stock) {
+    const noDataDetail: SentimentDetail = {
+      name: '数据状态',
+      score: 0,
+      weight: 0,
+      value: '暂无数据',
+      description: '缺少真实行情数据源，无法计算情绪指标',
+      calculation: '需要接入东方财富/mootdx等实时行情API',
+      impact: '无法提供情绪参考',
+    };
+    return {
+      market: { score: 0, level: '中性', details: [noDataDetail] },
+      sector: { score: 0, level: '冷门', details: [noDataDetail] },
+      stock: { score: 0, tags: ['暂无数据'], details: [noDataDetail] },
+      overallScore: 0,
+      suggestion: '暂无足够数据生成综合评估',
+      riskLevel: '中',
+      composite: {
+        score: 0,
+        level: '暂无数据',
+        description: '缺少真实行情数据，无法进行综合情绪评估',
+      },
+    };
+  }
+
+  // 有数据时正常计算（null维度按0分处理）
+  const marketScore = market?.score ?? 0;
+  const sectorScore = sector?.score ?? 0;
+  const stockScore = stock?.score ?? 0;
+  const overallScore = Math.round(marketScore * 0.4 + sectorScore * 0.3 + stockScore * 0.3);
+
   // 生成综合评级
   let compositeLevel: string;
   let compositeDescription: string;
@@ -113,14 +142,27 @@ export function calculateComprehensiveSentiment(
     compositeLevel = '极度悲观';
     compositeDescription = '市场情绪极度悲观，大盘、板块、个股全面看跌';
   }
-  
+
+  const noDataDetail: SentimentDetail = {
+    name: '数据状态',
+    score: 0,
+    weight: 0,
+    value: '暂无数据',
+    description: '该维度缺少实时数据',
+    calculation: '-',
+    impact: '-',
+  };
+  const defaultMarket: MarketSentimentResult = { score: 0, level: '中性', details: [noDataDetail] };
+  const defaultSector: SectorSentimentResult = { score: 0, level: '冷门', details: [noDataDetail] };
+  const defaultStock: StockSentimentResult = { score: 0, tags: ['暂无数据'], details: [noDataDetail] };
+
   return {
-    market,
-    sector,
-    stock,
+    market: market || defaultMarket,
+    sector: sector || defaultSector,
+    stock: stock || defaultStock,
     overallScore,
-    suggestion,
-    riskLevel,
+    suggestion: '暂无足够数据生成操作建议',
+    riskLevel: '中',
     composite: {
       score: overallScore,
       level: compositeLevel,
@@ -129,7 +171,7 @@ export function calculateComprehensiveSentiment(
   };
 }
 
-// 获取综合评估（使用mock数据）
+// 获取综合评估（无真实数据时返回"暂无数据"）
 export function fetchComprehensiveSentiment(
   sectorName?: string,
   stockCode?: string
@@ -137,6 +179,6 @@ export function fetchComprehensiveSentiment(
   const market = fetchMarketSentiment();
   const sector = fetchSectorSentiment(sectorName);
   const stock = fetchStockSentiment(stockCode);
-  
+
   return calculateComprehensiveSentiment(market, sector, stock);
 }

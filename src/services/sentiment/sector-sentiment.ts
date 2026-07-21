@@ -129,17 +129,9 @@ export function calculateSectorSentiment(data: SectorData): SectorSentimentResul
   };
 }
 
-// Mock数据获取
-export function fetchSectorSentiment(_sectorName?: string): SectorSentimentResult {
-  const mockData: SectorData = {
-    upCount: 35,
-    totalStocks: 48,
-    netInflow: 5200000000, // 52亿
-    marketCap: 850000000000, // 8500亿
-    turnoverRate: 6.8,
-    top3AvgGain: 8.5,
-    consecutiveUpDays: 3,
-  };
-  
-  return calculateSectorSentiment(mockData);
+// 数据获取 - 无真实数据源时返回null，前端显示"暂无数据"
+export function fetchSectorSentiment(_sectorName?: string): null {
+  // 板块情绪需要真实板块内个股数据（涨跌家数、资金流向、换手率等）
+  // 当前无独立API数据源，返回null由前端显示"暂无数据"
+  return null;
 }

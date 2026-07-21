@@ -274,24 +274,9 @@ export function calculateStockSentiment(data: StockData): StockSentimentResult {
   };
 }
 
-// Mock数据获取
-export function fetchStockSentiment(_stockCode?: string): StockSentimentResult {
-  const mockData: StockData = {
-    todayVolume: 8500000, // 850万手
-    avgVolume5: 5150000, // 515万手
-    turnoverRate: 8.3,
-    turnoverHistory60: Array.from({ length: 60 }, (_, i) => 3 + Math.random() * 10),
-    bigOrderNetInflow: 320000000, // 3.2亿
-    marketCap: 250000000000, // 2500亿
-    aboveAvgPriceRatio: 0.78,
-    isLimitUp: false,
-    changePercent: 6.8,
-    bidVolume: 0,
-    floatShares: 1200000000,
-    hasDragonTiger: false,
-    dragonTigerType: '',
-    marginChange5d: 2.5,
-  };
-  
-  return calculateStockSentiment(mockData);
+// 数据获取 - 无真实数据源时返回null，前端显示"暂无数据"
+export function fetchStockSentiment(_stockCode?: string): null {
+  // 个股情绪需要真实个股数据（量比、大单净流入、分时强度、龙虎榜等）
+  // 当前无独立API数据源，返回null由前端显示"暂无数据"
+  return null;
 }

@@ -528,141 +528,27 @@ export function resetAccount(account: Account): Account {
   return resetAccountData;
 }
 
-// 生成模拟数据（用于演示）
+// 生成空账户（新用户初始账户，无预置持仓和交易记录）
 export function generateDemoAccount(): Account {
   const now = Date.now();
   const account: Account = {
     id: generateId(),
-    name: "演示账户",
+    name: "我的账户",
     type: "manual",
-    initialCapital: 1000000,
-    currentCapital: 862750,
-    positions: [
-      {
-        stockCode: "000858", stockName: "五粮液", quantity: 500, avgCost: 145,
-        currentPrice: 152.5, marketValue: 76250, pnl: 3750, pnlPercent: 5.17, positionPercent: 7.3,
-        buyTime: now - 86400000 * 7, buyReason: "波浪理论第3浪启动，MACD金叉共振",
-        strategy: "wave", holdingDays: 7,
-        buySignals: [{ type: "buy", label: "波浪第3浪启动", price: 145, strategy: "wave", triggered: true, timestamp: now - 86400000 * 7 }],
-        sellSignals: [
-          { type: "sell", label: "目标价¥165(第3浪顶)", price: 165, strategy: "wave", triggered: false },
-          { type: "sell", label: "MACD顶背离", price: 160, strategy: "technical", triggered: false },
-        ],
-        stopLossSignals: [
-          { type: "stop_loss", label: "跌破MA20均线", price: 138, strategy: "technical", triggered: false },
-          { type: "stop_loss", label: "亏损超8%强制止损", price: 133.4, strategy: "composite", triggered: false },
-        ],
-      },
-      {
-        stockCode: "300750", stockName: "宁德时代", quantity: 300, avgCost: 198,
-        currentPrice: 205.8, marketValue: 61740, pnl: 2340, pnlPercent: 3.94, positionPercent: 5.9,
-        buyTime: now - 86400000 * 3, buyReason: "板块热度高+缠论中枢上移",
-        strategy: "composite", holdingDays: 3,
-        buySignals: [
-          { type: "buy", label: "缠论中枢上移", price: 198, strategy: "chanlun", triggered: true, timestamp: now - 86400000 * 3 },
-          { type: "buy", label: "板块资金净流入TOP3", price: 198, strategy: "technical", triggered: true, timestamp: now - 86400000 * 3 },
-        ],
-        sellSignals: [
-          { type: "sell", label: "突破前高¥220后回落", price: 220, strategy: "wave", triggered: false },
-          { type: "sell", label: "RSI超买>80", price: 215, strategy: "technical", triggered: false },
-        ],
-        stopLossSignals: [
-          { type: "stop_loss", label: "跌破布林带中轨", price: 192, strategy: "technical", triggered: false },
-          { type: "stop_loss", label: "亏损超10%清仓", price: 178.2, strategy: "composite", triggered: false },
-        ],
-      },
-    ],
-    trades: [
-      {
-        id: "d1", timestamp: now - 86400000 * 10, stockCode: "600519", stockName: "贵州茅台",
-        direction: "buy", price: 1180, quantity: 100, amount: 118000, reason: "缠论二买信号",
-        isAuto: true, strategy: "chanlun",
-        decision: { signalSource: "chanlun", signalLabel: "缠论二买", marketState: "大盘震荡偏强，情绪评分62", sentimentScore: 62, supportLevel: 1150, resistanceLevel: 1280, suggestedPrice: 1175, actualPrice: 1180 },
-      },
-      {
-        id: "d2", timestamp: now - 86400000 * 7, stockCode: "000858", stockName: "五粮液",
-        direction: "buy", price: 145, quantity: 500, amount: 72500, reason: "波浪理论第3浪启动",
-        isAuto: true, strategy: "wave",
-        decision: { signalSource: "wave", signalLabel: "第3浪启动", marketState: "消费板块回暖，北向资金流入", sentimentScore: 58, supportLevel: 140, resistanceLevel: 165, suggestedPrice: 143, actualPrice: 145 },
-      },
-      {
-        id: "d3", timestamp: now - 86400000 * 5, stockCode: "600519", stockName: "贵州茅台",
-        direction: "sell", price: 1250, quantity: 100, amount: 125000, reason: "技术指标超买，RSI>80",
-        pnl: 7000, isAuto: true, strategy: "technical",
-        decision: { signalSource: "technical", signalLabel: "RSI超买+MACD顶背离", marketState: "大盘情绪高涨，评分78", sentimentScore: 78 },
-      },
-      {
-        id: "d4", timestamp: now - 86400000 * 3, stockCode: "300750", stockName: "宁德时代",
-        direction: "buy", price: 198, quantity: 300, amount: 59400, reason: "板块热度高+缠论中枢上移",
-        isAuto: false, strategy: "composite",
-        decision: { signalSource: "composite", signalLabel: "缠论+板块共振", marketState: "新能源板块领涨", sentimentScore: 65, supportLevel: 190, resistanceLevel: 220 },
-      },
-      {
-        id: "d5", timestamp: now - 86400000 * 12, stockCode: "002475", stockName: "立讯精密",
-        direction: "buy", price: 42.5, quantity: 500, amount: 21250, reason: "追涨消费电子热点",
-        isAuto: false, strategy: "manual",
-        decision: { signalSource: "manual", signalLabel: "手动追涨", marketState: "消费电子概念爆发", sentimentScore: 72 },
-      },
-      {
-        id: "d6", timestamp: now - 86400000 * 9, stockCode: "002475", stockName: "立讯精密",
-        direction: "sell", price: 38.8, quantity: 500, amount: 19400, reason: "止损出局",
-        pnl: -1850, isAuto: false, strategy: "manual",
-        failureReasons: ["chase_high", "no_stop_loss"],
-        decision: { signalSource: "manual", signalLabel: "追涨买入", marketState: "热点退潮", sentimentScore: 45 },
-      },
-      {
-        id: "d7", timestamp: now - 86400000 * 8, stockCode: "688256", stockName: "寒武纪",
-        direction: "buy", price: 310, quantity: 100, amount: 31000, reason: "缠论三买+AI算力链热度",
-        isAuto: true, strategy: "chanlun",
-        decision: { signalSource: "chanlun", signalLabel: "缠论三买", marketState: "AI板块强势", sentimentScore: 70, supportLevel: 290, resistanceLevel: 350 },
-      },
-      {
-        id: "d8", timestamp: now - 86400000 * 6, stockCode: "688256", stockName: "寒武纪",
-        direction: "sell", price: 285, quantity: 100, amount: 28500, reason: "大盘暴跌触发止损",
-        pnl: -2500, isAuto: true, strategy: "chanlun",
-        failureReasons: ["market_crash"],
-        decision: { signalSource: "chanlun", signalLabel: "缠论三买", marketState: "大盘突发暴跌2.8%", sentimentScore: 25 },
-      },
-      {
-        id: "d9", timestamp: now - 86400000 * 2, stockCode: "300124", stockName: "汇川技术",
-        direction: "buy", price: 68.5, quantity: 200, amount: 13700, reason: "缠论三买",
-        isAuto: true, strategy: "chanlun",
-        decision: { signalSource: "chanlun", signalLabel: "缠论三买", marketState: "工控板块企稳", sentimentScore: 55 },
-      },
-      {
-        id: "d10", timestamp: now - 86400000, stockCode: "300124", stockName: "汇川技术",
-        direction: "sell", price: 72.3, quantity: 200, amount: 14460, reason: "止盈出局",
-        pnl: 760, isAuto: true, strategy: "chanlun",
-        decision: { signalSource: "chanlun", signalLabel: "目标价达成", marketState: "板块轮动", sentimentScore: 58 },
-      },
-      {
-        id: "d11", timestamp: now - 86400000 * 4, stockCode: "601012", stockName: "隆基绿能",
-        direction: "buy", price: 25.8, quantity: 800, amount: 20640, reason: "技术指标MACD金叉+超卖反弹",
-        isAuto: true, strategy: "technical",
-        decision: { signalSource: "technical", signalLabel: "MACD金叉+KDJ超卖", marketState: "光伏板块超跌", sentimentScore: 35 },
-      },
-      {
-        id: "d12", timestamp: now - 86400000 * 1.5, stockCode: "601012", stockName: "隆基绿能",
-        direction: "sell", price: 24.2, quantity: 800, amount: 19360, reason: "止损出局，跌破支撑",
-        pnl: -1280, isAuto: true, strategy: "technical",
-        failureReasons: ["bad_timing", "overweight"],
-        decision: { signalSource: "technical", signalLabel: "MACD金叉", marketState: "光伏继续下探", sentimentScore: 28 },
-      },
-    ],
-    trackingList: ["000858", "300750", "300124", "688256", "002475"],
-    stockLimits: {
-      "000858": 100000,
-      "300750": 80000,
-      "688256": 50000,
-      "300124": 30000,
-    },
-    createdAt: now - 86400000 * 30,
+    initialCapital: 100000,
+    currentCapital: 100000,
+    positions: [],
+    trades: [],
+    trackingList: [],
+    stockLimits: {},
+    createdAt: now,
     updatedAt: now,
   };
 
   saveAccount(account);
   return account;
 }
+
 
 // 计算单策略统计
 export function calculateStrategyStats(account: Account): SingleStrategyStats[] {

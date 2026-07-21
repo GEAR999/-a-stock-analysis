@@ -213,23 +213,9 @@ export function calculateMarketSentiment(data: MarketData): MarketSentimentResul
   };
 }
 
-// Mock数据获取
-export function fetchMarketSentiment(): MarketSentimentResult {
-  const mockData: MarketData = {
-    upCount: 2800,
-    downCount: 1500,
-    limitUpCount: 85,
-    limitDownCount: 12,
-    todayVolume: 125000000000, // 1250亿
-    avgVolume20: 100000000000, // 1000亿
-    maxBoardDays: 6,
-    brokenBoardRate: 18.5,
-    northNetFlow: 68.5,
-    marginChange5d: 1.2,
-    newHighCount: 320,
-    newLowCount: 85,
-    totalStocks: 5300,
-  };
-  
-  return calculateMarketSentiment(mockData);
+// 数据获取 - 无真实数据源时返回null，前端显示"暂无数据"
+export function fetchMarketSentiment(): null {
+  // 大盘情绪需要真实行情数据（涨跌家数、涨停跌停、成交额、北向资金等）
+  // 当前无独立API数据源，返回null由前端显示"暂无数据"
+  return null;
 }

@@ -495,13 +495,7 @@ export async function getMarketSentiment(): Promise<MarketSentiment | null> {
       avgVolume5d: 0,
       volumeRatio: 1,
       heatScore,
-      sectorFlows: [
-        { name: '电子', flow: Math.random() * 10 - 5 },
-        { name: '计算机', flow: Math.random() * 10 - 5 },
-        { name: '医药生物', flow: Math.random() * 10 - 5 },
-        { name: '电力设备', flow: Math.random() * 10 - 5 },
-        { name: '银行', flow: Math.random() * 10 - 5 },
-      ],
+      sectorFlows: [],
       timestamp: Date.now(),
     };
   } catch {
