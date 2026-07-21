@@ -34,3 +34,24 @@
 - 不要使用大面积亮色
 - 不要使用卡通风格图标
 - 不要使用过多阴影，用边框分隔代替
+
+## 对比度与可见性体系
+### 7套主题
+- dark-blue（深蓝终端，默认）、light（明亮白）、dark-gray（深灰商务）、eye-green（护眼绿）、warm-orange（暖橙夜）、purple-night（紫夜科技）、deep-sea（深海冷静）
+
+### 对比度CSS变量（每套主题独立定义）
+- `--surface-raised`：浮起表面（tooltip/popover背景），比面板略亮
+- `--surface-input`：输入框背景，比页面底色略暗
+- `--surface-dropdown`：下拉框背景，与面板同色
+- `--border-subtle`：次要边框（rgba白/黑 6-8%），用于卡片分隔
+- `--border-strong`：主要边框（rgba白/黑 14-16%），用于输入框、弹窗
+- `--text-placeholder`：占位符文字，对比度≥4.5:1
+- `--text-disabled`：禁用文字，对比度≥3:1
+- `--select-hover` / `--select-selected`：下拉选项hover/选中背景
+- `--table-header-bg` / `--table-stripe-bg` / `--table-border`：表格层次
+- `--scrollbar-track` / `--scrollbar-thumb` / `--scrollbar-thumb-hover`：滚动条
+- `--sidebar-active-bg` / `--sidebar-hover-bg`：侧边栏导航状态
+
+### 全局样式覆盖（globals.css）
+- select/option、input/textarea、label、table、tabs、checkbox/radio、tooltip、dialog、progress、range、scrollbar、status-dot
+- 所有样式通过CSS变量适配7套主题，无硬编码颜色
