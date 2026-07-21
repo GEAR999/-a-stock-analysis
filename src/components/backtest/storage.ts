@@ -298,41 +298,9 @@ export function generateEquityCurve(account: Account): EquityPoint[] {
 
 // 生成演示资金曲线（用于无交易记录时的展示）
 export function generateDemoEquityCurve(initialCapital: number = 1000000): EquityPoint[] {
-  const points: EquityPoint[] = [];
-  const now = Date.now();
-  const days = 30;
-
-  let cash = initialCapital;
-  let marketValue = 0;
-  
-  for (let i = days; i >= 0; i--) {
-    const timestamp = now - i * 86400000;
-    
-    // 模拟每日波动
-    const dailyReturn = (Math.random() - 0.48) * 0.02; // 略微偏向上涨
-    marketValue = marketValue * (1 + dailyReturn);
-    
-    // 随机交易模拟
-    if (i === 25) {
-      cash -= 300000;
-      marketValue += 300000;
-    } else if (i === 15) {
-      cash += 50000;
-      marketValue -= 50000;
-    } else if (i === 5) {
-      cash -= 200000;
-      marketValue += 200000;
-    }
-    
-    points.push({
-      timestamp,
-      totalAssets: cash + marketValue,
-      cash,
-      marketValue,
-    });
-  }
-
-  return points;
+  // 返回空数组，因为没有真实交易数据
+  // 资金曲线应该基于真实交易记录生成，不使用模拟数据
+  return [];
 }
 
 // 检查是否可以买入
