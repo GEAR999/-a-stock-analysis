@@ -147,7 +147,7 @@ async function apiFetch<T>(url: string, options?: RequestInit): Promise<T | null
       },
     });
     const json = await res.json();
-    if (json.success) return json.data as T;
+    if (json.ok || json.success) return json.data as T;
     console.warn(`[API] ${url} failed:`, json.error);
     return null;
   } catch (err) {

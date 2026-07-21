@@ -159,7 +159,7 @@ export function BacktestPanel() {
     showToast('success', `策略已更新为: ${name}`);
   };
 
-  if (!currentAccount) {
+  if (!currentAccount && !showNewAccount) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-[var(--text-secondary)]">
         <Wallet className="w-12 h-12 mb-3 opacity-50" />
@@ -174,6 +174,65 @@ export function BacktestPanel() {
       </div>
     );
   }
+
+  // 当没有账户但需要显示创建表单时
+  if (!currentAccount && showNewAccount) {
+    return (
+      <div className="flex flex-col h-full bg-[var(--bg-primary)] p-4">
+        <h3 className="text-sm font-medium text-[var(--text-primary)] mb-4">创建新账户</h3>
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs text-[var(--text-secondary)] mb-1">账户名称</label>
+            <input
+              type="text"
+              value={newAccountName}
+              onChange={(e) => setNewAccountName(e.target.value)}
+              placeholder="请输入账户名称"
+              className="w-full px-3 py-1.5 text-xs bg-[var(--bg-card)] border border-[var(--border-default)] rounded text-[var(--text-primary)] placeholder:text-[var(--text-disabled)]"
+              autoFocus
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-[var(--text-secondary)] mb-1">初始资金</label>
+            <input
+              type="number"
+              value={newAccountCapital}
+              onChange={(e) => setNewAccountCapital(Number(e.target.value))}
+              className="w-full px-3 py-1.5 text-xs bg-[var(--bg-card)] border border-[var(--border-default)] rounded text-[var(--text-primary)]"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-[var(--text-secondary)] mb-1">账户类型</label>
+            <select
+              value={newAccountType}
+              onChange={(e) => setNewAccountType(e.target.value as 'manual' | 'quant')}
+              className="w-full px-3 py-1.5 text-xs bg-[var(--bg-card)] border border-[var(--border-default)] rounded text-[var(--text-primary)]"
+            >
+              <option value="manual">手动交易</option>
+              <option value="quant">量化交易</option>
+            </select>
+          </div>
+          <div className="flex gap-2 pt-2">
+            <button
+              onClick={handleCreateAccount}
+              className="flex-1 px-3 py-1.5 text-xs font-medium rounded bg-blue-500/20 text-[var(--accent-blue)] border border-[var(--accent-blue)]/30 hover:bg-blue-500/30 transition-colors"
+            >
+              创建
+            </button>
+            <button
+              onClick={() => setShowNewAccount(false)}
+              className="flex-1 px-3 py-1.5 text-xs font-medium rounded bg-[var(--bg-card)] text-[var(--text-secondary)] border border-[var(--border-default)] hover:bg-[var(--bg-hover)] transition-colors"
+            >
+              取消
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // TypeScript guard: currentAccount must be non-null here
+  if (!currentAccount) return null;
 
   return (
     <div className="flex flex-col h-full bg-[var(--bg-primary)] overflow-y-auto">

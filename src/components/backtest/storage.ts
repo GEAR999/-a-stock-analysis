@@ -1288,6 +1288,13 @@ function debouncedSyncAccount(accountId: string): void {
  */
 export async function syncAccountToCloud(account: Account): Promise<boolean> {
   try {
+    // 检查ID是否为有效UUID（数据库要求）
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(account.id)) {
+      // 非UUID格式的ID无法同步到数据库，静默跳过
+      return false;
+    }
+
     const result = await CloudAPI.syncAccountToDb({
       id: account.id,
       name: account.name,
