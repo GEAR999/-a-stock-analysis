@@ -41,6 +41,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // UUID 格式校验
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(uid)) {
+      return NextResponse.json({ success: true, data: null, message: '无效的用户ID' });
+    }
+
     // 检查是否已存在
     const existing = await query`
       SELECT * FROM watchlist WHERE user_id = ${uid} AND stock_code = ${stockCode} AND group_name = ${groupName || '默认'}

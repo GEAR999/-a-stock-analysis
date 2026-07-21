@@ -369,7 +369,7 @@ async function apiRequest<T>(url: string, options?: RequestInit): Promise<ApiRes
   try {
     const res = await fetchWithRetry(url, { ...options, dedupe: false });
     const json = await res.json();
-    if (json.success) {
+    if (json.ok || json.success) {
       return { ok: true, data: json.data as T };
     }
     return { ok: false, error: json.error || '请求失败' };
