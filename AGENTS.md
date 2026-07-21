@@ -48,10 +48,11 @@ src/
 │   │   ├── storage.ts         # 数据持久化层 (IndexedDB CRUD + 业务逻辑)
 │   │   ├── idb-account-storage.ts # IndexedDB迁移层 (localStorage→IDB)
 │   │   ├── strategy-storage.ts # 策略存储与权重计算 (最大余数法)
+│   │   ├── strategy-bridge.ts  # 策略桥接模块 (理论↔信号双向映射, resolveStrategyTypes)
 │   │   ├── BacktestPanel.tsx  # 模拟回测主面板 (Tab切换+子组件编排, ~194行)
 │   │   ├── AccountOverview.tsx # 账户概览子组件 (总资产/盈亏/持仓/资金曲线+锁定状态)
 │   │   ├── ManualTradePanel.tsx # 手动买卖子组件 (买入/卖出对话框)
-│   │   ├── QuantAutoTradePanel.tsx # 量化自动交易子组件 (策略配置/自动交易)
+│   │   ├── QuantAutoTradePanel.tsx # 量化自动交易子组件 (策略配置/信号检测/自动买卖/止损止盈/运行日志)
 │   │   ├── TradeHistoryPanel.tsx # 交易记录子组件 (筛选/排序/CSV导出)
 │   │   ├── HistoryBacktestPanel.tsx # 历史回测面板 (策略选择/回测执行/结果展示)
 │   │   ├── IndependentBacktest.tsx # 独立回测面板 (不依赖账户,股票+周期+策略+结果)
@@ -226,3 +227,5 @@ K线周期: daily/weekly/monthly/60min/30min/15min/5min
 - 波浪理论使用自适应枢轴点检测，支持推动浪(1-5)和调整浪(A-C)标注
 - 回测系统数据通过 localStorage 持久化，支持多账户独立管理
 - 回测系统自动操作需先加入跟踪列表，再检查额度和资金后才执行
+- 策略桥接层(strategy-bridge.ts)连接抽象理论维度(QuantStrategy.theories)与具体信号维度(StrategyType)，支持双向映射
+- 量化自动交易引擎：30秒轮询检测跟踪列表信号，支持止损止盈自动触发，运行日志实时展示

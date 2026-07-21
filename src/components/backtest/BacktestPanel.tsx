@@ -91,6 +91,10 @@ export function BacktestPanel() {
       selected.map(s => ({ id: s.id, confidence: s.confidence }))
     );
 
+    // 构建权重映射 { strategyId: weight }
+    const weightMap: Record<string, number> = {};
+    weights.forEach(w => { weightMap[w.strategyId] = w.weight; });
+
     const name = selected.length === 1
       ? selected[0].name
       : `组合策略(${selected.map(s => s.name.replace('策略', '')).join('+')})`;
@@ -102,6 +106,8 @@ export function BacktestPanel() {
       takeProfitPercent: 15,
       maxPositionPercent: 30,
       autoTrade: false,
+      weightMode: 'auto' as const,
+      customWeights: weightMap,
     };
   };
 
