@@ -1126,27 +1126,24 @@ export function calculateOverallRating(
 
 // ==================== 云端同步层 ====================
 
-// 同步队列（防抖）
-const _syncQueue = new Map<string, number>();
-let _syncTimer: ReturnType<typeof setTimeout> | null = null;
+// 每个账户独立的防抖定时器（避免全局定时器导致某些账户同步被延迟）
+const _syncTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 /**
- * 防抖同步账户到云端（300ms 内多次调用只同步一次）
+ * 防抖同步账户到云端（同一账户 300ms 内多次调用只同步一次）
  */
 function debouncedSyncAccount(accountId: string): void {
-  _syncQueue.set(accountId, Date.now());
-  if (_syncTimer) clearTimeout(_syncTimer);
-  _syncTimer = setTimeout(() => {
-    _syncTimer = null;
-    const ids = Array.from(_syncQueue.keys());
-    _syncQueue.clear();
-    for (const id of ids) {
-      const account = loadAccount(id);
-      if (account) {
-        syncAccountToCloud(account).catch(() => {});
-      }
+  // 清除该账户之前的定时器
+  const existing = _syncTimers.get(accountId);
+  if (existing) clearTimeout(existing);
+
+  _syncTimers.set(accountId, setTimeout(() => {
+    _syncTimers.delete(accountId);
+    const account = loadAccount(accountId);
+    if (account) {
+      syncAccountToCloud(account).catch(() => {});
     }
-  }, 300);
+  }, 300));
 }
 
 /**

@@ -97,6 +97,8 @@ export function SentimentPanel({ stockCode, stockName, sectorName }: SentimentPa
 
   // 加载情绪数据 - 从API获取实时数据
   useEffect(() => {
+    let cancelled = false; // 防止过期请求覆盖最新状态
+
     const fetchData = async () => {
       setLoading(true);
       try {
@@ -111,6 +113,9 @@ export function SentimentPanel({ stockCode, stockName, sectorName }: SentimentPa
         
         const response = await fetch(url);
         const json = await response.json();
+        
+        // 如果 effect 已被清理（依赖变化或组件卸载），丢弃结果
+        if (cancelled) return;
         
         if (json.success && json.data) {
           // For market view, the API returns comprehensive sentiment
@@ -143,13 +148,19 @@ export function SentimentPanel({ stockCode, stockName, sectorName }: SentimentPa
           }
         }
       } catch (err) {
-        console.error('Failed to fetch sentiment:', err);
+        if (!cancelled) {
+          console.error('Failed to fetch sentiment:', err);
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
     
     fetchData();
+
+    return () => { cancelled = true; };
   }, [viewMode, selectedSector, selectedStockCode]);
 
   // 选择股票

@@ -60,7 +60,7 @@ export function deleteCustomStrategy(id: string): void {
  */
 export function createNewCustomStrategy(): CustomStrategy {
   return {
-    id: `custom_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    id: `custom_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
     name: '新策略',
     description: '',
     theories: [],
@@ -126,7 +126,7 @@ export function deleteStrategyTemplate(id: string): void {
  */
 export function createNewStrategyTemplate(name: string, weights: StrategyWeight[], threshold: number): StrategyTemplate {
   return {
-    id: `template_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    id: `template_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
     name,
     weights,
     tradeThreshold: threshold,
