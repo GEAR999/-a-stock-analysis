@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { Wallet, Plus, Activity, Settings, ChevronDown, ChevronUp, Check } from 'lucide-react';
 import { useAppState } from '@/hooks/useAppState';
 import { useAccountManager } from './hooks/useAccountManager';
+import { saveAccount } from './storage';
 import { AccountOverview } from './AccountOverview';
 import { ManualTradePanel } from './ManualTradePanel';
 import { QuantAutoTradePanel } from './QuantAutoTradePanel';
@@ -113,6 +114,11 @@ export function BacktestPanel() {
     const runMode: RunMode | undefined = newAccountType === 'quant' ? newRunMode : undefined;
     const acc = createAccount(newAccountName, newAccountCapital, newAccountType, strategy, runMode);
     if (acc) {
+      // 量化账户创建后锁定策略
+      if (newAccountType === 'quant' && strategy) {
+        acc.locked = true;
+        saveAccount(acc);
+      }
       setShowNewAccount(false);
       setNewAccountName('');
       setNewAccountCapital(1000000);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ChevronDown, ChevronUp, Bot, AlertTriangle, Shield, CheckCircle } from "lucide-react";
+import { ChevronDown, ChevronUp, Bot, AlertTriangle, Shield, CheckCircle, Lock } from "lucide-react";
 import type { Account } from "./types";
 import { formatMoney, formatPercent } from "./utils";
 import { isAIEmbedEnabled, callEmbeddedAI } from "@/lib/ai-embed";
@@ -133,6 +133,12 @@ export function AccountOverview({ account }: AccountOverviewProps) {
 
   return (
     <div>
+      {account.locked && (
+        <div className="flex items-center gap-1.5 mb-2 px-2 py-1 rounded bg-amber-500/10 border border-amber-500/20">
+          <Lock className="w-3 h-3 text-amber-400" />
+          <span className="text-[10px] text-amber-400">策略已锁定 - 创建后不可更改策略参数、止盈止损比例和仓位上限</span>
+        </div>
+      )}
       <div className="grid grid-cols-4 gap-3">
         <div className="bg-[var(--bg-panel)] rounded border border-[var(--border-default)] p-3">
           <div className="text-[10px] text-[var(--text-secondary)] mb-1">总资产</div>

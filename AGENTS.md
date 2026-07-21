@@ -49,14 +49,21 @@ src/
 │   │   ├── idb-account-storage.ts # IndexedDB迁移层 (localStorage→IDB)
 │   │   ├── strategy-storage.ts # 策略存储与权重计算 (最大余数法)
 │   │   ├── BacktestPanel.tsx  # 模拟回测主面板 (Tab切换+子组件编排, ~194行)
-│   │   ├── AccountOverview.tsx # 账户概览子组件 (总资产/盈亏/持仓/资金曲线)
+│   │   ├── AccountOverview.tsx # 账户概览子组件 (总资产/盈亏/持仓/资金曲线+锁定状态)
 │   │   ├── ManualTradePanel.tsx # 手动买卖子组件 (买入/卖出对话框)
 │   │   ├── QuantAutoTradePanel.tsx # 量化自动交易子组件 (策略配置/自动交易)
 │   │   ├── TradeHistoryPanel.tsx # 交易记录子组件 (筛选/排序/CSV导出)
 │   │   ├── HistoryBacktestPanel.tsx # 历史回测面板 (策略选择/回测执行/结果展示)
+│   │   ├── IndependentBacktest.tsx # 独立回测面板 (不依赖账户,股票+周期+策略+结果)
+│   │   ├── BacktestChart.tsx  # K线买卖点标注图 (ECharts+Markers+详情卡片)
+│   │   ├── backtest-indicators.ts # 回测技术指标计算 (MACD/KDJ/RSI/BOLL/MA)
 │   │   ├── TradingStatusIndicator.tsx # 交易时段状态指示器
 │   │   ├── hooks/useAccountManager.ts # 账户管理Hook
 │   │   └── utils.ts           # 回测公共工具函数
+│   ├── strategy/
+│   │   ├── StrategyLibrary.tsx # 策略库页面 (分类/搜索/排序/管理)
+│   │   ├── StrategyCard.tsx   # 策略卡片组件 (名称/描述/使用次数/操作)
+│   │   └── AIStrategyGenerator.tsx # AI策略生成器 (需求描述→策略参数)
 │   ├── sidebar/
 │   │   ├── StockSearch.tsx    # 股票搜索组件
 │   │   └── WatchList.tsx      # 自选股列表 (拖拽排序)
@@ -71,6 +78,8 @@ src/
 │   ├── ai-embed.ts            # AI嵌入式分析工具库 (callEmbeddedAI/useAIEmbed)
 │   ├── analysis.ts            # 分析引擎 (缠论/波浪/技术指标)
 │   ├── backtest-engine.ts     # 历史回测引擎 (基础策略+分析引擎策略适配器+进度回调)
+│   ├── backtest-reasoning.ts  # AI买卖依据生成器 (数据快照+DeepSeek分析)
+│   ├── strategy-library.ts    # 策略库存储逻辑 (内置/自定义/AI生成+收藏+使用统计)
 │   ├── idb-cache.ts           # IndexedDB K线缓存 (24h有效期, LRU清理)
 │   ├── trading-time.ts        # A股交易时间判断
 │   ├── slippage.ts            # 滑点模拟
@@ -158,6 +167,47 @@ K线周期: daily/weekly/monthly/60min/30min/15min/5min
 - **同步状态指示**：SyncStatusIndicator 组件显示实时同步状态（idle/syncing/synced/error）
 - **数据库迁移**：GET /api/migrate 检查 10 张表是否全部创建
 - **存储层函数**：syncAccountToCloud / syncWatchlistToCloud / debouncedSyncAccount（storage.ts 底部）
+
+## 历史回测系统（独立功能）
+- **独立回测面板**：IndependentBacktest.tsx — 不依赖"账户"概念，独立运行回测
+  - 股票代码搜索输入
+  - 回测周期选择（起止日期）
+  - 策略多选（从策略库选取）
+  - 初始资金设定
+  - 回测结果展示：总收益率、年化收益率、最大回撤、夏普比率、胜率、交易次数、盈亏比
+  - CSV导出（交易记录 + 性能报告）
+- **K线买卖点标注**：BacktestChart.tsx — 基于ECharts的K线图+买卖点标记
+  - 买入标记：红色上箭头（A股红涨）
+  - 卖出标记：绿色下箭头（A股绿跌）
+  - 点击标记弹出详情卡片：交易时间、价格、数量、触发策略、AI买卖依据
+- **AI买卖依据生成**：backtest-reasoning.ts + /api/backtest/reasoning
+  - 每笔交易记录触发时刻的数据快照（OHLCV + 技术指标值）
+  - 调用DeepSeek生成详细买卖依据分析
+  - 所有数据基于真实K线计算，禁止编造
+  - 异步批量处理，不阻塞结果展示
+
+## 策略库系统
+- **策略存储**：strategy-library.ts — 策略库管理逻辑
+  - 三类策略：内置(builtin) / 自定义(custom) / AI生成(ai_generated)
+  - 收藏、使用次数统计、标签管理
+  - 本地缓存 + Neon云端同步
+- **策略库页面**：StrategyLibrary.tsx + StrategyCard.tsx
+  - 分类标签筛选（全部/内置/自定义/AI生成/收藏）
+  - 搜索、排序
+  - 快捷操作：编辑、复制、删除、收藏
+- **AI策略生成器**：AIStrategyGenerator.tsx
+  - 用户描述需求 → DeepSeek生成策略参数和规则
+  - 生成后预览、编辑、保存到策略库
+- **策略锁定**：量化验证账户创建后策略参数锁定不可更改
+  - Account类型新增 `locked?: boolean` 字段
+  - 创建量化账户时自动设置 locked=true
+  - AccountOverview显示锁定状态提示
+
+## API接口（新增）
+- `POST /api/backtest/reasoning` - AI买卖依据生成（批量）
+- `GET /api/strategies` - 策略列表（含内置+自定义+AI生成）
+- `GET/POST/DELETE /api/strategies/custom` - 自定义策略管理
+- `PUT /api/strategies/custom/[id]` - 更新自定义策略
 
 ## 开发命令
 - `pnpm dev` - 启动开发服务

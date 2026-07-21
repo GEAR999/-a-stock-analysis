@@ -1,0 +1,201 @@
+'use client';
+
+import { useEffect, useRef, useState } from 'react';
+import * as echarts from 'echarts';
+import type { KLineData } from '@/lib/types';
+import type { BacktestTrade } from '@/lib/backtest-engine';
+
+interface BacktestChartProps {
+  klineData: KLineData[];
+  trades: BacktestTrade[];
+  onTradeClick?: (tradeIdx: number) => void;
+}
+
+export function BacktestChart({ klineData, trades, onTradeClick }: BacktestChartProps) {
+  const chartRef = useRef<HTMLDivElement>(null);
+  const chartInstance = useRef<echarts.ECharts | null>(null);
+  const [tooltip, setTooltip] = useState<{
+    x: number; y: number; trade: BacktestTrade; idx: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!chartRef.current || klineData.length === 0) return;
+
+    if (!chartInstance.current) {
+      chartInstance.current = echarts.init(chartRef.current, undefined, { renderer: 'canvas' });
+    }
+
+    const chart = chartInstance.current;
+    const dates = klineData.map(d => d.date);
+    const ohlc = klineData.map(d => [d.open, d.close, d.low, d.high]);
+    const volumes = klineData.map(d => d.volume);
+
+    // 生成买卖点标记
+    const buyMarkers: Record<string, unknown>[] = [];
+    const sellMarkers: Record<string, unknown>[] = [];
+
+    for (const trade of trades) {
+      const idx = dates.indexOf(trade.date);
+      if (idx < 0) continue;
+      const kline = klineData[idx];
+      if (trade.type === 'buy') {
+        buyMarkers.push({
+          name: '买入',
+          value: [trade.date, kline.low * 0.98],
+          symbol: 'triangle',
+          symbolSize: 12,
+          itemStyle: { color: '#ef4444' },
+        });
+      } else {
+        sellMarkers.push({
+          name: '卖出',
+          value: [trade.date, kline.high * 1.02],
+          symbol: 'pin',
+          symbolSize: 14,
+          symbolRotate: 180,
+          itemStyle: { color: '#22c55e' },
+        });
+      }
+    }
+
+    const option = {
+      animation: false,
+      backgroundColor: 'transparent',
+      tooltip: {
+        trigger: 'axis',
+        axisPointer: { type: 'cross' },
+        backgroundColor: 'rgba(17, 24, 39, 0.95)',
+        borderColor: 'rgba(255,255,255,0.1)',
+        textStyle: { color: '#e2e8f0', fontSize: 10 },
+      },
+      grid: [
+        { left: 40, right: 10, top: 10, height: '55%' },
+        { left: 40, right: 10, top: '72%', height: '18%' },
+      ],
+      xAxis: [
+        {
+          type: 'category',
+          data: dates,
+          gridIndex: 0,
+          axisLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } },
+          axisLabel: { color: '#94a3b8', fontSize: 9 },
+          splitLine: { show: false },
+        },
+        {
+          type: 'category',
+          data: dates,
+          gridIndex: 1,
+          axisLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } },
+          axisLabel: { show: false },
+          splitLine: { show: false },
+        },
+      ],
+      yAxis: [
+        {
+          scale: true,
+          gridIndex: 0,
+          axisLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } },
+          axisLabel: { color: '#94a3b8', fontSize: 9 },
+          splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } },
+        },
+        {
+          scale: true,
+          gridIndex: 1,
+          axisLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } },
+          axisLabel: { show: false },
+          splitLine: { show: false },
+        },
+      ],
+      dataZoom: [
+        { type: 'inside', xAxisIndex: [0, 1], start: 60, end: 100 },
+        { type: 'slider', xAxisIndex: [0, 1], bottom: 2, height: 12, borderColor: 'transparent', backgroundColor: 'rgba(255,255,255,0.05)', fillerColor: 'rgba(59,130,246,0.15)', handleStyle: { color: '#3b82f6' }, textStyle: { color: '#94a3b8', fontSize: 8 } },
+      ],
+      series: [
+        {
+          name: 'K线',
+          type: 'candlestick',
+          data: ohlc,
+          xAxisIndex: 0,
+          yAxisIndex: 0,
+          itemStyle: {
+            color: '#ef4444',
+            color0: '#22c55e',
+            borderColor: '#ef4444',
+            borderColor0: '#22c55e',
+          },
+          markPoint: {
+            data: [...buyMarkers, ...sellMarkers],
+            animation: false,
+          },
+        },
+        {
+          name: '成交量',
+          type: 'bar',
+          data: volumes.map((v, i) => ({
+            value: v,
+            itemStyle: {
+              color: klineData[i].close >= klineData[i].open
+                ? 'rgba(239, 68, 68, 0.5)'
+                : 'rgba(34, 197, 94, 0.5)',
+            },
+          })),
+          xAxisIndex: 1,
+          yAxisIndex: 1,
+        },
+      ],
+    };
+
+    chart.setOption(option);
+
+    // 点击事件
+    chart.off('click');
+    chart.on('click', (params: Record<string, unknown>) => {
+      if (params.componentType === 'markPoint' || params.seriesName === 'K线') {
+        const date = (params as { name?: string; value?: string[] }).name || ((params as { value?: string[] }).value?.[0]);
+        if (date) {
+          const tradeIdx = trades.findIndex(t => t.date === date);
+          if (tradeIdx >= 0) {
+            onTradeClick?.(tradeIdx);
+          }
+        }
+      }
+    });
+
+    const handleResize = () => chart.resize();
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [klineData, trades, onTradeClick]);
+
+  useEffect(() => {
+    return () => {
+      chartInstance.current?.dispose();
+      chartInstance.current = null;
+    };
+  }, []);
+
+  if (klineData.length === 0) {
+    return (
+      <div className="h-32 flex items-center justify-center text-text-secondary text-xs">
+        无K线数据
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative">
+      <div ref={chartRef} className="w-full h-48" />
+      {/* 图例 */}
+      <div className="absolute top-1 right-1 flex items-center gap-2 text-[9px] text-text-secondary">
+        <span className="flex items-center gap-0.5">
+          <span className="inline-block w-2 h-2 bg-up rounded-full" />买入
+        </span>
+        <span className="flex items-center gap-0.5">
+          <span className="inline-block w-2 h-2 bg-down rounded-full" />卖出
+        </span>
+      </div>
+    </div>
+  );
+}

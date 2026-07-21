@@ -13,6 +13,8 @@ import { IndustryMappingPanel } from '@/components/industry/IndustryMappingPanel
 import { SentimentSummary } from '@/components/sentiment/SentimentSummary';
 import OverseasMapping from '@/components/analysis/OverseasMapping';
 import { BacktestPanel } from '@/components/backtest/BacktestPanel';
+import { IndependentBacktest } from '@/components/backtest/IndependentBacktest';
+import { StrategyLibrary } from '@/components/strategy/StrategyLibrary';
 import { SignalSummaryBar } from '@/components/analysis/SignalSummaryBar';
 import { AIInterpretation } from '@/components/analysis/AIInterpretation';
 import { StockComparison } from '@/components/analysis/StockComparison';
@@ -275,6 +277,24 @@ export function RightPanel() {
           summary="多账户管理"
         >
           <BacktestPanel />
+        </AccordionSection>
+
+        {/* 6.5 历史回测 - 独立回测面板 */}
+        <AccordionSection 
+          title="历史回测" 
+          icon="📊"
+          summary="策略回测+AI依据"
+        >
+          <IndependentBacktest />
+        </AccordionSection>
+
+        {/* 6.6 策略库 */}
+        <AccordionSection 
+          title="策略库" 
+          icon="📚"
+          summary="管理+AI生成策略"
+        >
+          <StrategyLibrary />
         </AccordionSection>
 
         {/* 7. 多股对比 - 手风琴模式 */}

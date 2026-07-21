@@ -108,6 +108,7 @@ export interface Account {
   equityCurve?: EquityPoint[];  // 资金曲线
   strategy?: QuantStrategy;     // 量化策略配置（仅quant类型）
   runMode?: RunMode;            // 运行模式（仅quant类型，创建后不可更改）
+  locked?: boolean;             // 策略锁定标记（创建后不可更改策略/止盈止损）
   createdAt: number;
   updatedAt: number;
 }
