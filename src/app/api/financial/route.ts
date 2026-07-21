@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { crossValidateFinancial } from '@/lib/data-validator-xref';
 
 // 缓存30分钟（财务数据变化不频繁）
 const cache = new Map<string, { data: unknown; timestamp: number }>();
@@ -52,8 +53,19 @@ export async function GET(request: NextRequest) {
     });
 
     const json = await res.json();
-    setCache(cacheKey, json);
-    return NextResponse.json({ success: true, data: json });
+    
+    // 交叉验证财务数据
+    const { data: validatedData, validation } = await crossValidateFinancial(code, json);
+    const finalData = validatedData || json;
+    
+    setCache(cacheKey, finalData);
+    return NextResponse.json({
+      success: true,
+      data: finalData,
+      verified: validation.verified,
+      validationSource: validation.source,
+      validationDiff: validation.diffPercent,
+    });
   } catch (error) {
     console.error('[API] 财务数据请求失败:', error);
     return NextResponse.json({ success: false, error: '财务数据获取失败' }, { status: 500 });
