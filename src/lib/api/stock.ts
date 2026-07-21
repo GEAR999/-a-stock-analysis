@@ -1,4 +1,5 @@
 import type { StockInfo, StockQuote, KLineData, KLinePeriod, MarketSentiment } from '@/lib/types';
+import { getQuote as mootdxGetQuote, getQuoteWithFallback, isMootdxAvailable, getIndexQuote, type MootdxQuoteData } from '@/lib/mootdx-client';
 
 // East Money API base URLs
 const EASTMONEY_SEARCH_URL = 'https://searchapi.eastmoney.com/api/suggest/get';
@@ -49,8 +50,54 @@ export async function searchStocks(keyword: string): Promise<StockInfo[]> {
   }
 }
 
-// Get real-time quote
+// Get real-time quote - mootdx primary, East Money fallback
 export async function getQuote(code: string): Promise<StockQuote | null> {
+  // Try mootdx first
+  if (isMootdxAvailable()) {
+    try {
+      const mootdxQuote = await mootdxGetQuote(code);
+      if (mootdxQuote) {
+        const quote = convertMootdxQuote(mootdxQuote, code);
+        if (quote) {
+          return quote;
+        }
+      }
+    } catch (error) {
+      console.warn('[mootdx] getQuote failed, falling back to East Money:', error);
+    }
+  }
+
+  // Fallback to East Money
+  return getQuoteFromEastMoney(code);
+}
+
+// Convert mootdx quote to StockQuote format
+function convertMootdxQuote(mootdxQuote: MootdxQuoteData, code: string): StockQuote | null {
+  const price = mootdxQuote.price;
+  const prevClose = mootdxQuote.preClose;
+  if (!price || !prevClose) return null;
+
+  const change = price - prevClose;
+  const changePercent = prevClose > 0 ? (change / prevClose) * 100 : 0;
+
+  return {
+    code,
+    name: mootdxQuote.name || code,
+    price,
+    change,
+    changePercent,
+    volume: mootdxQuote.volume,
+    high: mootdxQuote.high,
+    low: mootdxQuote.low,
+    open: mootdxQuote.open,
+    preClose: prevClose,
+    amount: mootdxQuote.amount,
+    timestamp: Date.now(),
+  };
+}
+
+// East Money quote (fallback)
+async function getQuoteFromEastMoney(code: string): Promise<StockQuote | null> {
   try {
     const secid = getSecId(code);
     const params = new URLSearchParams({
@@ -98,7 +145,7 @@ export interface MarketIndex {
   changePercent: number;
 }
 
-// Get market indices (上证/深证/创业板/科创50/恒生)
+// Get market indices (上证/深证/创业板/科创50/恒生) - mootdx primary, East Money fallback
 export async function getMarketIndices(): Promise<MarketIndex[]> {
   const indices = [
     { code: '1.000001', name: '上证指数' },
@@ -108,6 +155,38 @@ export async function getMarketIndices(): Promise<MarketIndex[]> {
     { code: '100.HSI', name: '恒生指数' },
   ];
 
+  // Try mootdx first for index quotes
+  if (isMootdxAvailable()) {
+    try {
+      const results: MarketIndex[] = [];
+      for (const idx of indices) {
+        const mootdxQuote = await getIndexQuote(idx.code);
+        if (mootdxQuote) {
+          results.push({
+            code: idx.code,
+            name: mootdxQuote.name || idx.name,
+            price: mootdxQuote.price,
+            change: mootdxQuote.price - mootdxQuote.preClose,
+            changePercent: mootdxQuote.preClose > 0 
+              ? ((mootdxQuote.price - mootdxQuote.preClose) / mootdxQuote.preClose) * 100 
+              : 0,
+          });
+        }
+      }
+      if (results.length > 0) {
+        return results;
+      }
+    } catch (error) {
+      console.warn('[mootdx] getIndexQuote failed, falling back to East Money:', error);
+    }
+  }
+
+  // Fallback to East Money
+  return getMarketIndicesFromEastMoney(indices);
+}
+
+// East Money market indices (fallback)
+async function getMarketIndicesFromEastMoney(indices: { code: string; name: string }[]): Promise<MarketIndex[]> {
   try {
     const secids = indices.map(i => i.code).join(',');
     const url = `${EASTMONEY_QUOTE_URL}?fltt=2&invt=2&fields=f2,f3,f4,f12,f14&secids=${secids}`;
