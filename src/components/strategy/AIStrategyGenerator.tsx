@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Sparkles, Loader2, Save, X } from 'lucide-react';
 import { generateStrategyId, saveCustomStrategy, type StrategyDefinition } from '@/lib/strategy-library';
+import type { StrategyType } from '@/lib/backtest-engine';
 
 interface AIStrategyGeneratorProps {
   onSaved: () => void;
@@ -97,10 +98,35 @@ export function AIStrategyGenerator({ onSaved }: AIStrategyGeneratorProps) {
       name: name.trim(),
       category: 'ai_generated',
       description: description || generated.description || '',
-      parameters: generated.parameters,
-      rules: {
-        buyConditions: generated.buyConditions as string | undefined,
-        sellConditions: generated.sellConditions as string | undefined,
+      // 信号配置
+      signals: {
+        buySignals: (generated.parameters?.buySignals as StrategyType[]) || [],
+        sellSignals: (generated.parameters?.sellSignals as StrategyType[]) || [],
+        buyLogic: 'OR',
+        sellLogic: 'OR',
+        minBuyMatch: 1,
+        minSellMatch: 1,
+      },
+      // 仓位控制
+      position: {
+        maxTotalPosition: 1.0,
+        maxSinglePosition: 1.0,
+        minCashReserve: 0,
+        positionSize: 1.0,
+        enablePyramiding: false,
+        maxPyramidLevels: 1,
+      },
+      // 风险控制
+      risk: {
+        stopLoss: 0,
+        takeProfit: 0,
+        trailingStop: 0,
+        maxHoldingDays: 0,
+      },
+      // 交易成本
+      cost: {
+        commission: 0.0003,
+        slippage: 0.001,
       },
       aiSummary: generated.aiSummary,
       aiTags: generated.aiTags,

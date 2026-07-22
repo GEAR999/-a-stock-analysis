@@ -14,6 +14,76 @@ export type StrategyType =
   | "wave_buy" | "wave_sell"
   | "tech_resonance_buy" | "tech_resonance_sell";
 
+// 仓位控制配置
+export interface PositionControl {
+  maxTotalPosition: number;      // 总仓位上限（0-1），如 0.8 = 最多 80% 仓位
+  maxSinglePosition: number;     // 单股仓位上限（0-1），如 0.3 = 单只最多 30%
+  minCashReserve: number;        // 最低现金储备（0-1），如 0.1 = 至少留 10% 现金
+  positionSize: number;          // 单次买入比例（0-1）
+  enablePyramiding: boolean;     // 是否允许加仓
+  maxPyramidLevels: number;      // 最多加仓次数
+}
+
+// 风险控制配置
+export interface RiskControl {
+  stopLoss: number;              // 止损比例（0-1），如 0.05 = 亏损 5% 止损
+  takeProfit: number;            // 止盈比例（0-1），如 0.15 = 盈利 15% 止盈
+  trailingStop: number;          // 移动止损比例（0-1），如 0.08 = 从最高点回落 8% 止损
+  maxHoldingDays: number;        // 最长持仓天数（0 = 不限制）
+}
+
+// 交易成本配置
+export interface CostConfig {
+  commission: number;            // 手续费率（如 0.0003 = 万三）
+  slippage: number;              // 滑点（如 0.001 = 0.1%）
+}
+
+// 信号条件配置
+export interface SignalConfig {
+  buySignals: StrategyType[];    // 买入信号池
+  sellSignals: StrategyType[];   // 卖出信号池
+  buyLogic: "AND" | "OR";        // 买入逻辑
+  sellLogic: "AND" | "OR";       // 卖出逻辑
+  minBuyMatch: number;           // 买入最少匹配数
+  minSellMatch: number;          // 卖出最少匹配数
+}
+
+// 完整策略配置（用于自定义策略库）
+export interface FullStrategyConfig {
+  id: string;
+  name: string;
+  description: string;
+  signals: SignalConfig;
+  position: PositionControl;
+  risk: RiskControl;
+  cost: CostConfig;
+}
+
+// 默认仓位控制配置
+export const DEFAULT_POSITION_CONTROL: PositionControl = {
+  maxTotalPosition: 1.0,
+  maxSinglePosition: 1.0,
+  minCashReserve: 0,
+  positionSize: 1.0,
+  enablePyramiding: false,
+  maxPyramidLevels: 1,
+};
+
+// 默认风险控制配置
+export const DEFAULT_RISK_CONTROL: RiskControl = {
+  stopLoss: 0,
+  takeProfit: 0,
+  trailingStop: 0,
+  maxHoldingDays: 0,
+};
+
+// 默认交易成本配置
+export const DEFAULT_COST_CONFIG: CostConfig = {
+  commission: 0.0003,
+  slippage: 0.001,
+};
+
+// 回测配置（向后兼容旧接口）
 export interface BacktestConfig {
   strategies: StrategyType[];
   initialCapital: number;
@@ -21,6 +91,13 @@ export interface BacktestConfig {
   slippage: number; // 滑点（百分比）
   positionSize: number; // 每次交易仓位比例（0-1）
   onProgress?: (current: number, total: number) => void; // 进度回调
+}
+
+// 完整回测配置（使用 FullStrategyConfig）
+export interface FullBacktestConfig {
+  strategy: FullStrategyConfig;
+  initialCapital: number;
+  onProgress?: (current: number, total: number) => void;
 }
 
 export interface BacktestTrade {
@@ -651,6 +728,269 @@ export function runBacktestEnhanced(kline: KLineData[], config: BacktestConfig):
 
   const metrics = calculateMetrics(trades, dailyRecords, config.initialCapital);
   return { trades, dailyRecords, metrics };
+}
+
+// ============ 完整版回测（支持仓位控制和风控） ============
+
+/** 完整回测结果 */
+export interface FullBacktestResult extends EnhancedBacktestResult {
+  positionLogs: { date: string; ratio: number; cashRatio: number }[];  // 仓位日志
+  riskEvents: { date: string; type: string; price: number }[];  // 风控事件（止损/止盈）
+}
+
+/** 运行完整版回测 */
+export function runBacktestFull(kline: KLineData[], config: FullBacktestConfig): FullBacktestResult {
+  const { strategy, initialCapital } = config;
+  const signals = generateSignals(kline, strategy.signals.buySignals.concat(strategy.signals.sellSignals));
+  const trades: EnhancedBacktestTrade[] = [];
+  const dailyRecords: BacktestDailyRecord[] = [];
+  const positionLogs: { date: string; ratio: number; cashRatio: number }[] = [];
+  const riskEvents: { date: string; type: string; price: number }[] = [];
+
+  // 预计算所有指标
+  const closes = kline.map(k => k.close);
+  const highs = kline.map(k => k.high);
+  const lows = kline.map(k => k.low);
+  const macd = calcMACD(closes);
+  const kdj = calcKDJ(highs, lows, closes);
+  const rsi = calcRSI(closes);
+  const ma5 = calcMA(closes, 5);
+  const ma20 = calcMA(closes, 20);
+  const boll = calcBoll(closes);
+
+  let capital = initialCapital;
+  let position = 0;
+  let buyPrice = 0;
+  let highestPrice = 0;
+  const initialPrice = kline[0].close;
+  let signalIdx = 0;
+
+  for (let i = 0; i < kline.length; i++) {
+    const bar = kline[i];
+
+    if (config.onProgress && i % 50 === 0) {
+      config.onProgress(i, kline.length);
+    }
+
+    const currentPrice = bar.close;
+    const positionValue = position * currentPrice;
+    const totalValue = capital + positionValue;
+
+    // 记录仓位日志
+    positionLogs.push({
+      date: bar.date,
+      ratio: totalValue > 0 ? positionValue / totalValue : 0,
+      cashRatio: totalValue > 0 ? capital / totalValue : 0,
+    });
+
+    // 风控检查（止损/止盈/移动止损）
+    if (position > 0 && buyPrice > 0) {
+      const profitRatio = (currentPrice - buyPrice) / buyPrice;
+
+      // 止损检查
+      if (strategy.risk.stopLoss > 0 && profitRatio <= -strategy.risk.stopLoss) {
+        const sellPrice = currentPrice * (1 - strategy.cost.slippage);
+        const amount = position * sellPrice;
+        const commission = Math.max(amount * strategy.cost.commission, 5);
+        capital += amount - commission;
+        trades.push({
+          date: bar.date,
+          type: "sell",
+          price: sellPrice,
+          shares: position,
+          amount,
+          commission,
+          strategy: "macd_death_cross",
+          indicatorSnapshot: {
+            macd: { dif: macd.dif[i], dea: macd.dea[i], histogram: macd.macd[i] },
+            kdj: { k: kdj.k[i], d: kdj.d[i], j: kdj.j[i] },
+            rsi: rsi[i],
+            boll: { upper: boll.upper[i], middle: boll.middle[i], lower: boll.lower[i] },
+            ma: { ma5: ma5[i], ma20: ma20[i] },
+          },
+          ohlcvSnapshot: { open: bar.open, high: bar.high, low: bar.low, close: bar.close, volume: bar.volume },
+          reasoningDescription: `止损触发：亏损${(profitRatio * 100).toFixed(2)}%，超过止损线${(strategy.risk.stopLoss * 100).toFixed(1)}%`,
+        });
+        riskEvents.push({ date: bar.date, type: "止损", price: sellPrice });
+        position = 0;
+        buyPrice = 0;
+        highestPrice = 0;
+        continue;
+      }
+
+      // 止盈检查
+      if (strategy.risk.takeProfit > 0 && profitRatio >= strategy.risk.takeProfit) {
+        const sellPrice = currentPrice * (1 - strategy.cost.slippage);
+        const amount = position * sellPrice;
+        const commission = Math.max(amount * strategy.cost.commission, 5);
+        capital += amount - commission;
+        trades.push({
+          date: bar.date,
+          type: "sell",
+          price: sellPrice,
+          shares: position,
+          amount,
+          commission,
+          strategy: "macd_death_cross",
+          indicatorSnapshot: {
+            macd: { dif: macd.dif[i], dea: macd.dea[i], histogram: macd.macd[i] },
+            kdj: { k: kdj.k[i], d: kdj.d[i], j: kdj.j[i] },
+            rsi: rsi[i],
+            boll: { upper: boll.upper[i], middle: boll.middle[i], lower: boll.lower[i] },
+            ma: { ma5: ma5[i], ma20: ma20[i] },
+          },
+          ohlcvSnapshot: { open: bar.open, high: bar.high, low: bar.low, close: bar.close, volume: bar.volume },
+          reasoningDescription: `止盈触发：盈利${(profitRatio * 100).toFixed(2)}%，超过止盈线${(strategy.risk.takeProfit * 100).toFixed(1)}%`,
+        });
+        riskEvents.push({ date: bar.date, type: "止盈", price: sellPrice });
+        position = 0;
+        buyPrice = 0;
+        highestPrice = 0;
+        continue;
+      }
+
+      // 移动止损检查
+      if (strategy.risk.trailingStop > 0 && highestPrice > 0) {
+        const drawdown = (highestPrice - currentPrice) / highestPrice;
+        if (drawdown >= strategy.risk.trailingStop) {
+          const sellPrice = currentPrice * (1 - strategy.cost.slippage);
+          const amount = position * sellPrice;
+          const commission = Math.max(amount * strategy.cost.commission, 5);
+          capital += amount - commission;
+          trades.push({
+            date: bar.date,
+            type: "sell",
+            price: sellPrice,
+            shares: position,
+            amount,
+            commission,
+            strategy: "macd_death_cross",
+            indicatorSnapshot: {
+              macd: { dif: macd.dif[i], dea: macd.dea[i], histogram: macd.macd[i] },
+              kdj: { k: kdj.k[i], d: kdj.d[i], j: kdj.j[i] },
+              rsi: rsi[i],
+              boll: { upper: boll.upper[i], middle: boll.middle[i], lower: boll.lower[i] },
+              ma: { ma5: ma5[i], ma20: ma20[i] },
+            },
+            ohlcvSnapshot: { open: bar.open, high: bar.high, low: bar.low, close: bar.close, volume: bar.volume },
+            reasoningDescription: `移动止损触发：从最高点${highestPrice.toFixed(2)}回落${(drawdown * 100).toFixed(2)}%，超过移动止损线${(strategy.risk.trailingStop * 100).toFixed(1)}%`,
+          });
+          riskEvents.push({ date: bar.date, type: "移动止损", price: sellPrice });
+          position = 0;
+          buyPrice = 0;
+          highestPrice = 0;
+          continue;
+        }
+      }
+
+      // 更新最高价
+      if (currentPrice > highestPrice) {
+        highestPrice = currentPrice;
+      }
+    }
+
+    // 处理信号
+    while (signalIdx < signals.length && signals[signalIdx].index === i) {
+      const sig = signals[signalIdx];
+
+      if (sig.signal === "buy" && position === 0) {
+        // 仓位控制检查
+        const cashRatio = totalValue > 0 ? capital / totalValue : 1;
+        if (cashRatio <= strategy.position.minCashReserve) {
+          signalIdx++;
+          continue;  // 现金不足，跳过
+        }
+
+        const price = currentPrice * (1 + strategy.cost.slippage);
+        const availableCapital = capital - (totalValue * strategy.position.minCashReserve);
+        const investAmount = Math.min(availableCapital * strategy.position.positionSize, totalValue * strategy.position.maxSinglePosition);
+        const shares = Math.floor(investAmount / price / 100) * 100;
+
+        if (shares > 0) {
+          const amount = shares * price;
+          const commission = Math.max(amount * strategy.cost.commission, 5);
+          capital -= amount + commission;
+          position = shares;
+          buyPrice = price;
+          highestPrice = price;
+          trades.push({
+            date: bar.date,
+            type: "buy",
+            price,
+            shares,
+            amount,
+            commission,
+            strategy: sig.strategy,
+            indicatorSnapshot: {
+              macd: { dif: macd.dif[i], dea: macd.dea[i], histogram: macd.macd[i] },
+              kdj: { k: kdj.k[i], d: kdj.d[i], j: kdj.j[i] },
+              rsi: rsi[i],
+              boll: { upper: boll.upper[i], middle: boll.middle[i], lower: boll.lower[i] },
+              ma: { ma5: ma5[i], ma20: ma20[i] },
+            },
+            ohlcvSnapshot: { open: bar.open, high: bar.high, low: bar.low, close: bar.close, volume: bar.volume },
+            reasoningDescription: generateReasoningDescription(sig.strategy, "buy", {
+              macd: { dif: macd.dif[i], dea: macd.dea[i], histogram: macd.macd[i] },
+              kdj: { k: kdj.k[i], d: kdj.d[i], j: kdj.j[i] },
+              rsi: rsi[i],
+              boll: { upper: boll.upper[i], middle: boll.middle[i], lower: boll.lower[i] },
+              ma: { ma5: ma5[i], ma20: ma20[i] },
+            }, bar),
+          });
+        }
+      } else if (sig.signal === "sell" && position > 0) {
+        const price = currentPrice * (1 - strategy.cost.slippage);
+        const amount = position * price;
+        const commission = Math.max(amount * strategy.cost.commission, 5);
+        capital += amount - commission;
+        trades.push({
+          date: bar.date,
+          type: "sell",
+          price,
+          shares: position,
+          amount,
+          commission,
+          strategy: sig.strategy,
+          indicatorSnapshot: {
+            macd: { dif: macd.dif[i], dea: macd.dea[i], histogram: macd.macd[i] },
+            kdj: { k: kdj.k[i], d: kdj.d[i], j: kdj.j[i] },
+            rsi: rsi[i],
+            boll: { upper: boll.upper[i], middle: boll.middle[i], lower: boll.lower[i] },
+            ma: { ma5: ma5[i], ma20: ma20[i] },
+          },
+          ohlcvSnapshot: { open: bar.open, high: bar.high, low: bar.low, close: bar.close, volume: bar.volume },
+          reasoningDescription: generateReasoningDescription(sig.strategy, "sell", {
+            macd: { dif: macd.dif[i], dea: macd.dea[i], histogram: macd.macd[i] },
+            kdj: { k: kdj.k[i], d: kdj.d[i], j: kdj.j[i] },
+            rsi: rsi[i],
+            boll: { upper: boll.upper[i], middle: boll.middle[i], lower: boll.lower[i] },
+            ma: { ma5: ma5[i], ma20: ma20[i] },
+          }, bar),
+        });
+        position = 0;
+        buyPrice = 0;
+        highestPrice = 0;
+      }
+      signalIdx++;
+    }
+
+    // 记录每日状态
+    const benchmark = (bar.close / initialPrice) * initialCapital;
+
+    dailyRecords.push({
+      date: bar.date,
+      capital,
+      position,
+      positionValue: position * bar.close,
+      totalValue: capital + position * bar.close,
+      benchmark,
+    });
+  }
+
+  // 计算指标
+  const metrics = calculateMetrics(trades, dailyRecords, initialCapital);
+
+  return { trades, dailyRecords, metrics, positionLogs, riskEvents };
 }
 
 // 注意：此模块作为普通模块使用，通过 setTimeout 在组件中异步调用以避免阻塞UI
