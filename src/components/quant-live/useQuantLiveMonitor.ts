@@ -120,52 +120,15 @@ export function useQuantLiveMonitor(accountId: string | null) {
     }
   }, [accountId, addLog, loadTrades, loadPositions]);
 
-  // WebSocket 连接
+  // WebSocket 连接（暂时禁用，HTTPS 页面无法连接 ws://）
+  // TODO: 部署后改用 wss:// 或通过代理
   useEffect(() => {
     if (!accountId) return;
-
-    const ws = new WebSocket(WS_URL);
-    wsRef.current = ws;
-
-    ws.onopen = () => {
-      setStatus('connected');
-      addLog('WebSocket 已连接', 'info');
-      // 订阅账户
-      ws.send(JSON.stringify({ type: 'subscribe', accountId }));
-    };
-
-    ws.onmessage = (event) => {
-      try {
-        const msg: WSMessage = JSON.parse(event.data);
-        if (msg.type === 'trade' && msg.data) {
-          addLog(`${msg.data.direction === 'buy' ? '买入' : '卖出'} ${msg.data.stock_code} ${msg.data.quantity}股 @${msg.data.price}`, 'trade');
-          loadTrades();
-          loadPositions();
-        } else if (msg.type === 'check') {
-          setLastCheckAt(msg.timestamp || new Date().toLocaleTimeString('zh-CN', { hour12: false }));
-        } else if (msg.type === 'error') {
-          addLog(msg.message || '未知错误', 'error');
-        }
-      } catch (err) {
-        console.error('WS message parse error:', err);
-      }
-    };
-
-    ws.onclose = () => {
-      setStatus('idle');
-      addLog('WebSocket 已断开', 'info');
-    };
-
-    ws.onerror = (err) => {
-      setStatus('error');
-      addLog('WebSocket 连接错误', 'error');
-    };
-
-    return () => {
-      ws.close();
-      wsRef.current = null;
-    };
-  }, [accountId, addLog, loadTrades, loadPositions]);
+    // const ws = new WebSocket(WS_URL);
+    // ... WebSocket 逻辑暂时注释
+    addLog('WebSocket 暂不可用（HTTPS 限制）', 'info');
+    return () => {};
+  }, [accountId, addLog]);
 
   // 初始加载
   useEffect(() => {
