@@ -27,7 +27,7 @@ import {
   type BacktestPositionSnapshot,
   type BacktestMetrics,
 } from './backtest-session-storage';
-import { BacktestChart } from './BacktestChart';
+import BacktestChart from './BacktestChart';
 
 // ============ 常量 ============
 
@@ -70,7 +70,17 @@ const TIME_RANGES = [
   { days: 0, label: "全部" },
 ];
 
-type DetailTab = 'metrics' | 'equity' | 'positions' | 'trades';
+// 策略类型 → 中文名称映射
+const STRATEGY_LABELS: Record<string, string> = Object.fromEntries(
+  STRATEGY_OPTIONS.map(s => [s.value, s.label])
+);
+
+// 获取策略的简短显示名称（用于标签）
+function getStrategyTags(strategies: string[]): string {
+  return strategies.map(s => STRATEGY_LABELS[s] || s).join(' · ');
+}
+
+type DetailTab = 'metrics' | 'equity' | 'positions' | 'trades' | 'params';
 
 // ============ 主组件 ============
 
@@ -611,6 +621,18 @@ export function HistoryBacktestPanel() {
                     <span className="flex items-center gap-1"><Tag className="w-3 h-3" />{session.config.stocks.map(s => s.name).join(', ')}</span>
                     <span>{session.results.reduce((s, r) => s + r.trades.length, 0)}笔交易</span>
                   </div>
+                  {session.config.strategies.length > 0 && (
+                    <div className="flex items-center gap-1 mt-1 flex-wrap">
+                      {session.config.strategies.slice(0, 4).map(s => (
+                        <span key={s} className="px-1.5 py-0.5 text-[9px] rounded bg-[var(--accent-blue)]/10 text-[var(--accent-blue)] border border-[var(--accent-blue)]/20">
+                          {STRATEGY_LABELS[s] || s}
+                        </span>
+                      ))}
+                      {session.config.strategies.length > 4 && (
+                        <span className="text-[9px] text-[var(--text-muted)]">+{session.config.strategies.length - 4}</span>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -653,7 +675,7 @@ export function HistoryBacktestPanel() {
 
           {/* 详情Tab */}
           <div className="flex gap-0 border-b border-[var(--border-default)]">
-            {([['metrics', '绩效概览'], ['equity', '资金曲线'], ['positions', '股票'], ['trades', '交易记录']] as const).map(([key, label]) => (
+            {([['metrics', '绩效概览'], ['equity', '资金曲线'], ['positions', '股票'], ['trades', '交易记录'], ['params', '回测参数']] as const).map(([key, label]) => (
               <button key={key} onClick={() => setDetailTab(key)}
                 className={`px-4 py-1.5 text-xs transition-colors ${detailTab === key ? 'text-[var(--accent-blue)] border-b-2 border-[var(--accent-blue)] bg-[var(--accent-blue)]/5' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}>
                 {label}
@@ -819,8 +841,8 @@ export function HistoryBacktestPanel() {
                         <div className="mt-3 border-t border-[var(--border-default)]/50 pt-3">
                           <BacktestChart
                             klineData={stockKline}
-                            trades={result.trades.map(t => ({ date: t.date, type: t.direction, price: t.price, shares: t.quantity, amount: t.amount, commission: t.commission, strategy: t.strategy }))}
-                            onTradeClick={(idx) => {
+                            trades={result.trades.map(t => ({ date: t.date, type: t.direction, price: t.price, shares: t.quantity, amount: t.amount, commission: t.commission, strategy: t.strategy, reasoning: t.reasoning }))}
+                            onTradeClick={(idx: number) => {
                               const trade = result.trades[idx];
                               if (trade) setSelectedTrade(trade);
                             }}
@@ -963,6 +985,61 @@ export function HistoryBacktestPanel() {
                       )}
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+            {/* 回测参数 Tab */}
+            {detailTab === 'params' && (
+              <div className="p-4 space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  {/* 时间范围 */}
+                  <div className="p-3 bg-[var(--bg-card)]/50 rounded-lg border border-[var(--border-default)]/50">
+                    <div className="text-[10px] text-[var(--text-muted)] mb-1">回测时间范围</div>
+                    <div className="text-sm font-mono text-[var(--text-primary)]">
+                      {currentSession.config.dateRange.start} ~ {currentSession.config.dateRange.end}
+                    </div>
+                  </div>
+                  {/* 初始资金 */}
+                  <div className="p-3 bg-[var(--bg-card)]/50 rounded-lg border border-[var(--border-default)]/50">
+                    <div className="text-[10px] text-[var(--text-muted)] mb-1">初始资金</div>
+                    <div className="text-sm font-mono text-[var(--text-primary)]">
+                      ¥{currentSession.config.initialCapital.toLocaleString()}
+                      <span className="text-[10px] text-[var(--text-muted)] ml-2">
+                        (总 ¥{(currentSession.config.initialCapital * currentSession.config.stocks.length).toLocaleString()})
+                      </span>
+                    </div>
+                  </div>
+                  {/* 手续费率 */}
+                  <div className="p-3 bg-[var(--bg-card)]/50 rounded-lg border border-[var(--border-default)]/50">
+                    <div className="text-[10px] text-[var(--text-muted)] mb-1">手续费率</div>
+                    <div className="text-sm font-mono text-[var(--text-primary)]">{(currentSession.config.commission * 100).toFixed(3)}%</div>
+                  </div>
+                  {/* 滑点 */}
+                  <div className="p-3 bg-[var(--bg-card)]/50 rounded-lg border border-[var(--border-default)]/50">
+                    <div className="text-[10px] text-[var(--text-muted)] mb-1">滑点</div>
+                    <div className="text-sm font-mono text-[var(--text-primary)]">{(currentSession.config.slippage * 100).toFixed(2)}%</div>
+                  </div>
+                  {/* 仓位比例 */}
+                  <div className="p-3 bg-[var(--bg-card)]/50 rounded-lg border border-[var(--border-default)]/50">
+                    <div className="text-[10px] text-[var(--text-muted)] mb-1">单股最大仓位</div>
+                    <div className="text-sm font-mono text-[var(--text-primary)]">{(currentSession.config.positionSize * 100).toFixed(0)}%</div>
+                  </div>
+                  {/* 股票数量 */}
+                  <div className="p-3 bg-[var(--bg-card)]/50 rounded-lg border border-[var(--border-default)]/50">
+                    <div className="text-[10px] text-[var(--text-muted)] mb-1">回测股票</div>
+                    <div className="text-sm text-[var(--text-primary)]">{currentSession.config.stocks.length} 只</div>
+                  </div>
+                </div>
+                {/* 策略列表 */}
+                <div className="p-3 bg-[var(--bg-card)]/50 rounded-lg border border-[var(--border-default)]/50">
+                  <div className="text-[10px] text-[var(--text-muted)] mb-2">采用策略</div>
+                  <div className="flex flex-wrap gap-2">
+                    {currentSession.config.strategies.map(s => (
+                      <span key={s} className="px-2 py-1 text-[11px] bg-[var(--accent-blue)]/10 text-[var(--accent-blue)] rounded border border-[var(--accent-blue)]/20">
+                        {STRATEGY_LABELS[s] || s}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}

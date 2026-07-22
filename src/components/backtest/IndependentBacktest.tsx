@@ -6,7 +6,7 @@ import { runBacktest, type BacktestConfig, type BacktestResult, type BacktestTra
 import type { KLineData } from '@/lib/types';
 import { fetchKLineData as fetchFromDataSource } from '@/lib/data-source';
 import { getAllStrategies, type StrategyDefinition } from '@/lib/strategy-library';
-import { BacktestChart } from './BacktestChart';
+import BacktestChart from './BacktestChart';
 import { batchGenerateReasoning, type ReasoningResult, type KLineSnapshot, type IndicatorSnapshot } from '@/lib/backtest-reasoning';
 import { calcMACD, calcKDJ, calcRSI, calcBoll, calcMA } from './backtest-indicators';
 
@@ -525,7 +525,7 @@ export function IndependentBacktest() {
             <BacktestChart
               klineData={stocks.find(s => s.code === item.stockCode)?.klineData || []}
               trades={item.result.trades}
-              onTradeClick={(tradeIdx) => setSelectedTrade({ item, tradeIdx })}
+              onTradeClick={(tradeIdx: number) => setSelectedTrade({ item, tradeIdx })}
             />
 
             {/* 交易记录 */}
