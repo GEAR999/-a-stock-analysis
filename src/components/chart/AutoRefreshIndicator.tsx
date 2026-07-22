@@ -10,7 +10,7 @@ export function AutoRefreshIndicator({ onRefresh }: AutoRefreshIndicatorProps) {
   const { state, toggle, refresh } = useAutoRefresh(onRefresh);
 
   return (
-    <div className="fixed bottom-4 right-4 z-50">
+    <div className="fixed bottom-24 right-6 z-50">
       <div className="flex items-center gap-2 bg-[var(--bg-panel)] border border-[var(--border-default)] rounded px-3 py-1.5 shadow-lg">
         {/* Status dot */}
         <div className={`w-2 h-2 rounded-full ${
