@@ -207,14 +207,24 @@ export function HistoryBacktestPanel() {
       await new Promise<void>((resolve) => {
         setTimeout(() => {
           try {
-            const filteredKline = timeRange > 0 ? stock.klineData.slice(-timeRange) : stock.klineData;
+            // 确保K线数据按日期升序排序
+            const sortedKline = [...stock.klineData].sort((a, b) => a.date.localeCompare(b.date));
+            // 按 timeRange 过滤
+            const filteredKline = timeRange > 0 ? sortedKline.slice(-timeRange) : sortedKline;
+            
+            // 计算实际的日期范围（用于后续验证）
+            const actualStartDate = filteredKline[0]?.date || '';
+            const actualEndDate = filteredKline[filteredKline.length - 1]?.date || '';
+            
             const config: BacktestConfig = {
               strategies, initialCapital, commission: 0.0003, slippage: 0.001, positionSize: 0.95,
             };
             const result = runBacktestEnhanced(filteredKline, config);
 
-            // 转换交易记录
-            const trades: BacktestTradeRecord[] = result.trades.map((t, idx) => ({
+            // 转换交易记录，并过滤掉超出日期范围的交易（安全措施）
+            const trades: BacktestTradeRecord[] = result.trades
+              .filter(t => t.date >= actualStartDate && t.date <= actualEndDate)
+              .map((t, idx) => ({
               id: `trade_${stock.code}_${idx}_${t.date}`,
               date: t.date,
               stockCode: stock.code,
