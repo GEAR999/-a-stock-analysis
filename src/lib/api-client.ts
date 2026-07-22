@@ -209,9 +209,9 @@ export async function fetchWithRetry(
 
   const dedupeKey = buildDedupeKey(url, fetchOptions);
 
-  // 请求去重：如果相同请求正在进行中，直接复用
+  // 请求去重：如果相同请求正在进行中，复用但 clone Response 避免 body stream 冲突
   if (dedupe && pendingRequests.has(dedupeKey)) {
-    return pendingRequests.get(dedupeKey)!;
+    return pendingRequests.get(dedupeKey)!.then(res => res.clone());
   }
 
   const doFetch = async (): Promise<Response> => {
