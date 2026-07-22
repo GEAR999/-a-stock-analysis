@@ -26,9 +26,11 @@ export function BacktestChart({ klineData, trades, onTradeClick }: BacktestChart
     }
 
     const chart = chartInstance.current;
-    const dates = klineData.map(d => d.date);
-    const ohlc = klineData.map(d => [d.open, d.close, d.low, d.high]);
-    const volumes = klineData.map(d => d.volume);
+    // 按日期升序排序，确保时间轴从左到右是旧数据到新数据
+    const sortedData = [...klineData].sort((a, b) => a.date.localeCompare(b.date));
+    const dates = sortedData.map(d => d.date);
+    const ohlc = sortedData.map(d => [d.open, d.close, d.low, d.high]);
+    const volumes = sortedData.map(d => d.volume);
 
     // 生成买卖点标记
     const buyMarkers: Record<string, unknown>[] = [];

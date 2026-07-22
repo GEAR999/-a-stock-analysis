@@ -159,11 +159,25 @@ export function HistoryBacktestPanel() {
     const newStocks: StockInfo[] = [];
     const errors: string[] = [];
 
+    // 如果模式为 'range'，根据 timeRange 计算日期范围
+    let dateRange: { start: string; end: string } | undefined;
+    if (klineFetchMode === 'range' && timeRange > 0) {
+      const endDate = new Date();
+      // 交易日转自然日：大约 1 个交易日 = 1.4 个自然日（考虑周末）
+      const naturalDays = Math.ceil(timeRange * 1.4);
+      const startDate = new Date();
+      startDate.setDate(endDate.getDate() - naturalDays);
+      dateRange = {
+        start: startDate.toISOString().split('T')[0],
+        end: endDate.toISOString().split('T')[0],
+      };
+    }
+
     for (const code of codes) {
       if (stockList.some(s => s.code === code)) { errors.push(`${code} 已存在`); continue; }
       const stockInfo = await searchAndAddStock(code);
       if (!stockInfo) { errors.push(`${code} 未找到`); continue; }
-      const klineResult = await fetchKLineData(stockInfo.code);
+      const klineResult = await fetchKLineData(stockInfo.code, dateRange);
       if (!klineResult.success || !klineResult.data?.length) {
         errors.push(`${stockInfo.name}: ${klineResult.error || '无数据'}`);
         continue;
