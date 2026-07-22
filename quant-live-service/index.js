@@ -29,6 +29,18 @@ wss.on('connection', (ws) => {
   console.log('客户端已连接');
   clients.add(ws);
 
+  ws.on('message', (data) => {
+    try {
+      const msg = JSON.parse(data.toString());
+      if (msg.type === 'subscribe' && msg.accountId) {
+        console.log(`客户端订阅账户：${msg.accountId}`);
+        // 可以在这里添加账户特定的订阅逻辑
+      }
+    } catch (err) {
+      console.error('WebSocket 消息解析错误:', err.message);
+    }
+  });
+
   ws.on('close', () => {
     console.log('客户端已断开');
     clients.delete(ws);

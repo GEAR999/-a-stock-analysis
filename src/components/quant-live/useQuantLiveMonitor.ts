@@ -27,8 +27,8 @@ export function useQuantLiveMonitor(accountId: string | null) {
   const loadAccounts = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE}/api/accounts`);
-      const data = await res.json();
-      setAccounts(data);
+      const json = await res.json();
+      setAccounts(json.data || []);
     } catch (err) {
       addLog('加载账户失败', 'error');
     }
@@ -39,8 +39,8 @@ export function useQuantLiveMonitor(accountId: string | null) {
     if (!accountId) return;
     try {
       const res = await fetch(`${API_BASE}/api/accounts/${accountId}/trades`);
-      const data = await res.json();
-      setTrades(data);
+      const json = await res.json();
+      setTrades(json.data || []);
     } catch (err) {
       addLog('加载交易记录失败', 'error');
     }
@@ -51,8 +51,8 @@ export function useQuantLiveMonitor(accountId: string | null) {
     if (!accountId) return;
     try {
       const res = await fetch(`${API_BASE}/api/accounts/${accountId}/positions`);
-      const data = await res.json();
-      setPositions(data);
+      const json = await res.json();
+      setPositions(json.data || []);
     } catch (err) {
       addLog('加载持仓失败', 'error');
     }
@@ -66,10 +66,10 @@ export function useQuantLiveMonitor(accountId: string | null) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, stock_code: stockCode, stock_name: stockName, initial_capital: initialCapital })
       });
-      const data = await res.json();
+      const json = await res.json();
       await loadAccounts();
       addLog(`创建账户：${name}`, 'info');
-      return data;
+      return json.data;
     } catch (err) {
       addLog('创建账户失败', 'error');
       return null;
@@ -79,7 +79,7 @@ export function useQuantLiveMonitor(accountId: string | null) {
   // 切换账户状态
   const toggleAccountStatus = useCallback(async (id: string, newStatus: 'active' | 'paused') => {
     try {
-      await fetch(`${API_BASE}/api/accounts/${id}/status`, {
+      await fetch(`${API_BASE}/api/accounts/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })
