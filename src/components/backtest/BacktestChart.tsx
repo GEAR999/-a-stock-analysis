@@ -64,7 +64,7 @@ export function BacktestChart({ klineData, trades, onTradeClick }: BacktestChart
       const normalizedTradeDate = normalizeDate(trade.date);
       const idx = dateIndexMap.get(normalizedTradeDate);
       if (idx === undefined) continue;
-      const kline = klineData[idx];
+      const kline = sortedData[idx];
       // 使用 dates[idx] 确保标记的 x 轴值与 x 轴数据完全一致
       const markerDate = dates[idx];
       if (trade.type === 'buy') {
