@@ -118,6 +118,10 @@ export function HistoryBacktestPanel() {
   const [editingNoteTradeId, setEditingNoteTradeId] = useState<string | null>(null);
   const [noteText, setNoteText] = useState('');
 
+  // AI 分析
+  const [aiAnalysis, setAiAnalysis] = useState<string>('');
+  const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
+
   // ============ 数据获取 ============
 
   const searchAndAddStock = useCallback(async (code: string) => {
@@ -139,6 +143,58 @@ export function HistoryBacktestPanel() {
       return { success: true, data: result.data };
     }
     return { success: false, error: result.error || "无K线数据" };
+  }, []);
+
+  // ============ AI 分析 ============
+
+  const analyzeTradeWithAI = useCallback(async (trade: BacktestTradeRecord, stockName?: string) => {
+    setIsAiAnalyzing(true);
+    setAiAnalysis('');
+    try {
+      const prompt = `你是一个专业的 A 股量化交易分析师。请分析以下交易决策：
+
+股票：${stockName || ''}
+交易类型：${trade.direction === 'buy' ? '买入' : '卖出'}
+交易日期：${trade.date}
+交易价格：¥${trade.price.toFixed(2)}
+交易数量：${trade.quantity}股
+交易金额：¥${trade.amount.toFixed(2)}
+触发策略：${trade.reasoning?.strategyLabel || '未知'}
+
+技术指标快照：
+- MACD: DIF=${trade.reasoning?.indicatorSnapshot?.macd?.dif?.toFixed(4) || 'N/A'}, DEA=${trade.reasoning?.indicatorSnapshot?.macd?.dea?.toFixed(4) || 'N/A'}
+- KDJ: K=${trade.reasoning?.indicatorSnapshot?.kdj?.k?.toFixed(2) || 'N/A'}, D=${trade.reasoning?.indicatorSnapshot?.kdj?.d?.toFixed(2) || 'N/A'}, J=${trade.reasoning?.indicatorSnapshot?.kdj?.j?.toFixed(2) || 'N/A'}
+- RSI: ${trade.reasoning?.indicatorSnapshot?.rsi?.toFixed(2) || 'N/A'}
+- 布林带：上轨=${trade.reasoning?.indicatorSnapshot?.boll?.upper?.toFixed(2) || 'N/A'}, 中轨=${trade.reasoning?.indicatorSnapshot?.boll?.middle?.toFixed(2) || 'N/A'}, 下轨=${trade.reasoning?.indicatorSnapshot?.boll?.lower?.toFixed(2) || 'N/A'}
+
+请从以下角度分析这笔交易：
+1. 信号有效性：该策略信号在此时刻是否可靠
+2. 指标配合：其他技术指标是否支持该信号
+3. 风险评估：这笔交易的主要风险点
+4. 改进建议：如何优化该交易决策
+
+请用简洁专业的语言分析，控制在 200 字以内。`;
+
+      const res = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [{ role: 'user', content: prompt }],
+          stream: false,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success && data.data?.content) {
+        setAiAnalysis(data.data.content);
+      } else {
+        setAiAnalysis('AI 分析失败：' + (data.error || '未知错误'));
+      }
+    } catch (error) {
+      setAiAnalysis('AI 分析失败：' + (error instanceof Error ? error.message : '网络错误'));
+    } finally {
+      setIsAiAnalyzing(false);
+    }
   }, []);
 
   // ============ 股票操作 ============
@@ -863,7 +919,15 @@ export function HistoryBacktestPanel() {
                     <div key={trade.id}>
                       <div
                         className="flex items-center justify-between text-[10px] py-2 px-2 rounded hover:bg-[var(--bg-card)]/50 cursor-pointer transition-colors border-b border-[var(--border-default)]/30"
-                        onClick={() => setSelectedTrade(selectedTrade?.id === trade.id ? null : trade)}
+                        onClick={() => {
+                          if (selectedTrade?.id === trade.id) {
+                            setSelectedTrade(null);
+                            setAiAnalysis('');
+                          } else {
+                            setSelectedTrade(trade);
+                            analyzeTradeWithAI(trade, activeResult?.stockName);
+                          }
+                        }}
                       >
                         <div className="flex items-center gap-2">
                           {trade.direction === 'buy' ? (
@@ -950,6 +1014,20 @@ export function HistoryBacktestPanel() {
                               </div>
                             </div>
                           )}
+                          {/* AI 分析 */}
+                          <div>
+                            <div className="text-[10px] text-[var(--accent-blue)] font-medium mb-1.5 flex items-center gap-1">
+                              <MessageSquare className="w-3 h-3" /> AI 分析
+                              {isAiAnalyzing && <Loader2 className="w-3 h-3 animate-spin ml-1" />}
+                            </div>
+                            {isAiAnalyzing ? (
+                              <div className="text-[10px] text-[var(--text-muted)]">AI 正在分析中...</div>
+                            ) : aiAnalysis ? (
+                              <div className="text-[10px] text-[var(--text-secondary)] leading-relaxed whitespace-pre-wrap">{aiAnalysis}</div>
+                            ) : (
+                              <div className="text-[10px] text-[var(--text-muted)]">点击交易记录查看 AI 分析</div>
+                            )}
+                          </div>
                           {/* 用户标注 */}
                           <div>
                             {editingNoteTradeId === trade.id ? (
