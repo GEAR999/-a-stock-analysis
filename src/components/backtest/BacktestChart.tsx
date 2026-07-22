@@ -323,23 +323,13 @@ export default function BacktestChart({ klineData, trades, title }: BacktestChar
         }
       });
 
-      // 使用 zr:click 在 ZRender 层检测点击，不干扰 dataZoom
-      const zr = chartInstance.current.getZr();
-      zr.on('click', (e: Record<string, unknown>) => {
-        const point = [e.offsetX as number, e.offsetY as number];
-        for (const trade of trades) {
-          const normalizedDate = trade.date.replace(/\//g, '-');
-          const idx = dateIndexMap.get(normalizedDate) ?? dateIndexMap.get(trade.date);
-          if (idx === undefined) continue;
-          const kline = sortedData[idx];
-          const markerDate = dates[idx];
-          const coord = chartInstance.current?.convertToPixel({ seriesIndex: 0 } as any, [markerDate, trade.type === 'buy' ? kline.low * 0.95 : kline.high * 1.05]);
-          if (coord && Math.abs(coord[0] - point[0]) < 15 && Math.abs(coord[1] - point[1]) < 15) {
-            handlersRef.current.onMarkClick?.({ value: JSON.stringify(trade) } as Record<string, unknown>);
-            return;
-          }
+      // 使用 chart.on('click') 检测 markPoint 点击，不干扰 dataZoom
+      const handleChartClick = (params: Record<string, unknown>) => {
+        if (params.componentType === 'markPoint' && params.data) {
+          handlersRef.current.onMarkClick?.(params as Record<string, unknown>);
         }
-      });
+      };
+      chartInstance.current.on('click', { seriesIndex: 0 }, handleChartClick);
     } else {
       // 数据更新时先清空，避免 dataZoom 状态残留
       chartInstance.current.clear();
