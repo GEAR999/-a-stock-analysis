@@ -61,17 +61,26 @@ export function useQuantLiveMonitor(accountId: string | null) {
   // 创建账户
   const createAccount = useCallback(async (name: string, stockCode: string, stockName: string, initialCapital: number) => {
     try {
+      console.log('[QuantLive] Creating account:', { name, stockCode, stockName, initialCapital });
       const res = await fetch(`${API_BASE}/api/accounts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, stock_code: stockCode, stock_name: stockName, initial_capital: initialCapital })
       });
+      console.log('[QuantLive] Response status:', res.status);
       const json = await res.json();
+      console.log('[QuantLive] Response data:', json);
+      if (!json.data) {
+        console.error('[QuantLive] No data in response:', json);
+        addLog(`创建失败：${json.error || '未知错误'}`, 'error');
+        return null;
+      }
       await loadAccounts();
       addLog(`创建账户：${name}`, 'info');
       return json.data;
     } catch (err) {
-      addLog('创建账户失败', 'error');
+      console.error('[QuantLive] Create account error:', err);
+      addLog(`创建账户失败：${err.message}`, 'error');
       return null;
     }
   }, [loadAccounts, addLog]);
