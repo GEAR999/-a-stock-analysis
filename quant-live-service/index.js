@@ -214,13 +214,16 @@ app.post('/api/accounts/:id/run', async (req, res) => {
 // 获取分时数据
 async function getMinuteData(stockCode) {
   try {
-    const response = await axios.get(`${MOOTDX_URL}/api/minute`, {
-      params: { code: stockCode },
-      timeout: 5000
-    });
-    return response.data.data || [];
+    const url = `${MOOTDX_URL}/api/minute?code=${stockCode}`;
+    console.log(`[mootdx] 请求分时数据: ${url}`);
+    
+    const response = await axios.get(url, { timeout: 5000 });
+    const data = response.data.data || [];
+    
+    console.log(`[mootdx] 返回 ${data.length} 条数据`);
+    return data;
   } catch (err) {
-    console.error('获取分时数据失败:', err.message);
+    console.error('[mootdx] 获取分时数据失败:', err.message);
     return [];
   }
 }
@@ -287,10 +290,11 @@ async function runAccountCheck(accountId) {
     return;
   }
 
+  console.log(`获取到 ${minuteData.length} 条分时数据，开始信号检测...`);
+
   // TODO: 信号检测逻辑（需要复用前端的 generateSignals）
   // 这里简化处理，实际应该调用信号检测函数
-  console.log(`获取到 ${minuteData.length} 条分时数据`);
-
+  
   // 广播给所有客户端
   broadcast({
     type: 'check',
@@ -313,10 +317,13 @@ cron.schedule('* * * * *', async () => {
   try {
     // 获取所有活跃账户
     const accounts = await sql`
-      SELECT id FROM quant_live_accounts WHERE status = 'active'
+      SELECT id, name, stock_code FROM quant_live_accounts WHERE status = 'active'
     `;
 
+    console.log(`找到 ${accounts.length} 个活跃账户`);
+
     for (const account of accounts) {
+      console.log(`检查账户: ${account.name} (${account.stock_code})`);
       await runAccountCheck(account.id);
     }
   } catch (err) {
