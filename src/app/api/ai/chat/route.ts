@@ -28,7 +28,7 @@ const SYSTEM_PROMPT = `你是一个专业的A股市场分析师AI助手，名叫
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { messages, context } = body;
+    const { messages, context, stream: streamMode = true } = body;
 
     // 验证 API Key
     const apiKey = process.env.DEEPSEEK_API_KEY;
@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         model: 'deepseek-chat',
         messages: chatMessages,
-        stream: true,
+        stream: streamMode,
         temperature: 0.7,
         max_tokens: 2000,
       }),
@@ -136,6 +136,16 @@ export async function POST(request: NextRequest) {
         { error: `AI服务暂时不可用 (${response.status})` },
         { status: 500 }
       );
+    }
+
+    // 非流式模式：等待完整响应后返回 JSON
+    if (!streamMode) {
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content || '';
+      return NextResponse.json({
+        success: true,
+        data: { content },
+      });
     }
 
     // 流式转发响应
