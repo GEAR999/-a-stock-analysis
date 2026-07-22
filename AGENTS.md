@@ -49,13 +49,14 @@ src/
 │   │   ├── idb-account-storage.ts # IndexedDB迁移层 (localStorage→IDB)
 │   │   ├── strategy-storage.ts # 策略存储与权重计算 (最大余数法)
 │   │   ├── strategy-bridge.ts  # 策略桥接模块 (理论↔信号双向映射, resolveStrategyTypes)
-│   │   ├── BacktestPanel.tsx  # 模拟回测主面板 (Tab切换+子组件编排, ~194行)
+│   │   ├── backtest-session-storage.ts # 历史回测会话存储层 (IndexedDB, 独立于模拟账户)
+│   │   ├── BacktestPanel.tsx  # 模拟交易主面板 (Tab切换+子组件编排, 纯账户管理)
 │   │   ├── AccountOverview.tsx # 账户概览子组件 (总资产/盈亏/持仓/资金曲线+锁定状态)
 │   │   ├── ManualTradePanel.tsx # 手动买卖子组件 (买入/卖出对话框)
 │   │   ├── QuantAutoTradePanel.tsx # 量化自动交易子组件 (策略配置/信号检测/自动买卖/止损止盈/运行日志)
 │   │   ├── TradeHistoryPanel.tsx # 交易记录子组件 (筛选/排序/CSV导出)
-│   │   ├── HistoryBacktestPanel.tsx # 历史回测面板 (策略选择/回测执行/结果展示)
-│   │   ├── IndependentBacktest.tsx # 独立回测面板 (不依赖账户,股票+周期+策略+结果)
+│   │   ├── HistoryBacktestPanel.tsx # 历史量化回测（独立功能，一级入口，含配置/记录/持仓/K线/买卖依据/保存）
+│   │   ├── IndependentBacktest.tsx # 独立回测面板（旧版，已被HistoryBacktestPanel替代）
 │   │   ├── BacktestChart.tsx  # K线买卖点标注图 (ECharts+Markers+详情卡片)
 │   │   ├── backtest-indicators.ts # 回测技术指标计算 (MACD/KDJ/RSI/BOLL/MA)
 │   │   ├── TradingStatusIndicator.tsx # 交易时段状态指示器

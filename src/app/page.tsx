@@ -8,6 +8,7 @@ import { KLineChart } from '@/components/chart/KLineChart';
 import { QuoteHeader } from '@/components/chart/QuoteHeader';
 import { AIAssistant } from '@/components/ai/AIAssistant';
 import { BacktestPanel } from '@/components/backtest/BacktestPanel';
+import { HistoryBacktestPanel } from '@/components/backtest/HistoryBacktestPanel';
 import { LearningCenter } from '@/components/learning/LearningCenter';
 import { AuthGate } from '@/components/AuthGate';
 import ThemeSwitcher from '@/components/ui/ThemeSwitcher';
@@ -18,7 +19,7 @@ import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import AIChatWidget from '@/components/ai/AIChatWidget';
 import { SyncStatusIndicator } from '@/components/SyncStatusIndicator';
 
-type MainTab = 'analysis' | 'backtest' | 'learning';
+type MainTab = 'analysis' | 'backtest' | 'history-backtest' | 'learning';
 
 export default function Home() {
   const [mainTab, setMainTab] = useState<MainTab>('analysis');
@@ -114,7 +115,17 @@ export default function Home() {
                   : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
               }`}
             >
-              模拟回测
+              模拟交易
+            </button>
+            <button
+              onClick={() => setMainTab('history-backtest')}
+              className={`px-4 py-2 text-xs transition-colors ${
+                mainTab === 'history-backtest'
+                  ? 'text-[var(--accent-blue)] border-b-2 border-blue-400 bg-blue-400/5'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+              }`}
+            >
+              历史回测
             </button>
             <button
               onClick={() => setMainTab('learning')}
@@ -159,8 +170,14 @@ export default function Home() {
             </>
           ) : mainTab === 'backtest' ? (
             <div className="flex-1 overflow-hidden">
-              <ErrorBoundary moduleName="模拟回测">
+              <ErrorBoundary moduleName="模拟交易">
                 <BacktestPanel />
+              </ErrorBoundary>
+            </div>
+          ) : mainTab === 'history-backtest' ? (
+            <div className="flex-1 overflow-hidden">
+              <ErrorBoundary moduleName="历史回测">
+                <HistoryBacktestPanel />
               </ErrorBoundary>
             </div>
           ) : (

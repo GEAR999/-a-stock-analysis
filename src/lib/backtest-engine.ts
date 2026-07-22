@@ -487,5 +487,171 @@ function calculateMetrics(trades: BacktestTrade[], dailyRecords: BacktestDailyRe
   };
 }
 
+// ============ 增强版回测（含指标快照） ============
+
+/** 指标快照 */
+export interface IndicatorSnapshot {
+  macd?: { dif: number; dea: number; histogram: number };
+  kdj?: { k: number; d: number; j: number };
+  rsi?: number;
+  boll?: { upper: number; middle: number; lower: number };
+  ma?: { ma5: number; ma20: number };
+}
+
+/** 增强版交易记录（含指标快照） */
+export interface EnhancedBacktestTrade extends BacktestTrade {
+  indicatorSnapshot: IndicatorSnapshot;
+  ohlcvSnapshot: { open: number; high: number; low: number; close: number; volume: number };
+  reasoningDescription: string;
+}
+
+/** 增强版回测结果 */
+export interface EnhancedBacktestResult extends BacktestResult {
+  trades: EnhancedBacktestTrade[];
+}
+
+/** 策略中文标签 */
+export function getStrategyLabel(strategy: StrategyType): string {
+  const labels: Record<StrategyType, string> = {
+    macd_golden_cross: 'MACD金叉',
+    macd_death_cross: 'MACD死叉',
+    kdj_oversold: 'KDJ超卖',
+    kdj_overbought: 'KDJ超买',
+    rsi_oversold: 'RSI超卖',
+    rsi_overbought: 'RSI超买',
+    boll_lower_touch: '触及布林下轨',
+    boll_upper_touch: '触及布林上轨',
+    ma_golden_cross: '均线金叉',
+    ma_death_cross: '均线死叉',
+    chanlun_buy: '缠论买点',
+    chanlun_sell: '缠论卖点',
+    wave_buy: '波浪起点',
+    wave_sell: '波浪终点',
+    tech_resonance_buy: '多指标共振买入',
+    tech_resonance_sell: '多指标共振卖出',
+  };
+  return labels[strategy] || strategy;
+}
+
+/** 生成买卖依据描述 */
+function generateReasoningDescription(
+  strategy: StrategyType,
+  direction: 'buy' | 'sell',
+  snapshot: IndicatorSnapshot,
+  kline: { open: number; high: number; low: number; close: number }
+): string {
+  const parts: string[] = [];
+  const label = getStrategyLabel(strategy);
+  parts.push(`${label}触发${direction === 'buy' ? '买入' : '卖出'}信号`);
+
+  if (snapshot.macd) {
+    const { dif, dea, histogram } = snapshot.macd;
+    parts.push(`MACD: DIF=${dif.toFixed(3)}, DEA=${dea.toFixed(3)}, 柱=${histogram.toFixed(3)}`);
+  }
+  if (snapshot.kdj) {
+    const { k, d, j } = snapshot.kdj;
+    parts.push(`KDJ: K=${k.toFixed(1)}, D=${d.toFixed(1)}, J=${j.toFixed(1)}`);
+  }
+  if (snapshot.rsi !== undefined) {
+    const zone = snapshot.rsi < 30 ? '超卖区' : snapshot.rsi > 70 ? '超买区' : '中性区';
+    parts.push(`RSI: ${snapshot.rsi.toFixed(1)}（${zone}）`);
+  }
+  if (snapshot.boll) {
+    const { upper, middle, lower } = snapshot.boll;
+    const pos = kline.close >= upper ? '触及上轨' : kline.close <= lower ? '触及下轨' : '轨道内';
+    parts.push(`BOLL: 上${upper.toFixed(2)} 中${middle.toFixed(2)} 下${lower.toFixed(2)}（${pos}）`);
+  }
+  if (snapshot.ma) {
+    const { ma5, ma20 } = snapshot.ma;
+    const trend = ma5 > ma20 ? '多头排列' : '空头排列';
+    parts.push(`MA: 5日${ma5.toFixed(2)} 20日${ma20.toFixed(2)}（${trend}）`);
+  }
+
+  return parts.join('；');
+}
+
+/** 增强版回测（记录每笔交易的指标快照） */
+export function runBacktestEnhanced(kline: KLineData[], config: BacktestConfig): EnhancedBacktestResult {
+  const signals = generateSignals(kline, config.strategies);
+  const trades: EnhancedBacktestTrade[] = [];
+  const dailyRecords: BacktestDailyRecord[] = [];
+
+  // 预计算所有指标
+  const closes = kline.map(k => k.close);
+  const highs = kline.map(k => k.high);
+  const lows = kline.map(k => k.low);
+  const macd = calcMACD(closes);
+  const kdj = calcKDJ(highs, lows, closes);
+  const rsi = calcRSI(closes);
+  const ma5 = calcMA(closes, 5);
+  const ma20 = calcMA(closes, 20);
+  const boll = calcBoll(closes);
+
+  let capital = config.initialCapital;
+  let position = 0;
+  const initialPrice = kline[0].close;
+  let signalIdx = 0;
+
+  for (let i = 0; i < kline.length; i++) {
+    const bar = kline[i];
+
+    if (config.onProgress && i % 50 === 0) {
+      config.onProgress(i, kline.length);
+    }
+
+    while (signalIdx < signals.length && signals[signalIdx].index === i) {
+      const sig = signals[signalIdx];
+      const price = bar.close * (1 + (sig.signal === "buy" ? config.slippage : -config.slippage));
+
+      // 构建指标快照
+      const snapshot: IndicatorSnapshot = {
+        macd: { dif: macd.dif[i], dea: macd.dea[i], histogram: macd.macd[i] },
+        kdj: { k: kdj.k[i], d: kdj.d[i], j: kdj.j[i] },
+        rsi: rsi[i],
+        boll: { upper: boll.upper[i], middle: boll.middle[i], lower: boll.lower[i] },
+        ma: { ma5: ma5[i], ma20: ma20[i] },
+      };
+
+      const ohlcv = { open: bar.open, high: bar.high, low: bar.low, close: bar.close, volume: bar.volume };
+      const reasoning = generateReasoningDescription(sig.strategy, sig.signal, snapshot, bar);
+
+      if (sig.signal === "buy" && position === 0) {
+        const investAmount = capital * config.positionSize;
+        const shares = Math.floor(investAmount / price / 100) * 100;
+        if (shares > 0) {
+          const amount = shares * price;
+          const commission = Math.max(amount * config.commission, 5);
+          capital -= (amount + commission);
+          position = shares;
+          trades.push({
+            date: bar.date, type: "buy", price, shares, amount, commission,
+            strategy: sig.strategy, indicatorSnapshot: snapshot, ohlcvSnapshot: ohlcv,
+            reasoningDescription: reasoning,
+          });
+        }
+      } else if (sig.signal === "sell" && position > 0) {
+        const amount = position * price;
+        const commission = Math.max(amount * config.commission, 5);
+        capital += (amount - commission);
+        trades.push({
+          date: bar.date, type: "sell", price, shares: position, amount, commission,
+          strategy: sig.strategy, indicatorSnapshot: snapshot, ohlcvSnapshot: ohlcv,
+          reasoningDescription: reasoning,
+        });
+        position = 0;
+      }
+      signalIdx++;
+    }
+
+    const positionValue = position * bar.close;
+    const totalValue = capital + positionValue;
+    const benchmark = (bar.close / initialPrice) * config.initialCapital;
+    dailyRecords.push({ date: bar.date, capital, position, positionValue, totalValue, benchmark });
+  }
+
+  const metrics = calculateMetrics(trades, dailyRecords, config.initialCapital);
+  return { trades, dailyRecords, metrics };
+}
+
 // 注意：此模块作为普通模块使用，通过 setTimeout 在组件中异步调用以避免阻塞UI
 // 如需真正的 Web Worker，可将此文件单独打包为 worker
