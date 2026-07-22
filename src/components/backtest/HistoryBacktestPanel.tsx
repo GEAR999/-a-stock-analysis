@@ -1,21 +1,26 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import {
-  Search, Settings, Play, Download, Loader2, X, TrendingUp, TrendingDown,
+  Search, Play, Download, Loader2, X, TrendingUp, TrendingDown,
   BarChart3, Save, Trash2, FolderOpen, ChevronDown, ChevronRight, Eye,
-  Calendar, DollarSign, Tag, MessageSquare,
+  Calendar, DollarSign, Tag, MessageSquare, BookOpen, Shield, Wallet,
 } from 'lucide-react';
 import {
-  runBacktestEnhanced,
+  runBacktestFull,
   type StrategyType,
-  type BacktestConfig,
+  type FullBacktestConfig,
+  type FullStrategyConfig,
   type EnhancedBacktestTrade,
   type EnhancedBacktestResult,
   getStrategyLabel,
 } from '@/lib/backtest-engine';
 import type { KLineData } from '@/lib/types';
 import { fetchKLineData as fetchKLineFromSource } from '@/lib/data-source';
+import {
+  getAllStrategies,
+  type StrategyDefinition,
+} from '@/lib/strategy-library';
 import {
   saveSession,
   getAllSessions,
@@ -70,7 +75,7 @@ const TIME_RANGES = [
   { days: 0, label: "全部" },
 ];
 
-// 策略类型 → 中文名称映射
+// 策略类型 → 中文名称映射 (保留用于历史记录显示)
 const STRATEGY_LABELS: Record<string, string> = Object.fromEntries(
   STRATEGY_OPTIONS.map(s => [s.value, s.label])
 );
@@ -94,8 +99,11 @@ export function HistoryBacktestPanel() {
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState("");
 
+  // 策略选择（从策略库选择单一策略）
+  const [selectedStrategyId, setSelectedStrategyId] = useState<string | null>(null);
+  const [showStrategyList, setShowStrategyList] = useState(false);
+
   // 回测配置
-  const [strategies, setStrategies] = useState<StrategyType[]>(["macd_golden_cross", "macd_death_cross"]);
   const [timeRange, setTimeRange] = useState(252);
   const [initialCapital, setInitialCapital] = useState(1000000);
 
@@ -121,6 +129,13 @@ export function HistoryBacktestPanel() {
   // AI 分析
   const [aiAnalysis, setAiAnalysis] = useState<string>('');
   const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
+
+  // 策略库列表
+  const strategyLibrary = useMemo(() => getAllStrategies(), []);
+  const selectedStrategy = useMemo(
+    () => strategyLibrary.find(s => s.id === selectedStrategyId) ?? null,
+    [strategyLibrary, selectedStrategyId]
+  );
 
   // ============ 数据获取 ============
 
@@ -235,26 +250,27 @@ export function HistoryBacktestPanel() {
 
   const removeStock = (code: string) => setStockList(prev => prev.filter(s => s.code !== code));
 
-  // ============ 策略操作 ============
-
-  const toggleStrategy = (s: StrategyType) => {
-    setStrategies(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
-  };
-
-  const toggleAllStrategies = () => {
-    setStrategies(prev => prev.length === STRATEGY_OPTIONS.length ? [] : STRATEGY_OPTIONS.map(s => s.value));
-  };
-
   // ============ 执行回测 ============
 
   const handleRunBacktest = useCallback(async () => {
-    if (stockList.length === 0 || strategies.length === 0) return;
+    if (stockList.length === 0 || !selectedStrategy) return;
 
     setIsRunning(true);
     setProgress({ current: 0, total: stockList.length, stockCode: stockList[0].code, stockName: stockList[0].name });
 
     const results: BacktestSession['results'] = [];
     const allEquityRecords: Map<string, BacktestDailyRecord> = new Map();
+
+    // 构建完整策略配置
+    const strategyConfig: FullStrategyConfig = {
+      id: selectedStrategy.id,
+      name: selectedStrategy.name,
+      description: selectedStrategy.description,
+      signals: selectedStrategy.signals,
+      position: selectedStrategy.position,
+      risk: selectedStrategy.risk,
+      cost: selectedStrategy.cost,
+    };
 
     for (let i = 0; i < stockList.length; i++) {
       const stock = stockList[i];
@@ -272,10 +288,11 @@ export function HistoryBacktestPanel() {
             const actualStartDate = filteredKline[0]?.date || '';
             const actualEndDate = filteredKline[filteredKline.length - 1]?.date || '';
             
-            const config: BacktestConfig = {
-              strategies, initialCapital, commission: 0.0003, slippage: 0.001, positionSize: 0.95,
+            const config: FullBacktestConfig = {
+              strategy: strategyConfig,
+              initialCapital,
             };
-            const result = runBacktestEnhanced(filteredKline, config);
+            const result = runBacktestFull(filteredKline, config);
 
             // 转换交易记录，并过滤掉超出日期范围的交易（安全措施）
             const trades: BacktestTradeRecord[] = result.trades
@@ -373,7 +390,11 @@ export function HistoryBacktestPanel() {
           start: equityCurve[0]?.date || '',
           end: equityCurve[equityCurve.length - 1]?.date || '',
         },
-        strategies, initialCapital, commission: 0.0003, slippage: 0.001, positionSize: 0.95,
+        strategies: selectedStrategy.signals.buySignals.concat(selectedStrategy.signals.sellSignals),
+        initialCapital,
+        commission: selectedStrategy.cost.commission,
+        slippage: selectedStrategy.cost.slippage,
+        positionSize: selectedStrategy.position.positionSize,
       },
       status: 'completed',
       results,
@@ -388,7 +409,7 @@ export function HistoryBacktestPanel() {
     setShowKlineForStock(null);
     setIsRunning(false);
     setViewMode('result');
-  }, [stockList, strategies, timeRange, initialCapital]);
+  }, [stockList, selectedStrategy, timeRange, initialCapital]);
 
   // ============ 保存/加载会话 ============
 
@@ -559,29 +580,120 @@ export function HistoryBacktestPanel() {
 
           {/* 策略选择 */}
           <div className="bg-[var(--bg-card)]/30 rounded-lg p-3 space-y-3">
-            <div className="text-xs text-[var(--text-secondary)] flex items-center justify-between">
-              <span className="flex items-center gap-1"><Settings className="w-3 h-3" /> 策略选择</span>
-              <button onClick={toggleAllStrategies} className="text-[10px] text-[var(--accent-blue)] hover:underline">
-                {strategies.length === STRATEGY_OPTIONS.length ? "取消全选" : "全选"}
+            <div className="text-xs text-[var(--text-secondary)] flex items-center gap-1">
+              <BookOpen className="w-3 h-3" /> 选择策略
+            </div>
+            {/* 策略选择器 */}
+            <div className="relative">
+              <button
+                onClick={() => setShowStrategyList(!showStrategyList)}
+                className="w-full flex items-center justify-between px-3 py-2 text-xs bg-[var(--bg-primary)]/50 border border-[var(--border-default)] rounded hover:border-[var(--accent-blue)]/50 transition-colors"
+              >
+                {selectedStrategy ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[var(--text-primary)] font-medium">{selectedStrategy.name}</span>
+                    <span className={`px-1 py-0 rounded text-[9px] ${
+                      selectedStrategy.category === 'builtin' ? 'bg-[var(--accent-blue)]/20 text-[var(--accent-blue)]' :
+                      selectedStrategy.category === 'ai_generated' ? 'bg-purple-500/20 text-purple-400' :
+                      'bg-amber-500/20 text-amber-400'
+                    }`}>
+                      {selectedStrategy.category === 'builtin' ? '内置' : selectedStrategy.category === 'ai_generated' ? 'AI' : '自定义'}
+                    </span>
+                  </div>
+                ) : (
+                  <span className="text-[var(--text-muted)]">从策略库选择策略...</span>
+                )}
+                <ChevronDown className={`w-3 h-3 text-[var(--text-muted)] transition-transform ${showStrategyList ? 'rotate-180' : ''}`} />
               </button>
+
+              {/* 策略下拉列表 */}
+              {showStrategyList && (
+                <div className="absolute z-10 w-full mt-1 max-h-60 overflow-y-auto bg-[var(--bg-panel)] border border-[var(--border-default)] rounded-lg shadow-xl custom-scrollbar">
+                  {strategyLibrary.map(s => (
+                    <button
+                      key={s.id}
+                      onClick={() => { setSelectedStrategyId(s.id); setShowStrategyList(false); }}
+                      className={`w-full flex items-start gap-2 px-3 py-2 text-left hover:bg-[var(--accent-blue)]/10 transition-colors border-b border-[var(--border-default)]/30 last:border-0 ${
+                        selectedStrategyId === s.id ? 'bg-[var(--accent-blue)]/5' : ''
+                      }`}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[11px] text-[var(--text-primary)] font-medium">{s.name}</span>
+                          <span className={`px-1 py-0 rounded text-[8px] ${
+                            s.category === 'builtin' ? 'bg-[var(--accent-blue)]/20 text-[var(--accent-blue)]' :
+                            s.category === 'ai_generated' ? 'bg-purple-500/20 text-purple-400' :
+                            'bg-amber-500/20 text-amber-400'
+                          }`}>
+                            {s.category === 'builtin' ? '内置' : s.category === 'ai_generated' ? 'AI' : '自定义'}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-[var(--text-muted)] line-clamp-1 mt-0.5">{s.description}</p>
+                        <div className="flex items-center gap-2 mt-1 text-[9px] text-[var(--text-muted)]">
+                          <span>买:{s.signals.buySignals.length}信号</span>
+                          <span>卖:{s.signals.sellSignals.length}信号</span>
+                          {s.risk.stopLoss > 0 && <span className="text-[var(--accent-green)]">止损{(s.risk.stopLoss * 100).toFixed(0)}%</span>}
+                          {s.risk.takeProfit > 0 && <span className="text-[var(--accent-red)]">止盈{(s.risk.takeProfit * 100).toFixed(0)}%</span>}
+                        </div>
+                      </div>
+                      {selectedStrategyId === s.id && (
+                        <span className="text-[var(--accent-blue)] text-[10px] flex-shrink-0 mt-0.5">已选</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-            <div className="flex flex-wrap gap-1">
-              {STRATEGY_OPTIONS.filter(o => o.group !== "分析引擎").map(opt => (
-                <button key={opt.value} onClick={() => toggleStrategy(opt.value)}
-                  className={`px-2 py-1 text-[10px] rounded transition-colors ${strategies.includes(opt.value) ? 'bg-[var(--accent-blue)]/20 text-[var(--accent-blue)] border border-[var(--accent-blue)]/30' : 'bg-[var(--bg-primary)]/50 text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-transparent'}`}>
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-            <div className="flex items-center gap-1 flex-wrap">
-              <span className="text-[10px] text-purple-400 font-medium">分析引擎:</span>
-              {STRATEGY_OPTIONS.filter(o => o.group === "分析引擎").map(opt => (
-                <button key={opt.value} onClick={() => toggleStrategy(opt.value)}
-                  className={`px-2 py-1 text-[10px] rounded transition-colors ${strategies.includes(opt.value) ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' : 'bg-[var(--bg-primary)]/50 text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-transparent'}`}>
-                  {opt.label}
-                </button>
-              ))}
-            </div>
+
+            {/* 选中策略的详细信息 */}
+            {selectedStrategy && (
+              <div className="bg-[var(--bg-primary)]/30 rounded p-2.5 space-y-2 text-[10px]">
+                <div className="flex items-center justify-between">
+                  <span className="text-[var(--text-secondary)] font-medium">策略详情</span>
+                  <button onClick={() => { setSelectedStrategyId(null); }} className="text-[var(--text-muted)] hover:text-[var(--accent-red)] flex items-center gap-0.5">
+                    <X className="w-3 h-3" /> 清除
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                  <div>
+                    <span className="text-[var(--text-muted)]">买入信号: </span>
+                    <span className="text-[var(--text-primary)]">
+                      {selectedStrategy.signals.buySignals.map(s => getStrategyLabel(s)).join(', ') || '无'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[var(--text-muted)]">卖出信号: </span>
+                    <span className="text-[var(--text-primary)]">
+                      {selectedStrategy.signals.sellSignals.map(s => getStrategyLabel(s)).join(', ') || '无'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[var(--text-muted)]">仓位上限: </span>
+                    <span className="text-[var(--text-primary)]">{(selectedStrategy.position.maxTotalPosition * 100).toFixed(0)}%</span>
+                  </div>
+                  <div>
+                    <span className="text-[var(--text-muted)]">单股上限: </span>
+                    <span className="text-[var(--text-primary)]">{(selectedStrategy.position.maxSinglePosition * 100).toFixed(0)}%</span>
+                  </div>
+                  <div>
+                    <span className="text-[var(--text-muted)]">止损: </span>
+                    <span className="text-[var(--text-primary)]">{selectedStrategy.risk.stopLoss > 0 ? `${(selectedStrategy.risk.stopLoss * 100).toFixed(1)}%` : '无'}</span>
+                  </div>
+                  <div>
+                    <span className="text-[var(--text-muted)]">止盈: </span>
+                    <span className="text-[var(--text-primary)]">{selectedStrategy.risk.takeProfit > 0 ? `${(selectedStrategy.risk.takeProfit * 100).toFixed(1)}%` : '无'}</span>
+                  </div>
+                  <div>
+                    <span className="text-[var(--text-muted)]">手续费: </span>
+                    <span className="text-[var(--text-primary)]">万{(selectedStrategy.cost.commission * 10000).toFixed(1)}</span>
+                  </div>
+                  <div>
+                    <span className="text-[var(--text-muted)]">滑点: </span>
+                    <span className="text-[var(--text-primary)]">{(selectedStrategy.cost.slippage * 100).toFixed(2)}%</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* 参数配置 */}
@@ -623,8 +735,8 @@ export function HistoryBacktestPanel() {
           )}
 
           {/* 运行按钮 */}
-          <button onClick={handleRunBacktest} disabled={isRunning || strategies.length === 0 || stockList.length === 0}
-            className={`w-full py-2.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-2 ${isRunning ? 'bg-[var(--bg-card)] text-[var(--text-secondary)] cursor-not-allowed' : stockList.length === 0 || strategies.length === 0 ? 'bg-[var(--bg-card)] text-[var(--text-muted)] cursor-not-allowed' : 'bg-[var(--accent-blue)]/20 text-[var(--accent-blue)] hover:bg-[var(--accent-blue)]/30 border border-[var(--accent-blue)]/30'}`}>
+          <button onClick={handleRunBacktest} disabled={isRunning || !selectedStrategy || stockList.length === 0}
+            className={`w-full py-2.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-2 ${isRunning ? 'bg-[var(--bg-card)] text-[var(--text-secondary)] cursor-not-allowed' : stockList.length === 0 || !selectedStrategy ? 'bg-[var(--bg-card)] text-[var(--text-muted)] cursor-not-allowed' : 'bg-[var(--accent-blue)]/20 text-[var(--accent-blue)] hover:bg-[var(--accent-blue)]/30 border border-[var(--accent-blue)]/30'}`}>
             {isRunning ? (<><div className="w-3 h-3 border-2 border-[var(--text-muted)] border-t-transparent rounded-full animate-spin" />回测中...</>) : (<><Play className="w-3 h-3" />开始回测 ({stockList.length}只股票)</>)}
           </button>
 

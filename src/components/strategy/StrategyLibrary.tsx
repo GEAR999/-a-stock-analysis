@@ -1,23 +1,27 @@
 'use client';
 
 import { useState } from 'react';
-import { Star, StarOff, Copy, Trash2, Edit, BookOpen, Sparkles, Filter, Search, Download, Upload } from 'lucide-react';
+import { Star, StarOff, Copy, Trash2, Edit, BookOpen, Sparkles, Filter, Search, Download, Upload, Plus, Eye } from 'lucide-react';
 import {
   getAllStrategies, getBuiltinStrategies, getCustomStrategies,
+  getStrategyById,
   toggleFavorite, deleteCustomStrategy,
   exportStrategies, importStrategies,
   type StrategyDefinition, type StrategyCategory,
 } from '@/lib/strategy-library';
 import { StrategyCard } from './StrategyCard';
 import { AIStrategyGenerator } from './AIStrategyGenerator';
+import { StrategyEditor } from './StrategyEditor';
 
 type FilterType = 'all' | StrategyCategory;
+type EditorState = { open: boolean; mode: 'create' | 'edit' | 'view'; strategy?: StrategyDefinition };
 
 export function StrategyLibrary() {
   const [filter, setFilter] = useState<FilterType>('all');
   const [search, setSearch] = useState('');
   const [showGenerator, setShowGenerator] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [editor, setEditor] = useState<EditorState>({ open: false, mode: 'create' });
 
   const allStrategies = getAllStrategies();
 
@@ -73,6 +77,33 @@ export function StrategyLibrary() {
     input.click();
   };
 
+  const handleEdit = (id: string) => {
+    const s = getStrategyById(id);
+    if (s && !s.id.startsWith('builtin_')) {
+      setEditor({ open: true, mode: 'edit', strategy: s });
+    }
+  };
+
+  const handleView = (id: string) => {
+    const s = getStrategyById(id);
+    if (s) {
+      setEditor({ open: true, mode: 'view', strategy: s });
+    }
+  };
+
+  const handleCreate = () => {
+    setEditor({ open: true, mode: 'create' });
+  };
+
+  const handleEditorSave = () => {
+    setEditor({ open: false, mode: 'create' });
+    setRefreshKey(k => k + 1);
+  };
+
+  const handleEditorCancel = () => {
+    setEditor({ open: false, mode: 'create' });
+  };
+
   return (
     <div className="flex flex-col h-full gap-3" key={refreshKey}>
       {/* 标题栏 */}
@@ -82,6 +113,9 @@ export function StrategyLibrary() {
           策略库
         </h3>
         <div className="flex items-center gap-1">
+          <button onClick={handleCreate} className="p-1 text-text-secondary hover:text-accent-blue" title="新建策略">
+            <Plus size={12} />
+          </button>
           <button onClick={handleImport} className="p-1 text-text-secondary hover:text-accent-blue" title="导入策略">
             <Upload size={12} />
           </button>
@@ -143,6 +177,7 @@ export function StrategyLibrary() {
                   key={s.id}
                   strategy={s}
                   onToggleFavorite={handleToggleFavorite}
+                  onView={handleView}
                 />
               ))}
             </div>
@@ -158,6 +193,8 @@ export function StrategyLibrary() {
                   key={s.id}
                   strategy={s}
                   onToggleFavorite={handleToggleFavorite}
+                  onEdit={handleEdit}
+                  onView={handleView}
                   onDelete={handleDelete}
                 />
               ))}
@@ -174,6 +211,8 @@ export function StrategyLibrary() {
                   key={s.id}
                   strategy={s}
                   onToggleFavorite={handleToggleFavorite}
+                  onEdit={handleEdit}
+                  onView={handleView}
                   onDelete={handleDelete}
                 />
               ))}
@@ -188,6 +227,16 @@ export function StrategyLibrary() {
           </div>
         )}
       </div>
+
+      {/* 策略编辑器 */}
+      {editor.open && (
+        <StrategyEditor
+          strategy={editor.strategy}
+          mode={editor.mode}
+          onSave={handleEditorSave}
+          onCancel={handleEditorCancel}
+        />
+      )}
     </div>
   );
 }

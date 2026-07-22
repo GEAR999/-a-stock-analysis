@@ -1,6 +1,6 @@
 'use client';
 
-import { Star, Trash2, Copy, Edit } from 'lucide-react';
+import { Star, Trash2, Copy, Edit, Eye } from 'lucide-react';
 import type { StrategyDefinition } from '@/lib/strategy-library';
 
 interface StrategyCardProps {
@@ -8,6 +8,7 @@ interface StrategyCardProps {
   onToggleFavorite: (id: string) => void;
   onDelete?: (id: string) => void;
   onEdit?: (id: string) => void;
+  onView?: (id: string) => void;
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -22,13 +23,13 @@ const CATEGORY_LABELS: Record<string, string> = {
   ai_generated: 'AI',
 };
 
-export function StrategyCard({ strategy, onToggleFavorite, onDelete, onEdit }: StrategyCardProps) {
+export function StrategyCard({ strategy, onToggleFavorite, onDelete, onEdit, onView }: StrategyCardProps) {
   const isBuiltin = strategy.id.startsWith('builtin_');
 
   return (
     <div className="bg-surface-input border border-border-subtle rounded p-2 hover:border-border-strong transition-colors">
       <div className="flex items-start justify-between gap-2">
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0" onClick={() => onView?.(strategy.id)} role="button" tabIndex={0}>
           <div className="flex items-center gap-1.5 mb-0.5">
             <span className="text-xs font-medium text-text-primary truncate">{strategy.name}</span>
             <span className={`px-1 py-0 rounded text-[8px] ${CATEGORY_COLORS[strategy.category] || 'bg-surface-raised text-text-secondary'}`}>
@@ -65,6 +66,15 @@ export function StrategyCard({ strategy, onToggleFavorite, onDelete, onEdit }: S
           >
             {strategy.isFavorite ? <Star size={11} className="fill-current" /> : <Star size={11} />}
           </button>
+          {isBuiltin && onView && (
+            <button
+              onClick={() => onView(strategy.id)}
+              className="p-1 text-text-secondary hover:text-accent-blue rounded hover:bg-surface-hover"
+              title="查看详情"
+            >
+              <Eye size={11} />
+            </button>
+          )}
           {!isBuiltin && onEdit && (
             <button
               onClick={() => onEdit(strategy.id)}
