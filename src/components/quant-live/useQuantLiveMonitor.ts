@@ -70,14 +70,18 @@ export function useQuantLiveMonitor(accountId: string | null) {
       console.log('[QuantLive] Response status:', res.status);
       const json = await res.json();
       console.log('[QuantLive] Response data:', json);
-      if (!json.data) {
+      
+      // 后端返回 {data: [account]} 或 {data: account}
+      const account = Array.isArray(json.data) ? json.data[0] : json.data;
+      
+      if (!account) {
         console.error('[QuantLive] No data in response:', json);
         addLog(`创建失败：${json.error || '未知错误'}`, 'error');
         return null;
       }
       await loadAccounts();
       addLog(`创建账户：${name}`, 'info');
-      return json.data;
+      return account;
     } catch (err) {
       console.error('[QuantLive] Create account error:', err);
       addLog(`创建账户失败：${err.message}`, 'error');
