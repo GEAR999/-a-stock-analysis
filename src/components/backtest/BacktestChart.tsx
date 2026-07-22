@@ -34,9 +34,34 @@ export function BacktestChart({ klineData, trades, onTradeClick }: BacktestChart
     const buyMarkers: Record<string, unknown>[] = [];
     const sellMarkers: Record<string, unknown>[] = [];
 
+    // 日期标准化函数：将日期统一为 YYYY-MM-DD 格式进行比较
+    const normalizeDate = (dateStr: string): string => {
+      if (!dateStr) return '';
+      // 处理 YYYY-MM-DD 格式
+      const match = dateStr.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+      if (match) {
+        const [, year, month, day] = match;
+        return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+      }
+      // 处理 YYYY/MM/DD 格式
+      const match2 = dateStr.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})/);
+      if (match2) {
+        const [, year, month, day] = match2;
+        return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+      }
+      return dateStr;
+    };
+
+    // 建立日期到索引的映射（使用标准化后的日期）
+    const dateIndexMap = new Map<string, number>();
+    dates.forEach((date, idx) => {
+      dateIndexMap.set(normalizeDate(date), idx);
+    });
+
     for (const trade of trades) {
-      const idx = dates.indexOf(trade.date);
-      if (idx < 0) continue;
+      const normalizedTradeDate = normalizeDate(trade.date);
+      const idx = dateIndexMap.get(normalizedTradeDate);
+      if (idx === undefined) continue;
       const kline = klineData[idx];
       if (trade.type === 'buy') {
         buyMarkers.push({
