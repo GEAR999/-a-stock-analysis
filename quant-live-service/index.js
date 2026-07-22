@@ -12,6 +12,7 @@ const cors = require('cors');
 
 const app = express();
 app.use(cors()); // 允许所有跨域请求
+app.options('*', cors()); // 处理 OPTIONS 预检请求
 app.use(express.json());
 
 const server = http.createServer(app);
