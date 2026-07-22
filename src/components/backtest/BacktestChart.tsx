@@ -56,21 +56,9 @@ export default function BacktestChart({ klineData, trades, title }: BacktestChar
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
   const [hoveredTrade, setHoveredTrade] = useState<BacktestTrade | null>(null);
-  const [clickedTrade, setClickedTrade] = useState<BacktestTrade | null>(null);
 
-  // 当前显示的交易（点击锁定优先，否则显示悬停）
-  const displayTrade = clickedTrade || hoveredTrade;
-
-  // 用 ref 存储事件处理器，避免状态变化触发图表重绘
-  const handlersRef = useRef({
-    onMarkOver: null as ((params: Record<string, unknown>) => void) | null,
-    onMarkOut: null as (() => void) | null,
-    onMarkClick: null as ((params: Record<string, unknown>) => void) | null,
-  });
-
-  // 标记悬停事件处理（仅在未锁定时更新）
+  // 标记悬停事件处理（悬停时更新，离开时不清空）
   const handleMarkOver = useCallback((params: Record<string, unknown>) => {
-    if (clickedTrade) return; // 已锁定时忽略悬停
     try {
       const val = params.value;
       if (typeof val === 'string') {
@@ -80,36 +68,7 @@ export default function BacktestChart({ klineData, trades, title }: BacktestChar
     } catch {
       // ignore parse error
     }
-  }, [clickedTrade]);
-
-  const handleMarkOut = useCallback(() => {
-    if (clickedTrade) return; // 已锁定时忽略离开
-    setHoveredTrade(null);
-  }, [clickedTrade]);
-
-  // 标记点击事件处理（锁定/切换/取消）
-  const handleMarkClick = useCallback((params: Record<string, unknown>) => {
-    try {
-      const val = params.value;
-      if (typeof val === 'string') {
-        const trade: BacktestTrade = JSON.parse(val);
-        // 点击同一标记：取消锁定；点击不同标记：切换锁定
-        setClickedTrade(prev => (prev?.date === trade.date && prev?.type === trade.type) ? null : trade);
-      }
-    } catch {
-      // ignore parse error
-    }
   }, []);
-
-  // 点击图表外部取消锁定
-  const handleChartClickOutside = useCallback(() => {
-    setClickedTrade(null);
-  }, []);
-
-  // 同步 handler 到 ref
-  useEffect(() => {
-    handlersRef.current = { onMarkOver: handleMarkOver, onMarkOut: handleMarkOut, onMarkClick: handleMarkClick };
-  }, [handleMarkOver, handleMarkOut, handleMarkClick]);
 
   useEffect(() => {
     if (!chartRef.current) return;
@@ -311,25 +270,12 @@ export default function BacktestChart({ klineData, trades, title }: BacktestChar
     if (!chartInstance.current) {
       chartInstance.current = echarts.init(chartRef.current);
 
-      // 绑定标记悬停事件（使用 ref，始终指向最新 handler）
+      // 绑定标记悬停事件（悬停更新，离开不清空）
       chartInstance.current.on('mouseover', { seriesIndex: 0 }, (params: Record<string, unknown>) => {
         if (params.componentType === 'markPoint') {
-          handlersRef.current.onMarkOver?.(params);
+          handleMarkOver(params);
         }
       });
-      chartInstance.current.on('mouseout', { seriesIndex: 0 }, (params: Record<string, unknown>) => {
-        if (params.componentType === 'markPoint') {
-          handlersRef.current.onMarkOut?.();
-        }
-      });
-
-      // 使用 chart.on('click') 检测 markPoint 点击，不干扰 dataZoom
-      const handleChartClick = (params: Record<string, unknown>) => {
-        if (params.componentType === 'markPoint' && params.data) {
-          handlersRef.current.onMarkClick?.(params as Record<string, unknown>);
-        }
-      };
-      chartInstance.current.on('click', { seriesIndex: 0 }, handleChartClick);
     } else {
       // 数据更新时先清空，避免 dataZoom 状态残留
       chartInstance.current.clear();
@@ -345,12 +291,12 @@ export default function BacktestChart({ klineData, trades, title }: BacktestChar
     };
   }, [klineData, trades]);
 
-  const strategyName = displayTrade ? (STRATEGY_LABELS[displayTrade.strategy] || displayTrade.strategy) : '';
+  const strategyName = hoveredTrade ? (STRATEGY_LABELS[hoveredTrade.strategy] || hoveredTrade.strategy) : '';
 
   return (
-    <div onClick={handleChartClickOutside}>
+    <div>
       {/* K线图区域 */}
-      <div className="relative" onClick={(e) => e.stopPropagation()}>
+      <div className="relative">
         <div ref={chartRef} style={{ width: '100%', height: 400 }} />
 
         {/* 图例 */}
@@ -369,14 +315,6 @@ export default function BacktestChart({ klineData, trades, title }: BacktestChar
             {title}
           </div>
         )}
-
-        {/* 锁定提示 */}
-        {clickedTrade && (
-          <div className="absolute top-2 right-20 text-[10px] text-[var(--text-muted)] flex items-center gap-1">
-            <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--accent)]" />
-            已锁定 · 点击标记切换 · 点击外部取消
-          </div>
-        )}
       </div>
 
       {/* 交易依据文本栏 */}
@@ -384,53 +322,50 @@ export default function BacktestChart({ klineData, trades, title }: BacktestChar
         className="mt-1 border border-[var(--border)] rounded bg-[var(--bg-panel)] overflow-auto select-text"
         style={{ height: 140 }}
       >
-        {displayTrade ? (
+        {hoveredTrade ? (
           <div className="p-3 space-y-2">
             {/* 第一行：方向 + 日期 + 策略 */}
             <div className="flex items-center gap-3">
               <span
                 className="text-sm font-bold px-2 py-0.5 rounded"
                 style={{
-                  color: displayTrade.type === 'buy' ? '#ef4444' : '#22c55e',
-                  backgroundColor: displayTrade.type === 'buy' ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.1)',
+                  color: hoveredTrade.type === 'buy' ? '#ef4444' : '#22c55e',
+                  backgroundColor: hoveredTrade.type === 'buy' ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.1)',
                 }}
               >
-                {displayTrade.type === 'buy' ? '▲ 买入' : '▼ 卖出'}
+                {hoveredTrade.type === 'buy' ? '▲ 买入' : '▼ 卖出'}
               </span>
-              <span className="text-xs text-[var(--text-muted)]">{displayTrade.date}</span>
+              <span className="text-xs text-[var(--text-muted)]">{hoveredTrade.date}</span>
               <span className="text-xs text-[var(--text-secondary)] bg-[var(--bg-page)] px-1.5 py-0.5 rounded">
                 {strategyName}
               </span>
-              {clickedTrade && (
-                <span className="text-[10px] text-[var(--accent)] ml-auto"> 已锁定</span>
-              )}
             </div>
 
             {/* 第二行：交易数据 */}
             <div className="flex gap-4 text-xs">
               <span className="text-[var(--text-muted)]">
-                价格 <span className="text-[var(--text-primary)] font-mono-num">¥{displayTrade.price.toFixed(2)}</span>
+                价格 <span className="text-[var(--text-primary)] font-mono-num">¥{hoveredTrade.price.toFixed(2)}</span>
               </span>
               <span className="text-[var(--text-muted)]">
-                数量 <span className="text-[var(--text-primary)] font-mono-num">{displayTrade.shares}股</span>
+                数量 <span className="text-[var(--text-primary)] font-mono-num">{hoveredTrade.shares}股</span>
               </span>
               <span className="text-[var(--text-muted)]">
-                金额 <span className="text-[var(--text-primary)] font-mono-num">¥{displayTrade.amount.toFixed(0)}</span>
+                金额 <span className="text-[var(--text-primary)] font-mono-num">¥{hoveredTrade.amount.toFixed(0)}</span>
               </span>
             </div>
 
             {/* 依据描述 */}
-            {displayTrade.reasoning?.description && (
+            {hoveredTrade.reasoning?.description && (
               <div className="border-t border-[var(--border-subtle)] pt-2">
                 <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider mb-1">交易依据</div>
                 <div className="text-xs text-[var(--text-secondary)] leading-relaxed whitespace-pre-wrap">
-                  {displayTrade.reasoning.description}
+                  {hoveredTrade.reasoning.description}
                 </div>
               </div>
             )}
 
             {/* 无依据 */}
-            {!displayTrade.reasoning?.description && (
+            {!hoveredTrade.reasoning?.description && (
               <div className="border-t border-[var(--border-subtle)] pt-2">
                 <div className="text-xs text-[var(--text-muted)]">暂无详细交易依据</div>
               </div>
@@ -438,7 +373,7 @@ export default function BacktestChart({ klineData, trades, title }: BacktestChar
           </div>
         ) : (
           <div className="flex items-center justify-center h-full text-xs text-[var(--text-muted)]">
-            将鼠标悬停在 K 线图的买卖点标记上查看交易依据 · 点击标记可锁定
+            将鼠标悬停在 K 线图的买卖点标记上查看交易依据
           </div>
         )}
       </div>
