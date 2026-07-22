@@ -138,8 +138,8 @@ export default function BacktestChart({ klineData, trades, title }: BacktestChar
         borderColor: '#334155',
         textStyle: { color: '#e2e8f0', fontSize: 12 },
         formatter: (params: unknown) => {
-          const p = params as Array<{ data?: number[]; axisValue?: string }>;
-          const k = p[0];
+          const arr = (Array.isArray(params) ? params : [params]) as Array<{ data?: number[]; axisValue?: string }>;
+          const k = arr[0];
           if (!k || !k.data) return '';
           const [open, close, low, high] = k.data;
           const date = k.axisValue || '';
