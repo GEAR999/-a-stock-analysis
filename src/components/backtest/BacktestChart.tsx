@@ -1,10 +1,10 @@
 /**
  * BacktestChart - K线图 + 买卖点标注
- * 悬停标记直接显示买卖依据，简洁可读
+ * 悬停标记时，下方文本栏展示交易依据
  */
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as echarts from 'echarts';
 import type { KLineData } from '@/lib/types';
 import type { StrategyType } from '@/lib/backtest-engine';
@@ -50,38 +50,29 @@ const STRATEGY_LABELS: Record<string, string> = {
   composite_sell: '综合卖出',
 };
 
-// ============ 构建悬停依据（简洁可读） ============
-
-function buildHoverReasoning(trade: BacktestTrade): string {
-  const direction = trade.type === 'buy' ? '买入' : '卖出';
-  const color = trade.type === 'buy' ? '#ef4444' : '#22c55e';
-  const strategyName = STRATEGY_LABELS[trade.strategy] || trade.strategy;
-  
-  // 头部：方向 + 日期 + 策略
-  let html = `<div style="margin-bottom:6px">`;
-  html += `<span style="font-size:14px;font-weight:700;color:${color}">${direction}</span>`;
-  html += `<span style="font-size:12px;color:#94a3b8;margin-left:8px">${trade.date}</span>`;
-  html += `</div>`;
-  
-  html += `<div style="font-size:12px;color:#e2e8f0;margin-bottom:4px">策略：${strategyName}</div>`;
-  html += `<div style="font-size:12px;color:#e2e8f0;margin-bottom:4px">价格：¥${trade.price.toFixed(2)} × ${trade.shares}股</div>`;
-  
-  // 核心依据：只展示 reasoning.description
-  if (trade.reasoning?.description) {
-    html += `<div style="margin-top:8px;padding-top:8px;border-top:1px solid #334155">`;
-    html += `<div style="font-size:11px;color:#94a3b8;margin-bottom:4px">交易依据</div>`;
-    html += `<div style="font-size:12px;color:#cbd5e1;line-height:1.6;white-space:pre-wrap">${trade.reasoning.description}</div>`;
-    html += `</div>`;
-  }
-  
-  return html;
-}
-
 // ============ 主组件 ============
 
 export default function BacktestChart({ klineData, trades, title }: BacktestChartProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
+  const [hoveredTrade, setHoveredTrade] = useState<BacktestTrade | null>(null);
+
+  // 标记悬停事件处理
+  const handleMarkOver = useCallback((params: Record<string, unknown>) => {
+    try {
+      const val = params.value;
+      if (typeof val === 'string') {
+        const trade: BacktestTrade = JSON.parse(val);
+        setHoveredTrade(trade);
+      }
+    } catch {
+      // ignore parse error
+    }
+  }, []);
+
+  const handleMarkOut = useCallback(() => {
+    setHoveredTrade(null);
+  }, []);
 
   useEffect(() => {
     if (!chartRef.current) return;
@@ -92,7 +83,7 @@ export default function BacktestChart({ klineData, trades, title }: BacktestChar
     const ohlc = sortedData.map(d => [d.open, d.close, d.low, d.high]);
     const volumes = sortedData.map(d => d.volume);
 
-    // 建立日期到索引的映射（使用标准化日期）
+    // 建立日期到索引的映射
     const dateIndexMap = new Map<string, number>();
     dates.forEach((date, idx) => {
       const normalized = date.replace(/\//g, '-');
@@ -101,8 +92,7 @@ export default function BacktestChart({ klineData, trades, title }: BacktestChar
     });
 
     // 生成买卖点标记
-    const buyMarkers: any[] = [];
-    const sellMarkers: any[] = [];
+    const markers: Array<Record<string, unknown>> = [];
 
     for (const trade of trades) {
       const normalizedDate = trade.date.replace(/\//g, '-');
@@ -113,7 +103,7 @@ export default function BacktestChart({ klineData, trades, title }: BacktestChar
       const markerDate = dates[idx];
 
       if (trade.type === 'buy') {
-        buyMarkers.push({
+        markers.push({
           name: '买入',
           coord: [markerDate, kline.low * 0.95],
           value: JSON.stringify(trade),
@@ -126,7 +116,7 @@ export default function BacktestChart({ klineData, trades, title }: BacktestChar
           },
         });
       } else {
-        sellMarkers.push({
+        markers.push({
           name: '卖出',
           coord: [markerDate, kline.high * 1.05],
           value: JSON.stringify(trade),
@@ -142,7 +132,7 @@ export default function BacktestChart({ klineData, trades, title }: BacktestChar
       }
     }
 
-    const option: echarts.EChartsOption = {
+    const option = {
       animation: false,
       backgroundColor: 'transparent',
       tooltip: {
@@ -151,41 +141,37 @@ export default function BacktestChart({ klineData, trades, title }: BacktestChar
         backgroundColor: 'rgba(15, 23, 42, 0.95)',
         borderColor: '#334155',
         textStyle: { color: '#e2e8f0', fontSize: 12 },
-        formatter: (params: any) => {
-          const k = params[0];
+        formatter: (params: unknown) => {
+          const p = params as Array<{ data?: number[]; axisValue?: string }>;
+          const k = p[0];
           if (!k || !k.data) return '';
           const [open, close, low, high] = k.data;
-          const date = k.axisValue;
+          const date = k.axisValue || '';
           const change = close - open;
           const changePct = ((change / open) * 100).toFixed(2);
           const color = change >= 0 ? '#ef4444' : '#22c55e';
-          
-          // 查找当天的交易
+
+          // 查找当天的交易（仅显示简短提示）
           const dayTrades = trades.filter(t => {
-            const normalizedTradeDate = t.date.replace(/\//g, '-');
-            return normalizedTradeDate === date || t.date === date;
+            const nd = t.date.replace(/\//g, '-');
+            return nd === date || t.date === date;
           });
-          
-          let tradeInfo = '';
+
+          let tradeHint = '';
           if (dayTrades.length > 0) {
             for (const trade of dayTrades) {
               const dir = trade.type === 'buy' ? '买入' : '卖出';
               const tColor = trade.type === 'buy' ? '#ef4444' : '#22c55e';
-              const strategyName = STRATEGY_LABELS[trade.strategy] || trade.strategy;
-              tradeInfo += `<div style="margin-top:4px;padding-top:4px;border-top:1px solid #334155">
-                <span style="color:${tColor};font-weight:600">${dir}</span> 
-                <span style="color:#94a3b8">${strategyName}</span>
-                <span style="color:#e2e8f0;margin-left:8px">¥${trade.price.toFixed(2)} × ${trade.shares}股</span>
-              </div>`;
+              tradeHint += `<div style="margin-top:3px;color:${tColor};font-size:11px">${dir} ${trade.shares}股 @ ¥${trade.price.toFixed(2)}<span style="color:#64748b;margin-left:4px">↓ 见下方依据</span></div>`;
             }
           }
-          
+
           return `
             <div style="font-weight:600;margin-bottom:4px">${date}</div>
             <div>开: <span style="color:${color}">${open.toFixed(2)}</span> 高: <span style="color:${color}">${high.toFixed(2)}</span></div>
             <div>低: <span style="color:${color}">${low.toFixed(2)}</span> 收: <span style="color:${color}">${close.toFixed(2)}</span></div>
             <div>涨跌: <span style="color:${color}">${change >= 0 ? '+' : ''}${change.toFixed(2)} (${change >= 0 ? '+' : ''}${changePct}%)</span></div>
-            ${tradeInfo}
+            ${tradeHint}
           `;
         },
       },
@@ -242,18 +228,8 @@ export default function BacktestChart({ klineData, trades, title }: BacktestChar
           },
           markPoint: {
             symbol: 'triangle',
-            data: [...buyMarkers, ...sellMarkers],
-            tooltip: {
-              extraCssText: 'max-width:320px;white-space:normal;line-height:1.6;',
-              formatter: (params: any) => {
-                try {
-                  const trade: BacktestTrade = JSON.parse(params.value);
-                  return buildHoverReasoning(trade);
-                } catch {
-                  return params.name || '';
-                }
-              },
-            },
+            data: markers,
+            tooltip: { formatter: () => '' },
           },
         },
         {
@@ -273,6 +249,18 @@ export default function BacktestChart({ klineData, trades, title }: BacktestChar
 
     if (!chartInstance.current) {
       chartInstance.current = echarts.init(chartRef.current);
+
+      // 绑定标记悬停事件
+      chartInstance.current.on('mouseover', { seriesIndex: 0 }, (params: Record<string, unknown>) => {
+        if (params.componentType === 'markPoint') {
+          handleMarkOver(params);
+        }
+      });
+      chartInstance.current.on('mouseout', { seriesIndex: 0 }, (params: Record<string, unknown>) => {
+        if (params.componentType === 'markPoint') {
+          handleMarkOut();
+        }
+      });
     }
 
     chartInstance.current.setOption(option, true);
@@ -283,28 +271,94 @@ export default function BacktestChart({ klineData, trades, title }: BacktestChar
     return () => {
       window.removeEventListener('resize', handleResize);
     };
-  }, [klineData, trades]);
+  }, [klineData, trades, handleMarkOver, handleMarkOut]);
+
+  const strategyName = hoveredTrade ? (STRATEGY_LABELS[hoveredTrade.strategy] || hoveredTrade.strategy) : '';
 
   return (
-    <div className="relative">
-      <div ref={chartRef} style={{ width: '100%', height: 400 }} />
-      
-      {/* 图例 */}
-      <div className="absolute top-2 right-2 flex gap-3 text-[10px] text-[var(--text-muted)]">
-        <span className="flex items-center gap-0.5">
-          <span className="inline-block w-2 h-2 bg-up rounded-full" />买入
-        </span>
-        <span className="flex items-center gap-0.5">
-          <span className="inline-block w-2 h-2 bg-down rounded-full" />卖出
-        </span>
+    <div>
+      {/* K线图区域 */}
+      <div className="relative">
+        <div ref={chartRef} style={{ width: '100%', height: 400 }} />
+
+        {/* 图例 */}
+        <div className="absolute top-2 right-2 flex gap-3 text-[10px] text-[var(--text-muted)]">
+          <span className="flex items-center gap-0.5">
+            <span className="inline-block w-2 h-2 bg-up rounded-full" />买入
+          </span>
+          <span className="flex items-center gap-0.5">
+            <span className="inline-block w-2 h-2 bg-down rounded-full" />卖出
+          </span>
+        </div>
+
+        {/* 标题 */}
+        {title && (
+          <div className="absolute top-2 left-2 text-xs font-medium text-[var(--text-primary)]">
+            {title}
+          </div>
+        )}
       </div>
 
-      {/* 标题 */}
-      {title && (
-        <div className="absolute top-2 left-2 text-xs font-medium text-[var(--text-primary)]">
-          {title}
-        </div>
-      )}
+      {/* 交易依据文本栏 */}
+      <div
+        className="mt-1 border border-[var(--border)] rounded bg-[var(--bg-panel)] overflow-auto"
+        style={{ height: 140 }}
+      >
+        {hoveredTrade ? (
+          <div className="p-3 space-y-2">
+            {/* 第一行：方向 + 日期 + 策略 */}
+            <div className="flex items-center gap-3">
+              <span
+                className="text-sm font-bold px-2 py-0.5 rounded"
+                style={{
+                  color: hoveredTrade.type === 'buy' ? '#ef4444' : '#22c55e',
+                  backgroundColor: hoveredTrade.type === 'buy' ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.1)',
+                }}
+              >
+                {hoveredTrade.type === 'buy' ? '▲ 买入' : '▼ 卖出'}
+              </span>
+              <span className="text-xs text-[var(--text-muted)]">{hoveredTrade.date}</span>
+              <span className="text-xs text-[var(--text-secondary)] bg-[var(--bg-page)] px-1.5 py-0.5 rounded">
+                {strategyName}
+              </span>
+            </div>
+
+            {/* 第二行：交易数据 */}
+            <div className="flex gap-4 text-xs">
+              <span className="text-[var(--text-muted)]">
+                价格 <span className="text-[var(--text-primary)] font-mono-num">¥{hoveredTrade.price.toFixed(2)}</span>
+              </span>
+              <span className="text-[var(--text-muted)]">
+                数量 <span className="text-[var(--text-primary)] font-mono-num">{hoveredTrade.shares}股</span>
+              </span>
+              <span className="text-[var(--text-muted)]">
+                金额 <span className="text-[var(--text-primary)] font-mono-num">¥{hoveredTrade.amount.toFixed(0)}</span>
+              </span>
+            </div>
+
+            {/* 依据描述 */}
+            {hoveredTrade.reasoning?.description && (
+              <div className="border-t border-[var(--border-subtle)] pt-2">
+                <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider mb-1">交易依据</div>
+                <div className="text-xs text-[var(--text-secondary)] leading-relaxed whitespace-pre-wrap">
+                  {hoveredTrade.reasoning.description}
+                </div>
+              </div>
+            )}
+
+            {/* 无依据 */}
+            {!hoveredTrade.reasoning?.description && (
+              <div className="border-t border-[var(--border-subtle)] pt-2">
+                <div className="text-xs text-[var(--text-muted)]">暂无详细交易依据</div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center justify-center h-full text-xs text-[var(--text-muted)]">
+            将鼠标悬停在 K 线图的买卖点标记上查看交易依据
+          </div>
+        )}
+      </div>
     </div>
   );
 }
