@@ -40,9 +40,9 @@ function AccordionSection({
 
   return (
     <div className="border border-[var(--border-default)] rounded overflow-hidden">
-      <button
+      <div
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-3 py-2 bg-[var(--bg-panel)] flex items-center justify-between hover:bg-[var(--bg-primary)] transition-colors"
+        className="w-full px-3 py-2 bg-[var(--bg-panel)] flex items-center justify-between hover:bg-[var(--bg-primary)] transition-colors cursor-pointer"
       >
         <div className="flex items-center gap-2">
           {icon && <span>{icon}</span>}
@@ -62,7 +62,7 @@ function AccordionSection({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
           </svg>
         </div>
-      </button>
+      </div>
       {isOpen && (
         <div className="bg-[var(--bg-primary)] max-h-[60vh] overflow-y-auto">
           {children}

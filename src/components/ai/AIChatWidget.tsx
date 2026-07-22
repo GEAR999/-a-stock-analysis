@@ -149,8 +149,14 @@ export default function AIChatWidget() {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'AI服务请求失败');
+        let errorMsg = 'AI服务请求失败';
+        try {
+          const error = await response.json();
+          errorMsg = error.error || errorMsg;
+        } catch {
+          // 响应体可能已被读取或非 JSON 格式
+        }
+        throw new Error(errorMsg);
       }
 
       const reader = response.body?.getReader();
