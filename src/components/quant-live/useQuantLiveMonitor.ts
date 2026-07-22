@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import type { QuantLiveAccount, QuantLiveTrade, QuantLivePosition, WSMessage, MonitorStatus } from './types';
 
 const WS_URL = 'ws://47.122.115.203:8889';
-const API_BASE = 'http://47.122.115.203:8889';
+const API_BASE = '/api/quant-live'; // 通过 Next.js 代理
 
 export function useQuantLiveMonitor(accountId: string | null) {
   const wsRef = useRef<WebSocket | null>(null);
@@ -26,7 +26,7 @@ export function useQuantLiveMonitor(accountId: string | null) {
   // 加载账户列表
   const loadAccounts = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/accounts`);
+      const res = await fetch(`${API_BASE}?path=/api/accounts`);
       const json = await res.json();
       setAccounts(json.data || []);
     } catch (err) {
@@ -38,7 +38,7 @@ export function useQuantLiveMonitor(accountId: string | null) {
   const loadTrades = useCallback(async () => {
     if (!accountId) return;
     try {
-      const res = await fetch(`${API_BASE}/api/accounts/${accountId}/trades`);
+      const res = await fetch(`${API_BASE}?path=/api/accounts/${accountId}/trades`);
       const json = await res.json();
       setTrades(json.data || []);
     } catch (err) {
@@ -50,7 +50,7 @@ export function useQuantLiveMonitor(accountId: string | null) {
   const loadPositions = useCallback(async () => {
     if (!accountId) return;
     try {
-      const res = await fetch(`${API_BASE}/api/accounts/${accountId}/positions`);
+      const res = await fetch(`${API_BASE}?path=/api/accounts/${accountId}/positions`);
       const json = await res.json();
       setPositions(json.data || []);
     } catch (err) {
@@ -62,7 +62,7 @@ export function useQuantLiveMonitor(accountId: string | null) {
   const createAccount = useCallback(async (name: string, stockCode: string, stockName: string, initialCapital: number) => {
     try {
       console.log('[QuantLive] Creating account:', { name, stockCode, stockName, initialCapital });
-      const res = await fetch(`${API_BASE}/api/accounts`, {
+      const res = await fetch(`${API_BASE}?path=/api/accounts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, stock_code: stockCode, stock_name: stockName, initial_capital: initialCapital })
@@ -88,7 +88,7 @@ export function useQuantLiveMonitor(accountId: string | null) {
   // 切换账户状态
   const toggleAccountStatus = useCallback(async (id: string, newStatus: 'active' | 'paused') => {
     try {
-      await fetch(`${API_BASE}/api/accounts/${id}`, {
+      await fetch(`${API_BASE}?path=/api/accounts/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })
@@ -105,7 +105,7 @@ export function useQuantLiveMonitor(accountId: string | null) {
     if (!accountId) return;
     addLog('手动触发检查...', 'info');
     try {
-      const res = await fetch(`${API_BASE}/api/accounts/${accountId}/run`, { method: 'POST' });
+      const res = await fetch(`${API_BASE}?path=/api/accounts/${accountId}/run`, { method: 'POST' });
       const data = await res.json();
       if (data.trades && data.trades.length > 0) {
         addLog(`执行 ${data.trades.length} 笔交易`, 'trade');
