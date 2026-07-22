@@ -9,6 +9,7 @@ import { QuoteHeader } from '@/components/chart/QuoteHeader';
 import { AIAssistant } from '@/components/ai/AIAssistant';
 import { BacktestPanel } from '@/components/backtest/BacktestPanel';
 import { HistoryBacktestPanel } from '@/components/backtest/HistoryBacktestPanel';
+import { QuantLivePanel } from '@/components/quant-live/QuantLivePanel';
 import { LearningCenter } from '@/components/learning/LearningCenter';
 import { AuthGate } from '@/components/AuthGate';
 import ThemeSwitcher from '@/components/ui/ThemeSwitcher';
@@ -19,7 +20,7 @@ import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import AIChatWidget from '@/components/ai/AIChatWidget';
 import { SyncStatusIndicator } from '@/components/SyncStatusIndicator';
 
-type MainTab = 'analysis' | 'backtest' | 'history-backtest' | 'learning';
+type MainTab = 'analysis' | 'backtest' | 'history-backtest' | 'quant-live' | 'learning';
 
 export default function Home() {
   const [mainTab, setMainTab] = useState<MainTab>('analysis');
@@ -128,6 +129,16 @@ export default function Home() {
               历史回测
             </button>
             <button
+              onClick={() => setMainTab('quant-live')}
+              className={`px-4 py-2 text-xs transition-colors ${
+                mainTab === 'quant-live'
+                  ? 'text-[var(--accent-blue)] border-b-2 border-blue-400 bg-blue-400/5'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+              }`}
+            >
+              量化实时
+            </button>
+            <button
               onClick={() => setMainTab('learning')}
               className={`px-4 py-2 text-xs transition-colors ${
                 mainTab === 'learning'
@@ -178,6 +189,12 @@ export default function Home() {
             <div className="flex-1 overflow-hidden">
               <ErrorBoundary moduleName="历史回测">
                 <HistoryBacktestPanel />
+              </ErrorBoundary>
+            </div>
+          ) : mainTab === 'quant-live' ? (
+            <div className="flex-1 overflow-hidden">
+              <ErrorBoundary moduleName="量化实时">
+                <QuantLivePanel />
               </ErrorBoundary>
             </div>
           ) : (

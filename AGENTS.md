@@ -17,7 +17,11 @@ src/
 │   ├── layout.tsx             # 根布局 (dark mode)
 │   ├── page.tsx               # 主页面 (三栏布局)
 │   └── globals.css            # 全局样式 + 交易终端主题
-├── components/
+── components/
+│   ├── quant-live/
+│   │   ├── types.ts                 # 量化实时账户类型定义
+│   │   ├── useQuantLiveMonitor.ts   # WebSocket 监控 Hook
+│   │   └── QuantLivePanel.tsx       # 量化实时账户主面板
 │   ├── SentimentTooltip.tsx   # 情绪指标Tooltip组件 (hover显示计算过程)
 │   ├── SyncStatusIndicator.tsx # 云端同步状态指示器 (顶部工具栏)
 │   ├── ai/
@@ -97,6 +101,17 @@ src/
         └── sentiment-panel.ts   # 综合评估模块
 ```
 
+## 量化实时服务（阿里云服务器 47.122.115.203:8889）
+```
+quant-live-service/
+├── index.js          ← 主服务（WebSocket + HTTP API）
+├── cron.js           ← 定时任务逻辑
+├── db.js             ← Neon 数据库连接
+├── mootdx.js         ← mootdx 数据获取
+├── signals.js        ← 信号检测
+└── .env              ← 环境变量
+```
+
 ## API 接口
 - `GET /api/stock?action=search&keyword={code}` - 搜索股票
 - `GET /api/stock?action=quote&code={code}` - 实时行情
@@ -122,6 +137,18 @@ src/
 - `GET/POST/DELETE /api/analysis-cache` - 分析结果缓存
 - `POST /api/ai/chat` - DeepSeek AI 对话（流式输出）
 - `GET/POST /api/learning/progress` - 学习进度管理
+
+### 量化实时账户 API（阿里云服务器 8889 端口）
+- `GET /api/accounts` - 账户列表
+- `POST /api/accounts` - 创建账户
+- `GET /api/accounts/:id` - 账户详情
+- `PUT /api/accounts/:id` - 更新账户（名称/状态）
+- `DELETE /api/accounts/:id` - 删除账户
+- `GET /api/accounts/:id/trades` - 交易记录
+- `GET /api/accounts/:id/positions` - 当前持仓
+- `POST /api/accounts/:id/run` - 手动触发一次检查
+- `GET /api/accounts/:id/snapshots` - 策略快照历史
+- `GET /api/accounts/:id/daily` - 每日账户快照（资金曲线）
 
 K线周期: daily/weekly/monthly/60min/30min/15min/5min
 
