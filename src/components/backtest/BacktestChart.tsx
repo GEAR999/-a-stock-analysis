@@ -61,6 +61,13 @@ export default function BacktestChart({ klineData, trades, title }: BacktestChar
   // 当前显示的交易（点击锁定优先，否则显示悬停）
   const displayTrade = clickedTrade || hoveredTrade;
 
+  // 用 ref 存储事件处理器，避免状态变化触发图表重绘
+  const handlersRef = useRef({
+    onMarkOver: null as ((params: Record<string, unknown>) => void) | null,
+    onMarkOut: null as (() => void) | null,
+    onMarkClick: null as ((params: Record<string, unknown>) => void) | null,
+  });
+
   // 标记悬停事件处理（仅在未锁定时更新）
   const handleMarkOver = useCallback((params: Record<string, unknown>) => {
     if (clickedTrade) return; // 已锁定时忽略悬停
@@ -98,6 +105,11 @@ export default function BacktestChart({ klineData, trades, title }: BacktestChar
   const handleChartClickOutside = useCallback(() => {
     setClickedTrade(null);
   }, []);
+
+  // 同步 handler 到 ref
+  useEffect(() => {
+    handlersRef.current = { onMarkOver: handleMarkOver, onMarkOut: handleMarkOut, onMarkClick: handleMarkClick };
+  }, [handleMarkOver, handleMarkOut, handleMarkClick]);
 
   useEffect(() => {
     if (!chartRef.current) return;
@@ -299,21 +311,33 @@ export default function BacktestChart({ klineData, trades, title }: BacktestChar
     if (!chartInstance.current) {
       chartInstance.current = echarts.init(chartRef.current);
 
-      // 绑定标记悬停事件
+      // 绑定标记悬停事件（使用 ref，始终指向最新 handler）
       chartInstance.current.on('mouseover', { seriesIndex: 0 }, (params: Record<string, unknown>) => {
         if (params.componentType === 'markPoint') {
-          handleMarkOver(params);
+          handlersRef.current.onMarkOver?.(params);
         }
       });
       chartInstance.current.on('mouseout', { seriesIndex: 0 }, (params: Record<string, unknown>) => {
         if (params.componentType === 'markPoint') {
-          handleMarkOut();
+          handlersRef.current.onMarkOut?.();
         }
       });
-      // 绑定标记点击事件
-      chartInstance.current.on('click', { seriesIndex: 0 }, (params: Record<string, unknown>) => {
-        if (params.componentType === 'markPoint') {
-          handleMarkClick(params);
+
+      // 使用 zr:click 在 ZRender 层检测点击，不干扰 dataZoom
+      const zr = chartInstance.current.getZr();
+      zr.on('click', (e: Record<string, unknown>) => {
+        const point = [e.offsetX as number, e.offsetY as number];
+        for (const trade of trades) {
+          const normalizedDate = trade.date.replace(/\//g, '-');
+          const idx = dateIndexMap.get(normalizedDate) ?? dateIndexMap.get(trade.date);
+          if (idx === undefined) continue;
+          const kline = sortedData[idx];
+          const markerDate = dates[idx];
+          const coord = chartInstance.current?.convertToPixel({ seriesIndex: 0 } as any, [markerDate, trade.type === 'buy' ? kline.low * 0.95 : kline.high * 1.05]);
+          if (coord && Math.abs(coord[0] - point[0]) < 15 && Math.abs(coord[1] - point[1]) < 15) {
+            handlersRef.current.onMarkClick?.({ value: JSON.stringify(trade) } as Record<string, unknown>);
+            return;
+          }
         }
       });
     } else {
@@ -329,7 +353,7 @@ export default function BacktestChart({ klineData, trades, title }: BacktestChar
     return () => {
       window.removeEventListener('resize', handleResize);
     };
-  }, [klineData, trades, handleMarkOver, handleMarkOut, handleMarkClick]);
+  }, [klineData, trades]);
 
   const strategyName = displayTrade ? (STRATEGY_LABELS[displayTrade.strategy] || displayTrade.strategy) : '';
 
