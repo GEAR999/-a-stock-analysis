@@ -175,6 +175,29 @@ export default function BacktestChart({ klineData, trades, title }: BacktestChar
           `;
         },
       },
+      // 缩放和拖拽配置
+      dataZoom: [
+        {
+          type: 'inside',
+          xAxisIndex: [0, 1],
+          start: 0,
+          end: 100,
+          zoomOnMouseWheel: true,
+          moveOnMouseMove: true,
+        },
+        {
+          type: 'slider',
+          xAxisIndex: [0, 1],
+          start: 0,
+          end: 100,
+          bottom: 10,
+          height: 20,
+          borderColor: '#334155',
+          fillerColor: 'rgba(59, 130, 246, 0.2)',
+          handleStyle: { color: '#3b82f6', borderColor: '#60a5fa' },
+          textStyle: { color: '#94a3b8', fontSize: 10 },
+        },
+      ],
       grid: [
         { left: 60, right: 20, top: 30, height: '55%' },
         { left: 60, right: 20, top: '72%', height: '18%' },
