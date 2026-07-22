@@ -63,10 +63,12 @@ export function BacktestChart({ klineData, trades, onTradeClick }: BacktestChart
       const idx = dateIndexMap.get(normalizedTradeDate);
       if (idx === undefined) continue;
       const kline = klineData[idx];
+      // 使用 dates[idx] 确保标记的 x 轴值与 x 轴数据完全一致
+      const markerDate = dates[idx];
       if (trade.type === 'buy') {
         buyMarkers.push({
           name: '买入',
-          value: [trade.date, kline.low * 0.98],
+          value: [markerDate, kline.low * 0.98],
           symbol: 'triangle',
           symbolSize: 12,
           itemStyle: { color: '#ef4444' },
@@ -74,7 +76,7 @@ export function BacktestChart({ klineData, trades, onTradeClick }: BacktestChart
       } else {
         sellMarkers.push({
           name: '卖出',
-          value: [trade.date, kline.high * 1.02],
+          value: [markerDate, kline.high * 1.02],
           symbol: 'pin',
           symbolSize: 14,
           symbolRotate: 180,
