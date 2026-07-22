@@ -842,10 +842,6 @@ export function HistoryBacktestPanel() {
                           <BacktestChart
                             klineData={stockKline}
                             trades={result.trades.map(t => ({ date: t.date, type: t.direction, price: t.price, shares: t.quantity, amount: t.amount, commission: t.commission, strategy: t.strategy, reasoning: t.reasoning }))}
-                            onTradeClick={(idx: number) => {
-                              const trade = result.trades[idx];
-                              if (trade) setSelectedTrade(trade);
-                            }}
                           />
                         </div>
                       )}

@@ -525,7 +525,6 @@ export function IndependentBacktest() {
             <BacktestChart
               klineData={stocks.find(s => s.code === item.stockCode)?.klineData || []}
               trades={item.result.trades}
-              onTradeClick={(tradeIdx: number) => setSelectedTrade({ item, tradeIdx })}
             />
 
             {/* 交易记录 */}
