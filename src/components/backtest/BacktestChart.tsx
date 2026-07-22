@@ -228,6 +228,7 @@ export default function BacktestChart({ klineData, trades, title }: BacktestChar
           },
           markPoint: {
             symbol: 'triangle',
+            label: { show: false },
             data: markers,
             tooltip: { formatter: () => '' },
           },
