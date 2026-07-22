@@ -70,19 +70,27 @@ export function BacktestChart({ klineData, trades, onTradeClick }: BacktestChart
       if (trade.type === 'buy') {
         buyMarkers.push({
           name: '买入',
-          coord: [markerDate, kline.low * 0.98],
+          coord: [markerDate, kline.low * 0.95],
           symbol: 'triangle',
-          symbolSize: 12,
-          itemStyle: { color: '#ef4444' },
+          symbolSize: 16,
+          itemStyle: { 
+            color: '#ef4444',
+            borderColor: '#ffffff',
+            borderWidth: 1.5
+          },
         });
       } else {
         sellMarkers.push({
           name: '卖出',
-          coord: [markerDate, kline.high * 1.02],
+          coord: [markerDate, kline.high * 1.05],
           symbol: 'pin',
-          symbolSize: 14,
+          symbolSize: 18,
           symbolRotate: 180,
-          itemStyle: { color: '#22c55e' },
+          itemStyle: { 
+            color: '#22c55e',
+            borderColor: '#ffffff',
+            borderWidth: 1.5
+          },
         });
       }
     }
