@@ -285,9 +285,12 @@ export default function BacktestChart({ klineData, trades, title }: BacktestChar
           handleMarkOut();
         }
       });
+    } else {
+      // 数据更新时先清空，避免 dataZoom 状态残留
+      chartInstance.current.clear();
     }
 
-    chartInstance.current.setOption(option, true);
+    chartInstance.current.setOption(option);
 
     const handleResize = () => chartInstance.current?.resize();
     window.addEventListener('resize', handleResize);
