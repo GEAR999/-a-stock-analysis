@@ -70,7 +70,7 @@ export function BacktestChart({ klineData, trades, onTradeClick }: BacktestChart
       if (trade.type === 'buy') {
         buyMarkers.push({
           name: '买入',
-          value: [markerDate, kline.low * 0.98],
+          coord: [markerDate, kline.low * 0.98],
           symbol: 'triangle',
           symbolSize: 12,
           itemStyle: { color: '#ef4444' },
@@ -78,7 +78,7 @@ export function BacktestChart({ klineData, trades, onTradeClick }: BacktestChart
       } else {
         sellMarkers.push({
           name: '卖出',
-          value: [markerDate, kline.high * 1.02],
+          coord: [markerDate, kline.high * 1.02],
           symbol: 'pin',
           symbolSize: 14,
           symbolRotate: 180,
