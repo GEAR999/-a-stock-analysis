@@ -176,15 +176,17 @@ export default function BacktestChart({ klineData, trades, title }: BacktestChar
         {
           type: 'inside',
           xAxisIndex: [0, 1],
-          start: 0,
+          start: 70,
           end: 100,
+          minValueSpan: 10,
           zoomOnMouseWheel: true,
           moveOnMouseMove: true,
+          moveOnMouseWheel: false,
         },
         {
           type: 'slider',
           xAxisIndex: [0, 1],
-          start: 0,
+          start: 70,
           end: 100,
           bottom: 10,
           height: 20,
@@ -267,6 +269,20 @@ export default function BacktestChart({ klineData, trades, title }: BacktestChar
       ],
     };
 
+    // 保存当前 dataZoom 状态（避免数据更新时丢失用户缩放位置）
+    let savedZoom: { start: number; end: number } | null = null;
+    if (chartInstance.current) {
+      try {
+        const opt = chartInstance.current.getOption();
+        const dz = opt.dataZoom as Array<{ start: number; end: number }>;
+        if (dz && dz[0]) {
+          savedZoom = { start: dz[0].start, end: dz[0].end };
+        }
+      } catch {
+        // ignore
+      }
+    }
+
     if (!chartInstance.current) {
       chartInstance.current = echarts.init(chartRef.current);
 
@@ -277,21 +293,41 @@ export default function BacktestChart({ klineData, trades, title }: BacktestChar
         }
       });
     } else {
-      // 数据更新时先清空，避免 dataZoom 状态残留
       chartInstance.current.clear();
     }
 
     chartInstance.current.setOption(option);
+
+    // 恢复之前的缩放位置
+    if (savedZoom) {
+      chartInstance.current.dispatchAction({
+        type: 'dataZoom',
+        start: savedZoom.start,
+        end: savedZoom.end,
+      });
+    }
 
     const handleResize = () => chartInstance.current?.resize();
     window.addEventListener('resize', handleResize);
 
     return () => {
       window.removeEventListener('resize', handleResize);
+      chartInstance.current?.dispose();
+      chartInstance.current = null;
     };
   }, [klineData, trades]);
 
   const strategyName = hoveredTrade ? (STRATEGY_LABELS[hoveredTrade.strategy] || hoveredTrade.strategy) : '';
+
+  // 重置视图
+  const handleResetView = useCallback(() => {
+    if (!chartInstance.current) return;
+    chartInstance.current.dispatchAction({
+      type: 'dataZoom',
+      start: 70,
+      end: 100,
+    });
+  }, []);
 
   return (
     <div>
@@ -299,14 +335,21 @@ export default function BacktestChart({ klineData, trades, title }: BacktestChar
       <div className="relative">
         <div ref={chartRef} style={{ width: '100%', height: 400 }} />
 
-        {/* 图例 */}
-        <div className="absolute top-2 right-2 flex gap-3 text-[10px] text-[var(--text-muted)]">
+        {/* 图例 + 重置按钮 */}
+        <div className="absolute top-2 right-2 flex items-center gap-3 text-[10px] text-[var(--text-muted)]">
           <span className="flex items-center gap-0.5">
             <span className="inline-block w-2 h-2 bg-up rounded-full" />买入
           </span>
           <span className="flex items-center gap-0.5">
             <span className="inline-block w-2 h-2 bg-down rounded-full" />卖出
           </span>
+          <button
+            onClick={handleResetView}
+            className="ml-1 px-1.5 py-0.5 rounded text-[10px] bg-[var(--bg-input)] border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--border-strong)] transition-colors"
+            title="重置视图"
+          >
+            重置
+          </button>
         </div>
 
         {/* 标题 */}
