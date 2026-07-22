@@ -330,14 +330,31 @@ export function HistoryBacktestPanel() {
     setIsLoadingSessions(false);
   }, []);
 
-  const handleLoadSession = useCallback((session: BacktestSession) => {
+  const handleLoadSession = useCallback(async (session: BacktestSession) => {
     setCurrentSession(session);
     setActiveStockIdx(0);
     setDetailTab('metrics');
     setSelectedTrade(null);
     setShowKlineForStock(null);
     setViewMode('result');
-  }, []);
+
+    // 异步拉取所有股票的K线数据
+    const configStocks = session.config.stocks;
+    if (configStocks.length > 0) {
+      setIsLoadingSessions(true);
+      const loadedStocks: StockInfo[] = [];
+      for (const stock of configStocks) {
+        const klineResult = await fetchKLineData(stock.code);
+        loadedStocks.push({
+          code: stock.code,
+          name: stock.name,
+          klineData: (klineResult.success ? klineResult.data : null) ?? [],
+        });
+      }
+      setStockList(loadedStocks);
+      setIsLoadingSessions(false);
+    }
+  }, [fetchKLineData]);
 
   const handleDeleteSession = useCallback(async (id: string) => {
     if (!confirm('确定删除这条回测记录？')) return;
@@ -392,7 +409,7 @@ export function HistoryBacktestPanel() {
   const fmtMoney = (v: number) => `¥${v.toLocaleString('zh-CN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
   const activeResult = currentSession?.results[activeStockIdx] || null;
-  const activeKline = activeResult ? stockList.find(s => s.code === activeResult.stockCode)?.klineData : null;
+
 
   // ============ 渲染 ============
 
@@ -624,7 +641,7 @@ export function HistoryBacktestPanel() {
 
           {/* 详情Tab */}
           <div className="flex gap-0 border-b border-[var(--border-default)]">
-            {([['metrics', '绩效概览'], ['equity', '资金曲线'], ['positions', '持仓'], ['trades', '交易记录']] as const).map(([key, label]) => (
+            {([['metrics', '绩效概览'], ['equity', '资金曲线'], ['positions', '股票'], ['trades', '交易记录']] as const).map(([key, label]) => (
               <button key={key} onClick={() => setDetailTab(key)}
                 className={`px-4 py-1.5 text-xs transition-colors ${detailTab === key ? 'text-[var(--accent-blue)] border-b-2 border-[var(--accent-blue)] bg-[var(--accent-blue)]/5' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}>
                 {label}
@@ -735,62 +752,75 @@ export function HistoryBacktestPanel() {
               </div>
             )}
 
-            {/* 持仓 */}
+            {/* 股票列表（所有交易过的股票） */}
             {detailTab === 'positions' && (
               <div className="space-y-3">
-                {activeResult.finalPosition ? (
-                  <div className="bg-[var(--bg-card)]/30 rounded-lg p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="text-xs text-[var(--text-primary)] font-medium">
-                        {activeResult.finalPosition.stockName} ({activeResult.finalPosition.stockCode})
-                      </div>
-                      <button
-                        onClick={() => setShowKlineForStock(showKlineForStock === activeResult.stockCode ? null : activeResult.stockCode)}
-                        className="flex items-center gap-1 px-2 py-1 text-[10px] text-[var(--accent-blue)] hover:bg-[var(--accent-blue)]/10 rounded"
-                      >
-                        <Eye className="w-3 h-3" /> {showKlineForStock === activeResult.stockCode ? '收起K线' : '查看K线'}
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-4 gap-3 text-[10px]">
-                      <div>
-                        <span className="text-[var(--text-secondary)]">持仓数量</span>
-                        <div className="text-[var(--text-primary)] font-mono">{activeResult.finalPosition.quantity}股</div>
-                      </div>
-                      <div>
-                        <span className="text-[var(--text-secondary)]">成本价</span>
-                        <div className="text-[var(--text-primary)] font-mono">{activeResult.finalPosition.avgCost.toFixed(2)}</div>
-                      </div>
-                      <div>
-                        <span className="text-[var(--text-secondary)]">现价</span>
-                        <div className="text-[var(--text-primary)] font-mono">{activeResult.finalPosition.currentPrice.toFixed(2)}</div>
-                      </div>
-                      <div>
-                        <span className="text-[var(--text-secondary)]">浮动盈亏</span>
-                        <div className={`font-mono ${activeResult.finalPosition.unrealizedPnl >= 0 ? 'text-[var(--accent-red)]' : 'text-[var(--accent-green)]'}`}>
-                          {activeResult.finalPosition.unrealizedPnl >= 0 ? '+' : ''}{activeResult.finalPosition.unrealizedPnl.toFixed(0)} ({fmtPct(activeResult.finalPosition.unrealizedPnlPercent)})
+                {currentSession.results.map(result => {
+                  const hasPosition = result.finalPosition && result.finalPosition.quantity > 0;
+                  const stockKline = stockList.find(s => s.code === result.stockCode)?.klineData;
+                  const hasKlineData = stockKline && stockKline.length > 0;
+                  return (
+                    <div key={result.stockCode} className="bg-[var(--bg-card)]/30 rounded-lg p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <div className="text-xs text-[var(--text-primary)] font-medium">
+                            {result.stockName} ({result.stockCode})
+                          </div>
+                          {hasPosition ? (
+                            <span className="px-1.5 py-0.5 text-[9px] bg-[var(--accent-red)]/10 text-[var(--accent-red)] rounded">持仓中</span>
+                          ) : (
+                            <span className="px-1.5 py-0.5 text-[9px] bg-[var(--text-muted)]/20 text-[var(--text-muted)] rounded">已清仓</span>
+                          )}
+                          <span className="text-[9px] text-[var(--text-muted)]">交易 {result.metrics.totalTrades} 次</span>
                         </div>
+                        <button
+                          onClick={() => setShowKlineForStock(showKlineForStock === result.stockCode ? null : result.stockCode)}
+                          className="flex items-center gap-1 px-2 py-1 text-[10px] text-[var(--accent-blue)] hover:bg-[var(--accent-blue)]/10 rounded"
+                        >
+                          <Eye className="w-3 h-3" /> {showKlineForStock === result.stockCode ? '收起K线' : '查看K线'}
+                        </button>
                       </div>
+                      {hasPosition && (
+                        <div className="grid grid-cols-4 gap-3 text-[10px] mb-2">
+                          <div>
+                            <span className="text-[var(--text-secondary)]">持仓数量</span>
+                            <div className="text-[var(--text-primary)] font-mono">{result.finalPosition!.quantity}股</div>
+                          </div>
+                          <div>
+                            <span className="text-[var(--text-secondary)]">成本价</span>
+                            <div className="text-[var(--text-primary)] font-mono">{result.finalPosition!.avgCost.toFixed(2)}</div>
+                          </div>
+                          <div>
+                            <span className="text-[var(--text-secondary)]">现价</span>
+                            <div className="text-[var(--text-primary)] font-mono">{result.finalPosition!.currentPrice.toFixed(2)}</div>
+                          </div>
+                          <div>
+                            <span className="text-[var(--text-secondary)]">浮动盈亏</span>
+                            <div className={`font-mono ${result.finalPosition!.unrealizedPnl >= 0 ? 'text-[var(--accent-red)]' : 'text-[var(--accent-green)]'}`}>
+                              {result.finalPosition!.unrealizedPnl >= 0 ? '+' : ''}{result.finalPosition!.unrealizedPnl.toFixed(0)} ({fmtPct(result.finalPosition!.unrealizedPnlPercent)})
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      {/* K线图 */}
+                      {showKlineForStock === result.stockCode && hasKlineData && (
+                        <div className="mt-3 border-t border-[var(--border-default)]/50 pt-3">
+                          <BacktestChart
+                            klineData={stockKline}
+                            trades={result.trades.map(t => ({ date: t.date, type: t.direction, price: t.price, shares: t.quantity, amount: t.amount, commission: t.commission, strategy: t.strategy }))}
+                            onTradeClick={(idx) => {
+                              const trade = result.trades[idx];
+                              if (trade) setSelectedTrade(trade);
+                            }}
+                          />
+                        </div>
+                      )}
+                      {showKlineForStock === result.stockCode && !hasKlineData && (
+                        <div className="mt-3 text-center text-xs text-[var(--text-muted)] py-4">K线数据加载中...</div>
+                      )}
                     </div>
-                    {/* K线图 */}
-                    {showKlineForStock === activeResult.stockCode && activeKline && (
-                      <div className="mt-3 border-t border-[var(--border-default)]/50 pt-3">
-                        <BacktestChart
-                          klineData={activeKline}
-                          trades={activeResult.trades.map(t => ({ date: t.date, type: t.direction, price: t.price, shares: t.quantity, amount: t.amount, commission: t.commission, strategy: t.strategy }))}
-                          onTradeClick={(idx) => {
-                            const trade = activeResult.trades[idx];
-                            if (trade) setSelectedTrade(trade);
-                          }}
-                        />
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-8 text-[var(--text-secondary)]">
-                    <p className="text-xs">回测结束时已清仓，无持仓</p>
-                    <p className="text-[10px] text-[var(--text-muted)] mt-1">查看交易记录了解完整交易过程</p>
-                  </div>
-                )}
+                  );
+                })}
               </div>
             )}
 
