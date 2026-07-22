@@ -7,6 +7,7 @@ import type { QuantLiveAccount } from './types';
 export function QuantLivePanel() {
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [newAccount, setNewAccount] = useState({ name: '', stockCode: '', stockName: '', initialCapital: 100000 });
 
   const {
@@ -18,7 +19,8 @@ export function QuantLivePanel() {
     lastCheckAt,
     createAccount,
     toggleAccountStatus,
-    triggerCheck
+    triggerCheck,
+    deleteAccount
   } = useQuantLiveMonitor(selectedAccountId);
 
   const selectedAccount = accounts.find(a => a.id === selectedAccountId);
@@ -30,6 +32,15 @@ export function QuantLivePanel() {
       setSelectedAccountId(account.id);
       setShowCreateDialog(false);
       setNewAccount({ name: '', stockCode: '', stockName: '', initialCapital: 100000 });
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!selectedAccountId) return;
+    const success = await deleteAccount(selectedAccountId);
+    if (success) {
+      setSelectedAccountId(null);
+      setShowDeleteConfirm(false);
     }
   };
 
@@ -113,7 +124,13 @@ export function QuantLivePanel() {
             >
               立即检查
             </button>
-            <div className="flex items-center gap-1.5 text-[10px] text-slate-500 ml-auto">
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="px-3 py-1.5 text-xs font-medium bg-red-600/20 text-red-400 rounded hover:bg-red-600/30 transition-colors ml-auto"
+            >
+              删除账户
+            </button>
+            <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
               <div className={`w-1.5 h-1.5 rounded-full ${
                 status === 'connected' ? 'bg-green-400' :
                 status === 'error' ? 'bg-red-400' : 'bg-slate-500'
@@ -275,6 +292,37 @@ export function QuantLivePanel() {
               </button>
               <button
                 onClick={() => setShowCreateDialog(false)}
+                className="flex-1 px-4 py-2 text-sm font-medium bg-slate-700 text-slate-300 rounded hover:bg-slate-600 transition-colors"
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 删除确认对话框 */}
+      {showDeleteConfirm && selectedAccount && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-slate-800 rounded-lg p-6 w-96 border border-slate-700">
+            <h3 className="text-lg font-bold text-slate-200 mb-2">确认删除</h3>
+            <p className="text-sm text-slate-400 mb-4">
+              确定要删除账户 <span className="text-slate-200 font-medium">{selectedAccount.name}</span> 吗？
+              <br />
+              <span className="text-red-400 text-xs">此操作不可恢复，所有交易记录和持仓数据将被永久删除。</span>
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  deleteAccount(selectedAccount.id);
+                  setShowDeleteConfirm(false);
+                }}
+                className="flex-1 px-4 py-2 text-sm font-medium bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+              >
+                确认删除
+              </button>
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
                 className="flex-1 px-4 py-2 text-sm font-medium bg-slate-700 text-slate-300 rounded hover:bg-slate-600 transition-colors"
               >
                 取消

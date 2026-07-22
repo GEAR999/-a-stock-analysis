@@ -142,6 +142,32 @@ app.put('/api/accounts/:id', async (req, res) => {
   }
 });
 
+// 删除账户
+app.delete('/api/accounts/:id', async (req, res) => {
+  try {
+    // 先删除关联的交易记录和持仓
+    await sql`DELETE FROM quant_live_trades WHERE account_id = ${req.params.id}`;
+    await sql`DELETE FROM quant_live_positions WHERE account_id = ${req.params.id}`;
+    await sql`DELETE FROM quant_live_strategy_snapshots WHERE account_id = ${req.params.id}`;
+    await sql`DELETE FROM quant_live_daily_snapshots WHERE account_id = ${req.params.id}`;
+    
+    // 删除账户
+    const result = await sql`
+      DELETE FROM quant_live_accounts WHERE id = ${req.params.id}
+      RETURNING id
+    `;
+    
+    if (result.length === 0) {
+      return res.status(404).json({ success: false, error: '账户不存在' });
+    }
+    
+    res.json({ success: true });
+  } catch (err) {
+    console.error('删除账户失败:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // 获取交易记录
 app.get('/api/accounts/:id/trades', async (req, res) => {
   try {

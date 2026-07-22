@@ -124,6 +124,29 @@ export function useQuantLiveMonitor(accountId: string | null) {
     }
   }, [accountId, addLog, loadTrades, loadPositions]);
 
+  // 删除账户
+  const deleteAccount = useCallback(async (id: string) => {
+    try {
+      const res = await fetch(`${API_BASE}?path=/api/accounts/${id}`, { method: 'DELETE' });
+      const json = await res.json();
+      if (json.success) {
+        if (accountId === id) {
+          // 如果删除的是当前选中的账户，清空选中状态
+          window.dispatchEvent(new CustomEvent('quant-live-clear-selection'));
+        }
+        await loadAccounts();
+        addLog('账户已删除', 'info');
+        return true;
+      } else {
+        addLog(`删除失败：${json.error || '未知错误'}`, 'error');
+        return false;
+      }
+    } catch (err) {
+      addLog('删除账户失败', 'error');
+      return false;
+    }
+  }, [accountId, loadAccounts, addLog]);
+
   // WebSocket 连接（暂时禁用，HTTPS 页面无法连接 ws://）
   // TODO: 部署后改用 wss:// 或通过代理
   useEffect(() => {
@@ -156,6 +179,7 @@ export function useQuantLiveMonitor(accountId: string | null) {
     createAccount,
     toggleAccountStatus,
     triggerCheck,
+    deleteAccount,
     loadAccounts
   };
 }
