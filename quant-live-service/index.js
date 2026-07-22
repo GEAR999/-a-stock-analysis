@@ -8,8 +8,10 @@ const WebSocket = require('ws');
 const cron = require('node-cron');
 const { neon } = require('@neondatabase/serverless');
 const axios = require('axios');
+const cors = require('cors');
 
 const app = express();
+app.use(cors()); // 允许所有跨域请求
 app.use(express.json());
 
 const server = http.createServer(app);
