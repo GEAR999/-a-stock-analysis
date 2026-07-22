@@ -108,9 +108,6 @@ export function HistoryBacktestPanel() {
   const [editingNoteTradeId, setEditingNoteTradeId] = useState<string | null>(null);
   const [noteText, setNoteText] = useState('');
 
-  // K线拉取范围选项：'full' 完整K线 / 'range' 仅回测时间范围内
-  const [klineFetchMode, setKlineFetchMode] = useState<'full' | 'range'>('range');
-
   // ============ 数据获取 ============
 
   const searchAndAddStock = useCallback(async (code: string) => {
@@ -125,22 +122,14 @@ export function HistoryBacktestPanel() {
     } catch { return null; }
   }, []);
 
-  const fetchKLineData = useCallback(async (code: string, dateRange?: { start: string; end: string }): Promise<KLineFetchResult> => {
-    // 如果指定了日期范围且模式为 'range'，拉取更多数据然后过滤
-    const limit = dateRange ? 2000 : 1000;
-    const result = await fetchKLineFromSource(code, "daily", { limit });
+  const fetchKLineData = useCallback(async (code: string): Promise<KLineFetchResult> => {
+    // 始终拉取完整K线数据，回测时根据 timeRange 截取
+    const result = await fetchKLineFromSource(code, "daily", { limit: 1000 });
     if (result.success && result.data.length > 0) {
-      let data = result.data;
-      // 按日期范围过滤
-      if (dateRange && klineFetchMode === 'range') {
-        const startDate = dateRange.start;
-        const endDate = dateRange.end;
-        data = data.filter(d => d.date >= startDate && d.date <= endDate);
-      }
-      return { success: true, data };
+      return { success: true, data: result.data };
     }
     return { success: false, error: result.error || "无K线数据" };
-  }, [klineFetchMode]);
+  }, []);
 
   // ============ 股票操作 ============
 
@@ -159,25 +148,12 @@ export function HistoryBacktestPanel() {
     const newStocks: StockInfo[] = [];
     const errors: string[] = [];
 
-    // 如果模式为 'range'，根据 timeRange 计算日期范围
-    let dateRange: { start: string; end: string } | undefined;
-    if (klineFetchMode === 'range' && timeRange > 0) {
-      const endDate = new Date();
-      // 交易日转自然日：大约 1 个交易日 = 1.4 个自然日（考虑周末）
-      const naturalDays = Math.ceil(timeRange * 1.4);
-      const startDate = new Date();
-      startDate.setDate(endDate.getDate() - naturalDays);
-      dateRange = {
-        start: startDate.toISOString().split('T')[0],
-        end: endDate.toISOString().split('T')[0],
-      };
-    }
-
     for (const code of codes) {
       if (stockList.some(s => s.code === code)) { errors.push(`${code} 已存在`); continue; }
       const stockInfo = await searchAndAddStock(code);
       if (!stockInfo) { errors.push(`${code} 未找到`); continue; }
-      const klineResult = await fetchKLineData(stockInfo.code, dateRange);
+      // 始终拉取完整K线数据，回测时再根据 timeRange 截取
+      const klineResult = await fetchKLineData(stockInfo.code);
       if (!klineResult.success || !klineResult.data?.length) {
         errors.push(`${stockInfo.name}: ${klineResult.error || '无数据'}`);
         continue;
@@ -379,9 +355,8 @@ export function HistoryBacktestPanel() {
     if (configStocks.length > 0) {
       setIsLoadingSessions(true);
       const loadedStocks: StockInfo[] = [];
-      const dateRange = session.config.dateRange;
       for (const stock of configStocks) {
-        const klineResult = await fetchKLineData(stock.code, dateRange);
+        const klineResult = await fetchKLineData(stock.code);
         loadedStocks.push({
           code: stock.code,
           name: stock.name,
@@ -561,22 +536,6 @@ export function HistoryBacktestPanel() {
                 <div className="text-[10px] text-[var(--text-secondary)] mb-1">初始资金</div>
                 <input type="number" value={initialCapital} onChange={(e) => setInitialCapital(Number(e.target.value))}
                   className="w-full px-2 py-1 text-xs bg-[var(--bg-primary)]/50 border border-[var(--border-default)] rounded text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-blue)]/50" />
-              </div>
-            </div>
-            <div className="flex gap-4 items-center">
-              <div className="text-[10px] text-[var(--text-secondary)]">K线数据范围</div>
-              <div className="flex gap-1">
-                <button onClick={() => setKlineFetchMode('range')}
-                  className={`px-2 py-1 text-[10px] rounded transition-colors ${klineFetchMode === 'range' ? 'bg-[var(--accent-blue)]/20 text-[var(--accent-blue)] border border-[var(--accent-blue)]/30' : 'bg-[var(--bg-primary)]/50 text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-transparent'}`}>
-                  仅回测范围
-                </button>
-                <button onClick={() => setKlineFetchMode('full')}
-                  className={`px-2 py-1 text-[10px] rounded transition-colors ${klineFetchMode === 'full' ? 'bg-[var(--accent-blue)]/20 text-[var(--accent-blue)] border border-[var(--accent-blue)]/30' : 'bg-[var(--bg-primary)]/50 text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-transparent'}`}>
-                  完整K线
-                </button>
-              </div>
-              <div className="text-[10px] text-[var(--text-muted)]">
-                {klineFetchMode === 'range' ? '仅加载回测时间段内的K线，加载更快' : '加载完整K线数据，可查看更多历史走势'}
               </div>
             </div>
           </div>
