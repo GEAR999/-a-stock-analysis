@@ -98,7 +98,6 @@
     "@types/pg": "^8.16.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "next": "^16.1.1",
     "eslint": "^9",
     "eslint-config-next": "16.1.1",
     "jest": "^30.4.2",
