@@ -29,7 +29,7 @@ export function useQuantLiveMonitor(accountId: string | null) {
       const res = await fetch(`${API_BASE}?path=/api/accounts`);
       const json = await res.json();
       setAccounts(json.data || []);
-    } catch (err) {
+    } catch (err: any) {
       addLog('加载账户失败', 'error');
     }
   }, [addLog]);
@@ -41,7 +41,7 @@ export function useQuantLiveMonitor(accountId: string | null) {
       const res = await fetch(`${API_BASE}?path=/api/accounts/${accountId}/trades`);
       const json = await res.json();
       setTrades(json.data || []);
-    } catch (err) {
+    } catch (err: any) {
       addLog('加载交易记录失败', 'error');
     }
   }, [accountId, addLog]);
@@ -53,7 +53,7 @@ export function useQuantLiveMonitor(accountId: string | null) {
       const res = await fetch(`${API_BASE}?path=/api/accounts/${accountId}/positions`);
       const json = await res.json();
       setPositions(json.data || []);
-    } catch (err) {
+    } catch (err: any) {
       addLog('加载持仓失败', 'error');
     }
   }, [accountId, addLog]);
@@ -96,7 +96,7 @@ export function useQuantLiveMonitor(accountId: string | null) {
       await loadAccounts();
       addLog(`创建账户：${name}`, 'info');
       return account;
-    } catch (err) {
+    } catch (err: any) {
       console.error('[QuantLive] Create account error:', err);
       addLog(`创建账户失败：${err.message}`, 'error');
       return null;
@@ -113,7 +113,7 @@ export function useQuantLiveMonitor(accountId: string | null) {
       });
       await loadAccounts();
       addLog(`账户状态：${newStatus === 'active' ? '已激活' : '已暂停'}`, 'info');
-    } catch (err) {
+    } catch (err: any) {
       addLog('切换状态失败', 'error');
     }
   }, [loadAccounts, addLog]);
@@ -133,7 +133,7 @@ export function useQuantLiveMonitor(accountId: string | null) {
         addLog('无交易信号', 'info');
       }
       setLastCheckAt(new Date().toLocaleTimeString('zh-CN', { hour12: false }));
-    } catch (err) {
+    } catch (err: any) {
       addLog('触发检查失败', 'error');
     }
   }, [accountId, addLog, loadTrades, loadPositions]);
@@ -155,7 +155,7 @@ export function useQuantLiveMonitor(accountId: string | null) {
         addLog(`删除失败：${json.error || '未知错误'}`, 'error');
         return false;
       }
-    } catch (err) {
+    } catch (err: any) {
       addLog('删除账户失败', 'error');
       return false;
     }
