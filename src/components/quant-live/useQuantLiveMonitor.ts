@@ -59,13 +59,27 @@ export function useQuantLiveMonitor(accountId: string | null) {
   }, [accountId, addLog]);
 
   // 创建账户
-  const createAccount = useCallback(async (name: string, stockCode: string, stockName: string, initialCapital: number) => {
+  const createAccount = useCallback(async (
+    name: string, 
+    stockCode: string, 
+    stockName: string, 
+    initialCapital: number,
+    strategyId?: string,
+    strategyConfig?: any
+  ) => {
     try {
-      console.log('[QuantLive] Creating account:', { name, stockCode, stockName, initialCapital });
+      console.log('[QuantLive] Creating account:', { name, stockCode, stockName, initialCapital, strategyId });
       const res = await fetch(`${API_BASE}?path=/api/accounts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, stock_code: stockCode, stock_name: stockName, initial_capital: initialCapital })
+        body: JSON.stringify({ 
+          name, 
+          stock_code: stockCode, 
+          stock_name: stockName, 
+          initial_capital: initialCapital,
+          strategy_id: strategyId,
+          strategy_config: strategyConfig
+        })
       });
       console.log('[QuantLive] Response status:', res.status);
       const json = await res.json();

@@ -9,6 +9,7 @@ const cron = require('node-cron');
 const { neon } = require('@neondatabase/serverless');
 const axios = require('axios');
 const cors = require('cors');
+const { detectSignals } = require('./signal-detector');
 
 const app = express();
 app.use(cors()); // 允许所有跨域请求
@@ -145,6 +146,47 @@ app.put('/api/accounts/:id', async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error('更新账户失败:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 切换账户策略
+app.put('/api/accounts/:id/strategy', async (req, res) => {
+  try {
+    const { strategy_id, strategy_config, strategy_name } = req.body;
+    
+    if (!strategy_id || !strategy_config) {
+      return res.status(400).json({ success: false, error: '缺少策略参数' });
+    }
+
+    // 获取当前生效的策略快照
+    const currentSnapshots = await sql`
+      SELECT id FROM quant_live_strategy_snapshots 
+      WHERE account_id = ${req.params.id}
+      AND effective_from <= NOW() 
+      AND (effective_to IS NULL OR effective_to > NOW())
+      ORDER BY effective_from DESC
+      LIMIT 1
+    `;
+
+    // 如果有当前策略，设置结束时间
+    if (currentSnapshots.length > 0) {
+      await sql`
+        UPDATE quant_live_strategy_snapshots 
+        SET effective_to = NOW()
+        WHERE id = ${currentSnapshots[0].id}
+      `;
+    }
+
+    // 创建新的策略快照
+    await sql`
+      INSERT INTO quant_live_strategy_snapshots (account_id, strategy_id, strategy_name, strategy_config, effective_from)
+      VALUES (${req.params.id}, ${strategy_id}, ${strategy_name || null}, ${JSON.stringify(strategy_config)}, NOW())
+    `;
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('切换策略失败:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -299,8 +341,32 @@ async function runAccountCheck(accountId) {
 
   console.log(`获取到 ${minuteData.length} 条分时数据，开始信号检测...`);
 
-  // TODO: 信号检测逻辑（需要复用前端的 generateSignals）
-  // 这里简化处理，实际应该调用信号检测函数
+  // 信号检测
+  const signals = detectSignals(minuteData, strategyConfig);
+  console.log(`检测到 ${signals.length} 个信号`);
+
+  // 模拟交易模式：记录信号但不执行真实交易
+  for (const signal of signals) {
+    console.log(`[信号] ${signal.signal.toUpperCase()} @ ${signal.price} (${signal.timestamp})`);
+    
+    // 记录到数据库（模拟交易记录）
+    try {
+      await sql`
+        INSERT INTO quant_live_trades (
+          account_id, stock_code, direction, price, quantity, amount,
+          strategy, signal, created_at
+        ) VALUES (
+          ${accountId}, ${account.stock_code}, ${signal.signal},
+          ${signal.price}, 0, 0,
+          ${strategy.strategy_name || 'default'}, ${signal.signal},
+          NOW()
+        )
+      `;
+      console.log(`[模拟交易] 已记录 ${signal.signal} 信号`);
+    } catch (err) {
+      console.error('[模拟交易] 记录失败:', err.message);
+    }
+  }
   
   // 广播给所有客户端
   broadcast({

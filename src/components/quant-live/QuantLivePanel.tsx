@@ -1,14 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuantLiveMonitor } from './useQuantLiveMonitor';
 import type { QuantLiveAccount } from './types';
+import { getAllStrategies, type StrategyDefinition } from '@/lib/strategy-library';
 
 export function QuantLivePanel() {
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [newAccount, setNewAccount] = useState({ name: '', stockCode: '', stockName: '', initialCapital: 100000 });
+  const [strategies, setStrategies] = useState<StrategyDefinition[]>([]);
+  const [selectedStrategyId, setSelectedStrategyId] = useState<string>('');
 
   const {
     status,
@@ -25,13 +28,29 @@ export function QuantLivePanel() {
 
   const selectedAccount = accounts.find(a => a.id === selectedAccountId);
 
+  // 加载策略列表
+  useEffect(() => {
+    setStrategies(getAllStrategies());
+  }, []);
+
   const handleCreate = async () => {
     if (!newAccount.name || !newAccount.stockCode || !newAccount.initialCapital) return;
-    const account = await createAccount(newAccount.name, newAccount.stockCode, newAccount.stockName, newAccount.initialCapital);
+    
+    const selectedStrategy = strategies.find(s => s.id === selectedStrategyId);
+    const account = await createAccount(
+      newAccount.name, 
+      newAccount.stockCode, 
+      newAccount.stockName, 
+      newAccount.initialCapital,
+      selectedStrategy?.id,
+      selectedStrategy
+    );
+    
     if (account) {
       setSelectedAccountId(account.id);
       setShowCreateDialog(false);
       setNewAccount({ name: '', stockCode: '', stockName: '', initialCapital: 100000 });
+      setSelectedStrategyId('');
     }
   };
 
@@ -240,7 +259,7 @@ export function QuantLivePanel() {
       {/* 创建账户对话框 */}
       {showCreateDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-slate-800 rounded-lg p-6 w-96 border border-slate-700">
+          <div className="bg-slate-800 rounded-lg p-6 w-[500px] border border-slate-700">
             <h3 className="text-lg font-bold text-slate-200 mb-4">新建量化账户</h3>
             <div className="space-y-3">
               <div>
@@ -281,6 +300,45 @@ export function QuantLivePanel() {
                   onChange={e => setNewAccount({ ...newAccount, initialCapital: Number(e.target.value) })}
                   className="w-full mt-1 px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded text-slate-200 focus:outline-none focus:border-blue-500"
                 />
+              </div>
+              
+              {/* 策略选择器 */}
+              <div>
+                <label className="text-xs text-slate-400">选择策略</label>
+                <select
+                  value={selectedStrategyId}
+                  onChange={e => setSelectedStrategyId(e.target.value)}
+                  className="w-full mt-1 px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded text-slate-200 focus:outline-none focus:border-blue-500"
+                >
+                  <option value="">请选择策略</option>
+                  {strategies.map(strategy => (
+                    <option key={strategy.id} value={strategy.id}>
+                      {strategy.name} {strategy.category === 'builtin' ? '(内置)' : ''}
+                    </option>
+                  ))}
+                </select>
+                {selectedStrategyId && (
+                  <div className="mt-2 p-2 bg-slate-900/50 rounded border border-slate-700/50">
+                    <div className="text-xs text-slate-400 mb-1">策略详情：</div>
+                    <div className="text-xs text-slate-300">
+                      {(() => {
+                        const s = strategies.find(st => st.id === selectedStrategyId);
+                        if (!s) return null;
+                        return (
+                          <>
+                            <div className="mb-1">{s.description}</div>
+                            <div className="text-slate-500">
+                              买入信号：{s.signals.buySignals.length}个 | 
+                              卖出信号：{s.signals.sellSignals.length}个 |
+                              止损：{s.risk.stopLoss > 0 ? `${(s.risk.stopLoss * 100).toFixed(0)}%` : '无'} |
+                              止盈：{s.risk.takeProfit > 0 ? `${(s.risk.takeProfit * 100).toFixed(0)}%` : '无'}
+                            </div>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
             <div className="flex gap-2 mt-6">
