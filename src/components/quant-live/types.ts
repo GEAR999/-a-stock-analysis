@@ -24,6 +24,8 @@ export interface QuantLiveTrade {
   amount: number;
   signal_type?: string;
   strategy_snapshot_id?: string;
+  strategy?: string;
+  reason?: string;
   created_at: string;
 }
 
