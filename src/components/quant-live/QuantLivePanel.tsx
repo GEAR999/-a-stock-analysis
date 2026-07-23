@@ -4,6 +4,9 @@ import { useState, useEffect } from 'react';
 import { useQuantLiveMonitor } from './useQuantLiveMonitor';
 import type { QuantLiveAccount } from './types';
 import { getAllStrategies, type StrategyDefinition } from '@/lib/strategy-library';
+import QuantLiveChart from './QuantLiveChart';
+import TradeHistory from './TradeHistory';
+import PerformanceAnalysis from './PerformanceAnalysis';
 
 export function QuantLivePanel() {
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
@@ -12,6 +15,8 @@ export function QuantLivePanel() {
   const [newAccount, setNewAccount] = useState({ name: '', stockCode: '', stockName: '', initialCapital: 100000 });
   const [strategies, setStrategies] = useState<StrategyDefinition[]>([]);
   const [selectedStrategyId, setSelectedStrategyId] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<'chart' | 'trades' | 'performance'>('chart');
+  const [klineData, setKlineData] = useState<Array<{date: string; open: number; close: number; low: number; high: number; volume: number}>>([]);
 
   const {
     status,
@@ -32,6 +37,32 @@ export function QuantLivePanel() {
   useEffect(() => {
     setStrategies(getAllStrategies());
   }, []);
+
+  // 加载 K 线数据
+  useEffect(() => {
+    if (!selectedAccount?.stock_code) return;
+    
+    const fetchKline = async () => {
+      try {
+        const res = await fetch(`/api/stock?action=kline&code=${selectedAccount.stock_code}&period=daily&limit=120`);
+        const data = await res.json();
+        if (data.success && data.data) {
+          setKlineData(data.data.map((k: any) => ({
+            date: k.date,
+            open: k.open,
+            close: k.close,
+            low: k.low,
+            high: k.high,
+            volume: k.volume,
+          })));
+        }
+      } catch (err) {
+        console.error('获取 K 线数据失败:', err);
+      }
+    };
+    
+    fetchKline();
+  }, [selectedAccount?.stock_code]);
 
   const handleCreate = async () => {
     if (!newAccount.name || !newAccount.stockCode || !newAccount.initialCapital) return;
@@ -158,80 +189,94 @@ export function QuantLivePanel() {
             </div>
           </div>
 
-          {/* 持仓和交易记录 */}
-          <div className="flex-1 grid grid-cols-2 gap-4 min-h-0">
-            {/* 持仓 */}
-            <div className="flex flex-col min-h-0">
-              <h3 className="text-xs font-medium text-slate-400 mb-2">当前持仓</h3>
-              <div className="flex-1 overflow-auto bg-slate-800/30 rounded border border-slate-700/50">
-                {positions.length === 0 ? (
-                  <div className="text-xs text-slate-500 p-4 text-center">无持仓</div>
-                ) : (
-                  <table className="w-full text-xs">
-                    <thead className="text-slate-500 sticky top-0 bg-slate-800/80">
-                      <tr>
-                        <th className="text-left p-2">股票</th>
-                        <th className="text-right p-2">数量</th>
-                        <th className="text-right p-2">成本</th>
-                        <th className="text-right p-2">现价</th>
-                      </tr>
-                    </thead>
-                    <tbody className="text-slate-300">
-                      {positions.map(pos => (
-                        <tr key={pos.id} className="border-t border-slate-700/30">
-                          <td className="p-2">
-                            <div className="font-medium">{pos.stock_code}</div>
-                            <div className="text-[10px] text-slate-500">{pos.stock_name}</div>
-                          </td>
-                          <td className="text-right p-2 font-mono">{pos.quantity}</td>
-                          <td className="text-right p-2 font-mono">{pos.cost_price.toFixed(2)}</td>
-                          <td className="text-right p-2 font-mono">{pos.current_price?.toFixed(2) || '-'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            </div>
+          {/* Tab 切换 */}
+          <div className="flex gap-1 border-b border-slate-700/50">
+            <button
+              onClick={() => setActiveTab('chart')}
+              className={`px-4 py-2 text-xs font-medium transition-colors ${
+                activeTab === 'chart'
+                  ? 'text-blue-400 border-b-2 border-blue-400'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              K 线图
+            </button>
+            <button
+              onClick={() => setActiveTab('trades')}
+              className={`px-4 py-2 text-xs font-medium transition-colors ${
+                activeTab === 'trades'
+                  ? 'text-blue-400 border-b-2 border-blue-400'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              交易记录
+            </button>
+            <button
+              onClick={() => setActiveTab('performance')}
+              className={`px-4 py-2 text-xs font-medium transition-colors ${
+                activeTab === 'performance'
+                  ? 'text-blue-400 border-b-2 border-blue-400'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              绩效分析
+            </button>
+          </div>
 
-            {/* 交易记录 */}
-            <div className="flex flex-col min-h-0">
-              <h3 className="text-xs font-medium text-slate-400 mb-2">交易记录</h3>
-              <div className="flex-1 overflow-auto bg-slate-800/30 rounded border border-slate-700/50">
-                {trades.length === 0 ? (
-                  <div className="text-xs text-slate-500 p-4 text-center">暂无交易</div>
-                ) : (
-                  <table className="w-full text-xs">
-                    <thead className="text-slate-500 sticky top-0 bg-slate-800/80">
-                      <tr>
-                        <th className="text-left p-2">时间</th>
-                        <th className="text-left p-2">操作</th>
-                        <th className="text-right p-2">价格</th>
-                        <th className="text-right p-2">数量</th>
-                      </tr>
-                    </thead>
-                    <tbody className="text-slate-300">
-                      {trades.slice(0, 50).map(trade => (
-                        <tr key={trade.id} className="border-t border-slate-700/30">
-                          <td className="p-2 text-[10px] text-slate-500">
-                            {new Date(trade.created_at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                          </td>
-                          <td className="p-2">
-                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                              trade.direction === 'buy' ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'
-                            }`}>
-                              {trade.direction === 'buy' ? '买入' : '卖出'}
-                            </span>
-                          </td>
-                          <td className="text-right p-2 font-mono">{trade.price.toFixed(2)}</td>
-                          <td className="text-right p-2 font-mono">{trade.quantity}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            </div>
+          {/* Tab 内容 */}
+          <div className="flex-1 min-h-0 overflow-auto">
+            {activeTab === 'chart' && (
+              <QuantLiveChart
+                klineData={klineData}
+                trades={trades.map(t => ({
+                  id: t.id,
+                  date: new Date(t.created_at).toISOString().split('T')[0],
+                  type: t.direction === 'buy' ? 'buy' : 'sell',
+                  price: t.price,
+                  shares: t.quantity,
+                  amount: t.price * t.quantity,
+                  strategy: t.strategy || undefined,
+                  reasons: t.reason ? [t.reason] : undefined,
+                }))}
+                stockCode={selectedAccount.stock_code}
+                stockName={selectedAccount.stock_name || undefined}
+                height={450}
+              />
+            )}
+            
+            {activeTab === 'trades' && (
+              <TradeHistory
+                trades={trades.map(t => ({
+                  id: t.id,
+                  date: new Date(t.created_at).toISOString().split('T')[0],
+                  type: t.direction === 'buy' ? 'buy' : 'sell',
+                  price: t.price,
+                  shares: t.quantity,
+                  amount: t.price * t.quantity,
+                  strategy: t.strategy || undefined,
+                  reasons: t.reason ? [t.reason] : undefined,
+                }))}
+                stockCode={selectedAccount.stock_code}
+                stockName={selectedAccount.stock_name || undefined}
+              />
+            )}
+            
+            {activeTab === 'performance' && (
+              <PerformanceAnalysis
+                trades={trades.map(t => ({
+                  id: t.id,
+                  date: new Date(t.created_at).toISOString().split('T')[0],
+                  type: t.direction === 'buy' ? 'buy' : 'sell',
+                  price: t.price,
+                  shares: t.quantity,
+                  amount: t.price * t.quantity,
+                  strategy: t.strategy || undefined,
+                  reasons: t.reason ? [t.reason] : undefined,
+                }))}
+                initialCapital={selectedAccount.initial_capital}
+                currentCapital={selectedAccount.current_cash}
+              />
+            )}
           </div>
 
           {/* 实时日志 */}
