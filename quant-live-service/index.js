@@ -97,12 +97,19 @@ app.post('/api/accounts', async (req, res) => {
     `;
 
     // 创建初始策略快照（如果有策略配置）
-    if (req.body.strategy_config) {
-      await sql`
-        INSERT INTO quant_live_strategy_snapshots (account_id, strategy_id, strategy_name, strategy_config, effective_from)
-        VALUES (${account[0].id}, ${req.body.strategy_id || 'default'}, ${req.body.strategy_name || null}, ${JSON.stringify(req.body.strategy_config)}, NOW())
-      `;
-    }
+    // 创建策略快照（如果没有提供，使用默认配置）
+    const strategyConfig = req.body.strategy_config || {
+      name: '默认策略',
+      signals: ['macd_golden_cross', 'kdj_oversold'],
+      position: { maxTotal: 0.8, maxSingle: 0.3, minCash: 0.1 },
+      risk: { stopLoss: 0.05, takeProfit: 0.15 },
+      cost: { commission: 0.0003, slippage: 0.002 }
+    };
+    
+    await sql`
+      INSERT INTO quant_live_strategy_snapshots (account_id, strategy_id, strategy_name, strategy_config, effective_from)
+      VALUES (${account[0].id}, ${req.body.strategy_id || 'default'}, ${strategyConfig.name}, ${JSON.stringify(strategyConfig)}, NOW())
+    `;
 
     res.json({ success: true, data: account[0] });
   } catch (err) {
