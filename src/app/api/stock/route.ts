@@ -155,11 +155,11 @@ export async function GET(request: NextRequest) {
           validationDiff: validation.diffPercent,
         });
       }
-      case 'kline': {
+            case 'kline': {
         if (!code) return NextResponse.json({ error: 'Missing code' }, { status: 400 });
         
         // 使用统一数据源管理器（自动降级 + 请求队列）
-        const { fetchKLineData } = await import('@/lib/data-source');
+        const { fetchKLineData, ERROR_MESSAGES } = await import('@/lib/data-source');
         const result = await fetchKLineData(code, period as any, {
           limit,
           config: {
@@ -168,6 +168,18 @@ export async function GET(request: NextRequest) {
             priority: undefined, // 让 data-source.ts 自动判断
           }
         });
+        
+        // 记录错误日志
+        if (!result.success) {
+          console.error('[DataSource] Kline fetch failed:', {
+            code,
+            period,
+            limit,
+            error: result.error,
+            source: result.source,
+            timestamp: new Date().toISOString(),
+          });
+        }
         
         // 交叉验证 K 线数据（跳过 mootdx 数据源，避免重复请求）
         if (result.success && result.data.length > 0) {
@@ -191,7 +203,7 @@ export async function GET(request: NextRequest) {
           return NextResponse.json({
             success: true,
             data: validatedKline,
-            source: result.source, // 数据来源
+            source: result.source,
             verified: klineValidation.verified,
             validationSource: klineValidation.source,
             overridden: klineValidation.overridden,
@@ -199,11 +211,15 @@ export async function GET(request: NextRequest) {
           });
         }
         
+        // 返回错误信息（面向用户）
+        const errorInfo = result.error ? ERROR_MESSAGES[result.error] : null;
         return NextResponse.json({ 
-          success: result.success, 
+          success: false,
           data: result.data,
           source: result.source,
-          error: result.error 
+          error: result.error,
+          errorMessage: errorInfo?.message || '数据加载失败',
+          suggestion: errorInfo?.suggestion || '请稍后重试',
         });
       }
       case 'sentiment': {

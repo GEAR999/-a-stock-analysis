@@ -24,13 +24,76 @@ import { getKline as mootdxGetKline, isMootdxAvailable } from "./mootdx-client";
 
 export type KLinePeriod = "daily" | "weekly" | "monthly";
 
+// ============================================================================
+// 错误类型定义
+// ============================================================================
+
+export enum DataSourceError {
+  TUSHARE_RATE_LIMIT = 'TUSHARE_RATE_LIMIT',
+  MOOTDX_UNAVAILABLE = 'MOOTDX_UNAVAILABLE',
+  EASTMONEY_RATE_LIMIT = 'EASTMONEY_RATE_LIMIT',
+  ALL_SOURCES_FAILED = 'ALL_SOURCES_FAILED',
+  NETWORK_ERROR = 'NETWORK_ERROR',
+  REQUEST_TIMEOUT = 'REQUEST_TIMEOUT',
+  SERVER_ERROR = 'SERVER_ERROR',
+  NO_DATA = 'NO_DATA',
+  DATA_FORMAT_ERROR = 'DATA_FORMAT_ERROR',
+  CACHE_EXPIRED = 'CACHE_EXPIRED',
+}
+
 export interface DataSourceResult {
   success: boolean;
   data: KLineData[];
   source: "tushare" | "mootdx" | "eastmoney" | "cache" | "none";
-  error?: string;
+  error?: DataSourceError;
+  errorMessage?: string; // 面向用户的错误信息
+  suggestion?: string; // 解决方案建议
   cachedAt?: number; // 缓存时间戳（如果是缓存数据）
 }
+
+// 错误信息映射（面向用户，避免技术术语）
+export const ERROR_MESSAGES: Record<DataSourceError, { message: string; suggestion: string }> = {
+  [DataSourceError.TUSHARE_RATE_LIMIT]: {
+    message: '数据源请求频繁',
+    suggestion: '已自动切换到备用数据源，数据可能略有延迟',
+  },
+  [DataSourceError.MOOTDX_UNAVAILABLE]: {
+    message: '本地数据服务不可用',
+    suggestion: '已切换到备用数据源，请检查服务状态',
+  },
+  [DataSourceError.EASTMONEY_RATE_LIMIT]: {
+    message: '数据源请求频繁',
+    suggestion: '请 30 秒后重试，或稍后再试',
+  },
+  [DataSourceError.ALL_SOURCES_FAILED]: {
+    message: '数据服务暂时不可用',
+    suggestion: '请稍后重试，或检查网络连接',
+  },
+  [DataSourceError.NETWORK_ERROR]: {
+    message: '网络连接异常',
+    suggestion: '请检查网络设置或刷新页面',
+  },
+  [DataSourceError.REQUEST_TIMEOUT]: {
+    message: '请求超时',
+    suggestion: '请稍后重试，或检查网络连接',
+  },
+  [DataSourceError.SERVER_ERROR]: {
+    message: '服务器暂时不可用',
+    suggestion: '请稍后重试，或联系管理员',
+  },
+  [DataSourceError.NO_DATA]: {
+    message: '该股票暂无数据',
+    suggestion: '可能停牌或退市，请确认股票代码',
+  },
+  [DataSourceError.DATA_FORMAT_ERROR]: {
+    message: '数据格式异常',
+    suggestion: '请联系管理员处理',
+  },
+  [DataSourceError.CACHE_EXPIRED]: {
+    message: '缓存数据已过期',
+    suggestion: '正在重新获取数据...',
+  },
+};
 
 export interface DataSourceConfig {
   // 数据源优先级（默认：历史 tushare→cache→eastmoney，实时 mootdx→eastmoney→cache）
@@ -195,7 +258,7 @@ async function fetchFromTushare(
       success: false,
       data: [],
       source: "tushare",
-      error: errMsg.includes("abort") ? "请求超时" : errMsg,
+      error: errMsg.includes("abort") ? DataSourceError.REQUEST_TIMEOUT : DataSourceError.SERVER_ERROR,
     };
   }
 }
@@ -216,7 +279,7 @@ async function fetchFromMootdx(
       success: false,
       data: [],
       source: "mootdx",
-      error: "mootdx 服务不可用",
+      error: DataSourceError.MOOTDX_UNAVAILABLE,
     };
   }
 
@@ -233,7 +296,7 @@ async function fetchFromMootdx(
         success: false,
         data: [],
         source: "mootdx",
-        error: "mootdx 返回空数据",
+        error: DataSourceError.NO_DATA,
       };
     }
 
@@ -259,7 +322,7 @@ async function fetchFromMootdx(
       success: false,
       data: [],
       source: "mootdx",
-      error: errMsg.includes("abort") ? "请求超时" : errMsg,
+      error: errMsg.includes("abort") ? DataSourceError.REQUEST_TIMEOUT : DataSourceError.SERVER_ERROR,
     };
   }
 }
@@ -296,7 +359,7 @@ async function fetchFromEastMoney(
         success: false,
         data: [],
         source: "eastmoney",
-        error: `HTTP ${response.status}`,
+        error: DataSourceError.SERVER_ERROR,
       };
     }
 
@@ -322,7 +385,7 @@ async function fetchFromEastMoney(
       success: false,
       data: [],
       source: "eastmoney",
-      error: errMsg.includes("abort") ? "请求超时" : errMsg,
+      error: errMsg.includes("abort") ? DataSourceError.REQUEST_TIMEOUT : DataSourceError.SERVER_ERROR,
     };
   }
 }
@@ -345,7 +408,7 @@ async function fetchFromCache(
         success: false,
         data: [],
         source: "cache",
-        error: "无缓存数据",
+        error: DataSourceError.NO_DATA,
       };
     }
 
@@ -374,7 +437,7 @@ async function fetchFromCache(
       success: false,
       data: [],
       source: "cache",
-      error: "读取缓存失败",
+      error: DataSourceError.DATA_FORMAT_ERROR,
     };
   }
 }
@@ -522,7 +585,7 @@ export async function fetchKLineData(
       success: false,
       data: [],
       source: "none" as const,
-      error: `所有数据源均失败：${errors.join("; ")}`,
+      error: DataSourceError.ALL_SOURCES_FAILED,
     };
   });
 }

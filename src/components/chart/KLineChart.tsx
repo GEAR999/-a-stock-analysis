@@ -6,6 +6,8 @@ import { useAppState } from '@/hooks/useAppState';
 import { calculateMA, calculateMACD, calculateKDJ, calculateRSI, calculateBOLL, analyzeChanlun, analyzeWaves } from '@/lib/analysis';
 import { fetchWithRetry, onOnlineStatusChange } from '@/lib/api-client';
 import type { KLineData } from '@/lib/types';
+import type { DataSourceError } from '@/lib/data-source';
+import { AlertCircle, RefreshCw } from 'lucide-react';
 
 const PERIODS: Array<{ key: string; label: string }> = [
   { key: 'daily', label: '日K' },
@@ -21,6 +23,8 @@ export function KLineChart() {
   const { selectedStock, klineData, klinePeriod, setKlinePeriod, analysisSettings, setKlineData } = useAppState();
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
+  const [error, setError] = useState<{ type: DataSourceError; message: string; suggestion: string } | null>(null);
+  const [showError, setShowError] = useState(false);
 
   // Fetch kline data (backend handles caching)
   useEffect(() => {
@@ -28,6 +32,8 @@ export function KLineChart() {
     let cancelled = false;
 
     const fetchKline = async () => {
+      setError(null);
+      setShowError(false);
       try {
         const res = await fetchWithRetry(`/api/stock?action=kline&code=${selectedStock.code}&period=${klinePeriod}&limit=250`);
         const json = await res.json();
@@ -37,9 +43,24 @@ export function KLineChart() {
           if (json.source) {
             console.log(`[KLine] Data source: ${json.source}`);
           }
+        } else if (!cancelled && json.error) {
+          // 数据加载失败，显示错误提示
+          setError({
+            type: json.error,
+            message: json.errorMessage || '数据加载失败',
+            suggestion: json.suggestion || '请稍后重试',
+          });
+          setShowError(true);
         }
       } catch {
-        // ignore - backend handles all caching and fallback
+        if (!cancelled) {
+          setError({
+            type: 'NETWORK_ERROR' as DataSourceError,
+            message: '网络连接异常',
+            suggestion: '请检查网络设置或刷新页面',
+          });
+          setShowError(true);
+        }
       }
     };
     fetchKline();
@@ -71,17 +92,38 @@ export function KLineChart() {
   const handleRefresh = async () => {
     if (!selectedStock) return;
     setLoading(true);
+    setError(null);
+    setShowError(false);
     try {
       const res = await fetchWithRetry(`/api/stock?action=kline&code=${selectedStock.code}&period=${klinePeriod}&limit=120`);
       const json = await res.json();
       if (json.success) {
         setKlineData(json.data);
+      } else if (json.error) {
+        setError({
+          type: json.error,
+          message: json.errorMessage || '数据加载失败',
+          suggestion: json.suggestion || '请稍后重试',
+        });
+        setShowError(true);
       }
     } catch (e) {
       console.error('Refresh kline failed:', e);
+      setError({
+        type: 'NETWORK_ERROR' as DataSourceError,
+        message: '网络连接异常',
+        suggestion: '请检查网络设置或刷新页面',
+      });
+      setShowError(true);
     } finally {
       setLoading(false);
     }
+  };
+
+  // 重试处理（清除缓存并强制刷新）
+  const handleRetry = async () => {
+    setShowError(false);
+    await handleRefresh();
   };
 
   const buildChart = useCallback(() => {
@@ -542,6 +584,26 @@ export function KLineChart() {
 
   return (
     <div className="flex-1 flex flex-col min-h-0 relative">
+      {/* 错误提示 Alert */}
+      {showError && error && (
+        <div className="bg-yellow-900/20 border border-yellow-700/50 rounded px-4 py-2 mx-4 mt-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-yellow-500" />
+              <span className="text-sm text-yellow-200">{error.message}</span>
+            </div>
+            <button
+              onClick={handleRetry}
+              className="text-xs text-yellow-400 hover:text-yellow-300 flex items-center gap-1"
+            >
+              <RefreshCw className="w-3 h-3" />
+              重试
+            </button>
+          </div>
+          <div className="text-xs text-yellow-300/70 mt-1">{error.suggestion}</div>
+        </div>
+      )}
+
       {/* Period selector */}
       <div className="flex items-center gap-1 px-3 py-2 border-b border-[var(--border-default)]">
         <button
