@@ -44,7 +44,7 @@ export enum DataSourceError {
 export interface DataSourceResult {
   success: boolean;
   data: KLineData[];
-  source: "tushare" | "mootdx" | "eastmoney" | "cache" | "none";
+  source: "tushare" | "mootdx" | "eastmoney" | "cache" | "database" | "none";
   error?: DataSourceError;
   errorMessage?: string; // 面向用户的错误信息
   suggestion?: string; // 解决方案建议
@@ -578,7 +578,27 @@ export async function fetchKLineData(
       };
     }
 
-    // 2. 按优先级尝试各数据源（只使用启用的数据源）
+    // 2. 检查数据库缓存（后端）
+    try {
+      const dbCacheResponse = await fetch(`/api/cache/kline?code=${code}&period=${period}&isRealtime=${isRealtime}`);
+      if (dbCacheResponse.ok) {
+        const dbCacheResult = await dbCacheResponse.json();
+        if (dbCacheResult.success && dbCacheResult.data) {
+          // 写入内存缓存
+          setMemoryCache(code, period, dbCacheResult.data);
+          return {
+            success: true,
+            data: dbCacheResult.data,
+            source: "database" as const,
+            cachedAt: Date.now(),
+          };
+        }
+      }
+    } catch (error) {
+      console.log('[DataSource] Database cache check failed:', error);
+    }
+
+    // 3. 按优先级尝试各数据源（只使用启用的数据源）
     const errors: string[] = [];
 
     for (const source of config.priority) {
@@ -611,6 +631,23 @@ export async function fetchKLineData(
         // 成功获取数据，写入缓存
         if (config.enableCache && source !== "cache") {
           await saveToCache(code, period, result.data, isRealtime);
+          
+          // 写入数据库缓存（后端）
+          try {
+            await fetch('/api/cache/kline', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                code,
+                period,
+                data: result.data,
+                source: result.source,
+                isRealtime,
+              }),
+            });
+          } catch (error) {
+            console.log('[DataSource] Database cache save failed:', error);
+          }
         }
         setMemoryCache(code, period, result.data);
         

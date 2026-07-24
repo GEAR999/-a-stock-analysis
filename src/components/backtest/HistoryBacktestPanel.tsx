@@ -417,13 +417,89 @@ export function HistoryBacktestPanel() {
     if (!currentSession) return;
     const name = prompt('为这次回测命名：', `${currentSession.config.stocks.map(s => s.name).join('/')} ${currentSession.config.dateRange.start}~${currentSession.config.dateRange.end}`);
     if (!name) return;
-    const saved = await saveSession({ ...currentSession, name });
-    setCurrentSession(saved);
-    alert('保存成功！');
+    
+    try {
+      // 1. 保存到 IndexedDB（本地快速响应）
+      const saved = await saveSession({ ...currentSession, name });
+      setCurrentSession(saved);
+      
+      // 2. 同步到后端数据库（异步）
+      const response = await fetch('/api/backtest/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: saved.id,
+          account_id: saved.id,
+          account_name: name,
+          initial_capital: saved.config.initialCapital,
+          current_capital: saved.summaryMetrics?.totalReturn ? saved.config.initialCapital * (1 + saved.summaryMetrics.totalReturn) : saved.config.initialCapital,
+          total_return: saved.summaryMetrics?.totalReturn || 0,
+          max_drawdown: saved.summaryMetrics?.maxDrawdown || 0,
+          sharpe_ratio: saved.summaryMetrics?.sharpeRatio || 0,
+          win_rate: saved.summaryMetrics?.winRate || 0,
+          trade_count: saved.summaryMetrics?.totalTrades || 0,
+          config: saved.config,
+          results: {
+            trades: saved.results?.[0]?.trades || [],
+            dailyRecords: saved.equityCurve || [],
+            positionSnapshots: saved.results?.[0]?.finalPosition ? [saved.results[0].finalPosition] : [],
+          },
+          status: 'saved',
+        }),
+      });
+      
+      if (!response.ok) {
+        console.warn('[Backtest] 云端同步失败，但本地已保存');
+      }
+      
+      alert('保存成功！');
+    } catch (error) {
+      console.error('[Backtest] 保存失败:', error);
+      alert('保存失败，请检查网络');
+    }
   }, [currentSession]);
 
   const loadSavedSessions = useCallback(async () => {
     setIsLoadingSessions(true);
+    
+    // 优先从后端加载
+    try {
+      const response = await fetch('/api/backtest/sessions?status=saved&limit=50');
+      if (response.ok) {
+        const json = await response.json();
+        if (json.success && json.data.length > 0) {
+          // 转换后端数据格式为前端格式
+          const sessions: BacktestSession[] = json.data.map((row: any) => ({
+            id: row.id,
+            name: row.account_name,
+            config: row.config,
+            trades: row.results?.trades || [],
+            dailyRecords: row.results?.dailyRecords || [],
+            positionSnapshots: row.results?.positionSnapshots || [],
+            metrics: {
+              totalReturn: row.total_return || 0,
+              annualReturn: 0,
+              maxDrawdown: row.max_drawdown || 0,
+              sharpeRatio: row.sharpe_ratio || 0,
+              winRate: row.win_rate || 0,
+              profitLossRatio: 0,
+              tradeCount: row.trade_count || 0,
+              initialCapital: row.initial_capital,
+              finalCapital: row.current_capital,
+            },
+            createdAt: row.created_at,
+            savedAt: row.saved_at,
+          }));
+          setSavedSessions(sessions);
+          setIsLoadingSessions(false);
+          return;
+        }
+      }
+    } catch (error) {
+      console.warn('[Backtest] 从后端加载失败，使用本地数据');
+    }
+    
+    // 后端加载失败，使用本地 IndexedDB
     const sessions = await getAllSessions();
     setSavedSessions(sessions);
     setIsLoadingSessions(false);
