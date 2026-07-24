@@ -157,19 +157,30 @@ export async function GET(request: NextRequest) {
       }
       case 'kline': {
         if (!code) return NextResponse.json({ error: 'Missing code' }, { status: 400 });
-        const klineData = await getKLineData(code, period, limit);
         
-        // 交叉验证K线数据
-        if (klineData && klineData.length > 0) {
+        // 使用统一数据源管理器（自动降级 + 请求队列）
+        const { fetchKLineData } = await import('@/lib/data-source');
+        const result = await fetchKLineData(code, period as any, {
+          limit,
+          config: {
+            // 实时数据（日 K<=5 条或分钟线）：mootdx → 东方财富 → 缓存
+            // 历史数据：Tushare → 缓存 → 东方财富
+            priority: undefined, // 让 data-source.ts 自动判断
+          }
+        });
+        
+        // 交叉验证 K 线数据
+        if (result.success && result.data.length > 0) {
           const { data: validatedKline, validation: klineValidation } = await crossValidateKline(
             code,
-            klineData,
+            result.data,
             period
           );
           
           return NextResponse.json({
             success: true,
             data: validatedKline,
+            source: result.source, // 数据来源
             verified: klineValidation.verified,
             validationSource: klineValidation.source,
             overridden: klineValidation.overridden,
@@ -177,7 +188,12 @@ export async function GET(request: NextRequest) {
           });
         }
         
-        return NextResponse.json({ success: true, data: klineData });
+        return NextResponse.json({ 
+          success: result.success, 
+          data: result.data,
+          source: result.source,
+          error: result.error 
+        });
       }
       case 'sentiment': {
         const sentiment = await getMarketSentiment();

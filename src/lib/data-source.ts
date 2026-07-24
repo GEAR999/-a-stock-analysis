@@ -2,19 +2,21 @@
  * 统一数据源管理器
  * 
  * 实现多数据源分层架构：
- * 1. Tushare Pro（主力）- 稳定、不限流
- * 2. 东方财富（备用）- 当 Tushare 失败时降级
- * 3. 本地缓存（兜底）- IndexedDB 缓存
+ * 1. Tushare Pro（历史数据主力）- 稳定、数据全
+ * 2. mootdx（实时数据主力）- 本地服务，延迟低
+ * 3. 东方财富（降级兜底）- 当主力数据源失败时
+ * 4. 本地缓存（兜底）- IndexedDB 缓存
  * 
  * 智能路由策略：
- * - 优先使用 Tushare
- * - Tushare 失败/超时自动降级到东方财富
- * - 两者都失败时返回缓存数据 + 提示
+ * - 历史数据：Tushare → 缓存 → 东方财富
+ * - 实时数据：mootdx → 东方财富 → 缓存
  * - 同一股票同一天数据只请求一次
+ * - 请求队列避免并发限流
  */
 
 import type { KLineData } from "./types";
 import { getCachedKline, setCachedKline } from "./idb-cache";
+import { getKline as mootdxGetKline, isMootdxAvailable } from "./mootdx-client";
 
 // ============================================================================
 // 类型定义
@@ -25,35 +27,87 @@ export type KLinePeriod = "daily" | "weekly" | "monthly";
 export interface DataSourceResult {
   success: boolean;
   data: KLineData[];
-  source: "tushare" | "eastmoney" | "cache" | "none";
+  source: "tushare" | "mootdx" | "eastmoney" | "cache" | "none";
   error?: string;
   cachedAt?: number; // 缓存时间戳（如果是缓存数据）
 }
 
 export interface DataSourceConfig {
-  // 数据源优先级（默认：tushare → eastmoney → cache）
-  priority: ("tushare" | "eastmoney" | "cache")[];
+  // 数据源优先级（默认：历史 tushare→cache→eastmoney，实时 mootdx→eastmoney→cache）
+  priority: ("tushare" | "mootdx" | "eastmoney" | "cache")[];
   // Tushare 超时时间（毫秒）
   tushareTimeout: number;
+  // mootdx 超时时间（毫秒）
+  mootdxTimeout: number;
   // 东方财富超时时间（毫秒）
   eastmoneyTimeout: number;
   // 是否启用缓存
   enableCache: boolean;
-  // 缓存有效期（毫秒，默认24小时）
-  cacheTTL: number;
+  // 历史数据缓存有效期（毫秒，默认 7 天）
+  historicalCacheTTL: number;
+  // 实时数据缓存有效期（毫秒，默认 5 分钟）
+  realtimeCacheTTL: number;
 }
 
 const DEFAULT_CONFIG: DataSourceConfig = {
   priority: ["tushare", "eastmoney", "cache"],
   tushareTimeout: 10000,
+  mootdxTimeout: 5000,
   eastmoneyTimeout: 10000,
   enableCache: true,
-  cacheTTL: 24 * 60 * 60 * 1000, // 24小时
+  historicalCacheTTL: 7 * 24 * 60 * 60 * 1000, // 7 天
+  realtimeCacheTTL: 5 * 60 * 1000, // 5 分钟
 };
 
 // 内存缓存：同一股票同一天只请求一次
 const requestCache = new Map<string, { data: KLineData[]; timestamp: number }>();
-const REQUEST_CACHE_TTL = 60 * 60 * 1000; // 1小时
+const REQUEST_CACHE_TTL = 60 * 60 * 1000; // 1 小时
+
+// ============================================================================
+// 请求队列（避免并发限流）
+// ============================================================================
+
+class RequestQueue {
+  private queue = new Map<string, Promise<any>>();
+
+  async request<T>(key: string, fn: () => Promise<T>): Promise<T> {
+    // 相同股票的请求，复用 Promise
+    if (this.queue.has(key)) {
+      return this.queue.get(key)!;
+    }
+
+    const promise = fn().finally(() => {
+      this.queue.delete(key);
+    });
+
+    this.queue.set(key, promise);
+    return promise;
+  }
+}
+
+const klineQueue = new RequestQueue();
+
+// ============================================================================
+// 工具函数
+// ============================================================================
+
+/**
+ * 判断是否为实时数据
+ * - 日 K 线且请求条数<=5，视为实时数据
+ * - 分钟线视为实时数据
+ */
+function isRealtimeData(period: KLinePeriod, limit: number): boolean {
+  if (period === "daily" && limit <= 5) return true;
+  if (period.includes("min")) return true;
+  return false;
+}
+
+/**
+ * 获取缓存 TTL
+ */
+function getCacheTTL(isRealtime: boolean, config: DataSourceConfig): number {
+  return isRealtime ? config.realtimeCacheTTL : config.historicalCacheTTL;
+}
 
 // ============================================================================
 // Tushare 数据源
@@ -140,6 +194,70 @@ async function fetchFromTushare(
 }
 
 // ============================================================================
+// mootdx 数据源（实时数据优先）
+// ============================================================================
+
+async function fetchFromMootdx(
+  code: string,
+  period: KLinePeriod,
+  limit = 100,
+  timeout = 5000
+): Promise<DataSourceResult> {
+  // 检查 mootdx 服务是否可用
+  if (!isMootdxAvailable()) {
+    return {
+      success: false,
+      data: [],
+      source: "mootdx",
+      error: "mootdx 服务不可用",
+    };
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+    const data = await mootdxGetKline(code, period, limit);
+
+    clearTimeout(timeoutId);
+
+    if (!data || data.length === 0) {
+      return {
+        success: false,
+        data: [],
+        source: "mootdx",
+        error: "mootdx 返回空数据",
+      };
+    }
+
+    // 转换数据格式（mootdx 返回的格式可能与 KLineData 略有不同）
+    const klineData: KLineData[] = data.map((item: any) => ({
+      date: item.datetime || item.date || "",
+      open: Number(item.open) || 0,
+      high: Number(item.high) || 0,
+      low: Number(item.low) || 0,
+      close: Number(item.close) || 0,
+      volume: Number(item.vol || item.volume) || 0,
+      amount: Number(item.amount) || 0,
+    }));
+
+    return {
+      success: true,
+      data: klineData,
+      source: "mootdx",
+    };
+  } catch (error) {
+    const errMsg = error instanceof Error ? error.message : "Unknown error";
+    return {
+      success: false,
+      data: [],
+      source: "mootdx",
+      error: errMsg.includes("abort") ? "请求超时" : errMsg,
+    };
+  }
+}
+
+// ============================================================================
 // 东方财富数据源
 // ============================================================================
 
@@ -208,10 +326,12 @@ async function fetchFromEastMoney(
 
 async function fetchFromCache(
   code: string,
-  period: KLinePeriod
+  period: KLinePeriod,
+  isRealtime = false,
+  config: DataSourceConfig = DEFAULT_CONFIG
 ): Promise<DataSourceResult> {
   try {
-    const cached = await getCachedKline(code, period);
+    const cached = await getCachedKline(code, period, isRealtime);
     
     if (!cached || !Array.isArray(cached) || cached.length === 0) {
       return {
@@ -259,10 +379,11 @@ async function fetchFromCache(
 async function saveToCache(
   code: string,
   period: KLinePeriod,
-  data: KLineData[]
+  data: KLineData[],
+  isRealtime = false
 ): Promise<void> {
   try {
-    await setCachedKline(code, period, data as unknown[]);
+    await setCachedKline(code, period, data as unknown[], isRealtime);
   } catch {
     // 缓存写入失败不影响主流程
     console.warn("[DataSource] 缓存写入失败:", code, period);
@@ -300,7 +421,7 @@ function setMemoryCache(code: string, period: KLinePeriod, data: KLineData[]): v
 // ============================================================================
 
 /**
- * 获取K线数据（统一入口）
+ * 获取 K 线数据（统一入口）
  * 
  * 智能路由策略：
  * 1. 先检查内存缓存（同一股票同一天只请求一次）
@@ -308,7 +429,7 @@ function setMemoryCache(code: string, period: KLinePeriod, data: KLineData[]): v
  * 3. 成功获取后写入缓存
  * 
  * @param code 股票代码（如 000001, 600519）
- * @param period K线周期（daily/weekly/monthly）
+ * @param period K 线周期（daily/weekly/monthly）
  * @param options 可选参数
  * @returns DataSourceResult 包含数据、来源、错误信息
  */
@@ -325,64 +446,82 @@ export async function fetchKLineData(
   const config = { ...DEFAULT_CONFIG, ...options.config };
   const { startDate, endDate, limit = 500 } = options;
 
-  // 1. 检查内存缓存
-  const memoryCached = getFromMemoryCache(code, period);
-  if (memoryCached && memoryCached.length > 0) {
-    return {
-      success: true,
-      data: memoryCached,
-      source: "cache",
-      cachedAt: Date.now(),
-    };
+  // 判断是否为实时数据
+  const isRealtime = isRealtimeData(period, limit);
+
+  // 如果未指定优先级，根据数据类型自动选择
+  if (!options.config?.priority) {
+    config.priority = isRealtime
+      ? ["mootdx", "eastmoney", "cache"]  // 实时：mootdx 优先
+      : ["tushare", "cache", "eastmoney"]; // 历史：Tushare 优先
   }
 
-  // 2. 按优先级尝试各数据源
-  const errors: string[] = [];
-
-  for (const source of config.priority) {
-    let result: DataSourceResult;
-
-    switch (source) {
-      case "tushare":
-        result = await fetchFromTushare(code, period, startDate, endDate, config.tushareTimeout);
-        break;
-      case "eastmoney":
-        result = await fetchFromEastMoney(code, period, limit, config.eastmoneyTimeout);
-        break;
-      case "cache":
-        result = await fetchFromCache(code, period);
-        break;
-      default:
-        continue;
+  // 使用请求队列，避免并发限流
+  const queueKey = `${code}:${period}:${limit}`;
+  
+  return klineQueue.request(queueKey, async () => {
+    // 1. 检查内存缓存
+    const memoryCached = getFromMemoryCache(code, period);
+    if (memoryCached && memoryCached.length > 0) {
+      return {
+        success: true,
+        data: memoryCached,
+        source: "cache" as const,
+        cachedAt: Date.now(),
+      };
     }
 
-    if (result.success && result.data.length > 0) {
-      // 成功获取数据，写入缓存
-      if (config.enableCache && source !== "cache") {
-        await saveToCache(code, period, result.data);
+    // 2. 按优先级尝试各数据源
+    const errors: string[] = [];
+
+    for (const source of config.priority) {
+      let result: DataSourceResult;
+
+      switch (source) {
+        case "tushare":
+          result = await fetchFromTushare(code, period, startDate, endDate, config.tushareTimeout);
+          break;
+        case "mootdx":
+          result = await fetchFromMootdx(code, period, limit, config.mootdxTimeout);
+          break;
+        case "eastmoney":
+          result = await fetchFromEastMoney(code, period, limit, config.eastmoneyTimeout);
+          break;
+        case "cache":
+          result = await fetchFromCache(code, period, isRealtime, config);
+          break;
+        default:
+          continue;
       }
-      setMemoryCache(code, period, result.data);
-      
-      return result;
+
+      if (result.success && result.data.length > 0) {
+        // 成功获取数据，写入缓存
+        if (config.enableCache && source !== "cache") {
+          await saveToCache(code, period, result.data, isRealtime);
+        }
+        setMemoryCache(code, period, result.data);
+        
+        return result;
+      }
+
+      // 记录错误，继续尝试下一个数据源
+      if (result.error) {
+        errors.push(`[${source}] ${result.error}`);
+      }
     }
 
-    // 记录错误，继续尝试下一个数据源
-    if (result.error) {
-      errors.push(`[${source}] ${result.error}`);
-    }
-  }
-
-  // 3. 所有数据源都失败
-  return {
-    success: false,
-    data: [],
-    source: "none",
-    error: `所有数据源均失败: ${errors.join("; ")}`,
-  };
+    // 3. 所有数据源都失败
+    return {
+      success: false,
+      data: [],
+      source: "none" as const,
+      error: `所有数据源均失败：${errors.join("; ")}`,
+    };
+  });
 }
 
 /**
- * 批量获取K线数据
+ * 批量获取 K 线数据
  */
 export async function fetchKLineDataBatch(
   codes: string[],
@@ -438,9 +577,11 @@ export async function clearDataCache(code?: string): Promise<void> {
 export function getDataSourceStatus(): {
   memoryCacheSize: number;
   tushareAvailable: boolean;
+  mootdxAvailable: boolean;
 } {
   return {
     memoryCacheSize: requestCache.size,
     tushareAvailable: true, // 实际可用性需要运行时检测
+    mootdxAvailable: isMootdxAvailable(),
   };
 }

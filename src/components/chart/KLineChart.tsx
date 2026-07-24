@@ -4,8 +4,6 @@ import { useEffect, useRef, useCallback, useState } from 'react';
 import * as echarts from 'echarts';
 import { useAppState } from '@/hooks/useAppState';
 import { calculateMA, calculateMACD, calculateKDJ, calculateRSI, calculateBOLL, analyzeChanlun, analyzeWaves } from '@/lib/analysis';
-import { getKLineData } from '@/lib/api/stock';
-import { getCachedKline, setCachedKline } from '@/lib/idb-cache';
 import { fetchWithRetry, onOnlineStatusChange } from '@/lib/api-client';
 import type { KLineData } from '@/lib/types';
 
@@ -24,29 +22,24 @@ export function KLineChart() {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
 
-  // Fetch kline data with IndexedDB cache
+  // Fetch kline data (backend handles caching)
   useEffect(() => {
     if (!selectedStock) return;
     let cancelled = false;
 
     const fetchKline = async () => {
-      // Step 1: Check IndexedDB cache first
-      const cached = await getCachedKline(selectedStock.code, klinePeriod);
-      if (cached && !cancelled) {
-        setKlineData(cached as KLineData[]);
-      }
-
-      // Step 2: Always fetch fresh data in background
       try {
         const res = await fetchWithRetry(`/api/stock?action=kline&code=${selectedStock.code}&period=${klinePeriod}&limit=250`);
         const json = await res.json();
         if (json.success && !cancelled) {
           setKlineData(json.data);
-          // Step 3: Update cache with fresh data
-          setCachedKline(selectedStock.code, klinePeriod, json.data);
+          // 数据来源调试信息（可选）
+          if (json.source) {
+            console.log(`[KLine] Data source: ${json.source}`);
+          }
         }
       } catch {
-        // ignore - cache data is already displayed if available
+        // ignore - backend handles all caching and fallback
       }
     };
     fetchKline();
@@ -79,8 +72,11 @@ export function KLineChart() {
     if (!selectedStock) return;
     setLoading(true);
     try {
-      const data = await getKLineData(selectedStock.code, klinePeriod, 120);
-      setKlineData(data);
+      const res = await fetchWithRetry(`/api/stock?action=kline&code=${selectedStock.code}&period=${klinePeriod}&limit=120`);
+      const json = await res.json();
+      if (json.success) {
+        setKlineData(json.data);
+      }
     } catch (e) {
       console.error('Refresh kline failed:', e);
     } finally {
