@@ -110,6 +110,12 @@ export interface DataSourceConfig {
   historicalCacheTTL: number;
   // 实时数据缓存有效期（毫秒，默认 5 分钟）
   realtimeCacheTTL: number;
+  // 数据源开关（用户可配置）
+  enabled?: {
+    tushare: boolean;
+    mootdx: boolean;
+    eastmoney: boolean;
+  };
 }
 
 const DEFAULT_CONFIG: DataSourceConfig = {
@@ -120,7 +126,36 @@ const DEFAULT_CONFIG: DataSourceConfig = {
   enableCache: true,
   historicalCacheTTL: 7 * 24 * 60 * 60 * 1000, // 7 天
   realtimeCacheTTL: 5 * 60 * 1000, // 5 分钟
+  enabled: {
+    tushare: true,
+    mootdx: true,
+    eastmoney: false, // 默认关闭东方财富（易限流）
+  },
 };
+
+/**
+ * 从 localStorage 读取用户配置的数据源开关
+ */
+export function getUserDataSourceConfig(): DataSourceConfig {
+  if (typeof window === 'undefined') return DEFAULT_CONFIG;
+  
+  const saved = localStorage.getItem('dataSourceConfig');
+  if (!saved) return DEFAULT_CONFIG;
+  
+  try {
+    const userConfig = JSON.parse(saved);
+    return {
+      ...DEFAULT_CONFIG,
+      enabled: {
+        tushare: userConfig.tushare ?? true,
+        mootdx: userConfig.mootdx ?? true,
+        eastmoney: userConfig.eastmoney ?? false,
+      },
+    };
+  } catch {
+    return DEFAULT_CONFIG;
+  }
+}
 
 // 内存缓存：同一股票同一天只请求一次
 const requestCache = new Map<string, { data: KLineData[]; timestamp: number }>();
@@ -513,7 +548,9 @@ export async function fetchKLineData(
     config?: Partial<DataSourceConfig>;
   } = {}
 ): Promise<DataSourceResult> {
-  const config = { ...DEFAULT_CONFIG, ...options.config };
+  // 合并配置：默认配置 → 用户配置 → 传入配置
+  const userConfig = getUserDataSourceConfig();
+  const config = { ...DEFAULT_CONFIG, ...userConfig, ...options.config };
   const { startDate, endDate, limit = 500 } = options;
 
   // 判断是否为实时数据
@@ -541,10 +578,16 @@ export async function fetchKLineData(
       };
     }
 
-    // 2. 按优先级尝试各数据源
+    // 2. 按优先级尝试各数据源（只使用启用的数据源）
     const errors: string[] = [];
 
     for (const source of config.priority) {
+      // 检查数据源是否启用
+      if (source !== "cache" && config.enabled && !config.enabled[source as keyof typeof config.enabled]) {
+        console.log(`[DataSource] ${source} is disabled, skipping`);
+        continue;
+      }
+
       let result: DataSourceResult;
 
       switch (source) {
