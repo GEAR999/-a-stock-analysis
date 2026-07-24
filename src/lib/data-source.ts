@@ -69,6 +69,7 @@ const REQUEST_CACHE_TTL = 60 * 60 * 1000; // 1 小时
 
 class RequestQueue {
   private queue = new Map<string, Promise<any>>();
+  private timeout = 8000; // 8 秒超时
 
   async request<T>(key: string, fn: () => Promise<T>): Promise<T> {
     // 相同股票的请求，复用 Promise
@@ -76,12 +77,18 @@ class RequestQueue {
       return this.queue.get(key)!;
     }
 
-    const promise = fn().finally(() => {
+    // 添加超时控制，避免慢请求阻塞队列
+    const promise = Promise.race([
+      fn(),
+      new Promise<T>((_, reject) => 
+        setTimeout(() => reject(new Error('请求超时')), this.timeout)
+      )
+    ]).finally(() => {
       this.queue.delete(key);
     });
 
-    this.queue.set(key, promise);
-    return promise;
+    this.queue.set(key, promise as Promise<T>);
+    return promise as Promise<T>;
   }
 }
 

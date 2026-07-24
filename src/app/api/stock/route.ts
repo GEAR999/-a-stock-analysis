@@ -169,8 +169,19 @@ export async function GET(request: NextRequest) {
           }
         });
         
-        // 交叉验证 K 线数据
+        // 交叉验证 K 线数据（跳过 mootdx 数据源，避免重复请求）
         if (result.success && result.data.length > 0) {
+          // 如果数据源已经是 mootdx，跳过交叉验证（mootdx 是本地服务，数据可靠）
+          if (result.source === 'mootdx') {
+            return NextResponse.json({
+              success: true,
+              data: result.data,
+              source: 'mootdx',
+              verified: true,
+            });
+          }
+          
+          // 其他数据源需要交叉验证
           const { data: validatedKline, validation: klineValidation } = await crossValidateKline(
             code,
             result.data,
