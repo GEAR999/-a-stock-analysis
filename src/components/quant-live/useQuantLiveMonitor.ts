@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import type { QuantLiveAccount, QuantLiveTrade, QuantLivePosition, WSMessage, MonitorStatus } from './types';
 
-const WS_URL = 'ws://47.122.115.203:8889';
+const WS_URL = 'wss://a-stock.xyz/ws';
 const API_BASE = '/api/quant-live'; // 通过 Next.js 代理
 
 export function useQuantLiveMonitor(accountId: string | null) {
@@ -161,15 +161,54 @@ export function useQuantLiveMonitor(accountId: string | null) {
     }
   }, [accountId, loadAccounts, addLog]);
 
-  // WebSocket 连接（暂时禁用，HTTPS 页面无法连接 ws://）
-  // TODO: 部署后改用 wss:// 或通过代理
+  // WebSocket 连接（使用 wss:// 通过 Nginx 反向代理）
   useEffect(() => {
     if (!accountId) return;
-    // const ws = new WebSocket(WS_URL);
-    // ... WebSocket 逻辑暂时注释
-    addLog('WebSocket 暂不可用（HTTPS 限制）', 'info');
-    return () => {};
-  }, [accountId, addLog]);
+
+    setStatus('connecting');
+    const ws = new WebSocket(WS_URL);
+
+    ws.onopen = () => {
+      setStatus('connected');
+      addLog('WebSocket 已连接', 'info');
+      // 订阅当前账户
+      ws.send(JSON.stringify({ type: 'subscribe', accountId }));
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const msg: WSMessage = JSON.parse(event.data);
+        if (msg.type === 'trade') {
+          addLog(`新交易：${msg.data?.side} ${msg.data?.quantity}股 @ ¥${msg.data?.price}`, 'trade');
+          loadTrades();
+          loadPositions();
+        } else if (msg.type === 'status') {
+          addLog(msg.data?.message || '状态更新', 'info');
+        }
+      } catch (err) {
+        console.error('WebSocket 消息解析错误:', err);
+      }
+    };
+
+    ws.onerror = (err) => {
+      setStatus('error');
+      addLog('WebSocket 连接错误', 'error');
+    };
+
+    ws.onclose = () => {
+      setStatus('disconnected');
+      addLog('WebSocket 已断开', 'info');
+    };
+
+    wsRef.current = ws;
+
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+    };
+  }, [accountId, addLog, loadTrades, loadPositions]);
 
   // 初始加载
   useEffect(() => {
