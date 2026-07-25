@@ -351,3 +351,121 @@ K线周期: daily/weekly/monthly/60min/30min/15min/5min
 - `BacktestChart.tsx` 中仍有部分 `any` 类型标注（ECharts 相关）
 - 旧版 `IndependentBacktest.tsx` 已被 `HistoryBacktestPanel.tsx` 替代，但未删除
 - 策略库的云端同步逻辑需要适配新数据结构
+
+---
+
+## 部署手册
+
+### 服务器信息
+- **IP**: 47.122.115.203
+- **路径**: `/var/www/a-stock-analysis`
+- **端口**: 5000（主服务）、8890（quant-live WebSocket）
+- **域名**: https://a-stock.xyz（Nginx 反向代理到 5000）
+
+### 部署步骤
+```bash
+cd /var/www/a-stock-analysis
+git fetch origin main
+git reset --hard origin/main
+pnpm install
+pnpm build
+pkill -9 -f node 2>/dev/null
+sleep 2
+PORT=5000 pm2 start dist/server.js --name a-stock-analysis
+```
+
+### 一键部署脚本
+```bash
+# 创建 deploy.sh
+cat > /var/www/a-stock-analysis/deploy.sh << 'EOF'
+#!/bin/bash
+cd /var/www/a-stock-analysis
+git fetch origin main
+git reset --hard origin/main
+pnpm install
+pnpm build
+pkill -9 -f node 2>/dev/null
+sleep 2
+PORT=5000 pm2 start dist/server.js --name a-stock-analysis
+echo "部署完成！"
+EOF
+chmod +x deploy.sh
+
+# 执行部署
+./deploy.sh
+```
+
+### 验证部署
+```bash
+# 检查 PM2 进程
+pm2 list
+
+# 检查端口监听
+ss -tulnp | grep 5000
+
+# 测试服务
+curl -I http://localhost:5000
+```
+
+---
+
+## 常见问题
+
+### 1. 5000 端口被占用（EADDRINUSE）
+**症状**: PM2 启动报错 `listen EADDRINUSE: address already in use :::5000`
+
+**解决**:
+```bash
+pkill -9 -f node
+sleep 2
+PORT=5000 pm2 start dist/server.js --name a-stock-analysis
+```
+
+### 2. PM2 进程不存在
+**症状**: `pm2 restart a-stock-analysis` 报错 `Process or Namespace not found`
+
+**解决**:
+```bash
+PORT=5000 pm2 start dist/server.js --name a-stock-analysis
+```
+
+### 3. 代码未更新
+**症状**: 浏览器仍调用旧版 API（如东方财富）
+
+**解决**:
+```bash
+cd /var/www/a-stock-analysis
+git log --oneline -3  # 检查代码版本
+git fetch origin main
+git reset --hard origin/main  # 强制同步最新代码
+pnpm build
+pm2 restart a-stock-analysis
+```
+
+### 4. 浏览器缓存问题
+**症状**: 代码已更新，但浏览器仍显示旧版行为
+
+**解决**:
+1. 打开开发者工具（F12）
+2. Network 面板 → 勾选 "Disable cache"
+3. Application 面板 → Clear storage → Clear site data
+4. 强制刷新（Ctrl+Shift+R）
+
+---
+
+## 最新进展（2026-07-26）
+
+### 已完成
+- ✅ 数据源策略优化：K 线/实时行情优先使用 mootdx，移除东方财富降级
+- ✅ 资金流向缓存时间延长：5 分钟 → 10 分钟
+- ✅ 代码已推送到 GitHub（提交：2697bd5）
+- ✅ 服务器代码已更新，服务已重启
+
+### 待验证
+- ️ K 线图是否正常显示（需用户刷新浏览器验证）
+-  控制台是否还有 `push2his.eastmoney.com` 错误
+
+### 待办事项
+- [ ] 验证 K 线图显示效果
+- [ ] 检查是否需要进一步优化数据源策略
+- [ ] 考虑将财务数据切换到 Tushare（减少东方财富依赖）
