@@ -101,10 +101,10 @@ export default function BacktestChart({ klineData, trades, title }: BacktestChar
       if (trade.type === 'buy') {
         markers.push({
           name: '买入',
-          coord: [markerDate, kline.low * 0.95],
+          coord: [markerDate, kline.low],
           value: JSON.stringify(trade),
           symbol: 'triangle',
-          symbolSize: 16,
+          symbolSize: 14,
           itemStyle: {
             color: '#ef4444',
             borderColor: '#ffffff',
@@ -114,10 +114,10 @@ export default function BacktestChart({ klineData, trades, title }: BacktestChar
       } else {
         markers.push({
           name: '卖出',
-          coord: [markerDate, kline.high * 1.05],
+          coord: [markerDate, kline.high],
           value: JSON.stringify(trade),
           symbol: 'pin',
-          symbolSize: 18,
+          symbolSize: 16,
           symbolRotate: 180,
           itemStyle: {
             color: '#22c55e',
