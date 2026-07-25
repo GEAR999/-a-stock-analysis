@@ -311,13 +311,22 @@ export async function getSectorStocks(sectorName: string): Promise<StockQuote[]>
   }
 }
 
-// Get K-line data
+// Get K-line data - use mootdx instead of East Money
 export async function getKLineData(
   code: string,
   period: KLinePeriod = 'daily',
   limit: number = 250
 ): Promise<KLineData[]> {
   try {
+    // Use mootdx (avoid East Money rate limiting)
+    if (isMootdxAvailable()) {
+      const mootdxData = await getKlineFromMootdx(code, period, limit);
+      if (mootdxData && mootdxData.length > 0) {
+        return mootdxData;
+      }
+    }
+
+    // Fallback to East Money only if mootdx fails
     const secid = getSecId(code);
 
     const periodMap: Record<KLinePeriod, string> = {
@@ -358,6 +367,40 @@ export async function getKLineData(
         amount: parseFloat(parts[6]),
       };
     });
+  } catch {
+    return [];
+  }
+}
+
+// Get K-line data from mootdx
+async function getKlineFromMootdx(
+  code: string,
+  period: KLinePeriod,
+  limit: number
+): Promise<KLineData[]> {
+  try {
+    const { getKline } = await import('@/lib/mootdx-client');
+    const periodMap: Record<KLinePeriod, string> = {
+      daily: 'day',
+      weekly: 'week',
+      monthly: 'month',
+      '60min': '60min',
+      '30min': '30min',
+      '15min': '15min',
+      '5min': '5min',
+    };
+    
+    const data = await getKline(code, periodMap[period], limit);
+    
+    return data.map((item: any) => ({
+      date: item.datetime || item.date || '',
+      open: Number(item.open) || 0,
+      high: Number(item.high) || 0,
+      low: Number(item.low) || 0,
+      close: Number(item.close) || 0,
+      volume: Number(item.vol || item.volume) || 0,
+      amount: Number(item.amount) || 0,
+    }));
   } catch {
     return [];
   }
