@@ -564,9 +564,11 @@ export async function fetchKLineData(
 
   // 如果未指定优先级，根据数据类型自动选择
   if (!options.config?.priority) {
+    // 非交易时间优先使用缓存，避免请求失败
+    const isTradingHours = new Date().getHours() >= 9 && new Date().getHours() < 15;
     config.priority = isRealtime
-      ? ["mootdx", "eastmoney", "cache"]  // 实时：mootdx 优先
-      : ["mootdx", "tushare", "cache", "eastmoney"]; // 历史：mootdx 优先
+      ? (isTradingHours ? ["mootdx", "cache", "eastmoney"] : ["cache", "mootdx", "eastmoney"])
+      : (isTradingHours ? ["mootdx", "tushare", "cache", "eastmoney"] : ["cache", "mootdx", "tushare", "eastmoney"]);
   }
 
   // 使用请求队列，避免并发限流
