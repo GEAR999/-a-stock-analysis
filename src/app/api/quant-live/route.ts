@@ -23,15 +23,23 @@ export async function POST(request: NextRequest) {
   const path = searchParams.get('path') || '/api/accounts';
   
   try {
-    const body = await request.json();
+    // 尝试解析 body，如果失败则使用空对象
+    let body = {};
+    try {
+      body = await request.json();
+    } catch {
+      // 请求体为空或无效
+    }
+    
     const res = await fetch(`${QUANT_LIVE_API}${path}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
+      body: Object.keys(body).length > 0 ? JSON.stringify(body) : undefined
     });
     const data = await res.json();
     return NextResponse.json(data);
   } catch (error) {
+    console.error('[QuantLive API] POST error:', error);
     return NextResponse.json({ error: 'Failed to fetch' }, { status: 500 });
   }
 }
