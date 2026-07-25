@@ -566,7 +566,7 @@ export async function fetchKLineData(
   if (!options.config?.priority) {
     config.priority = isRealtime
       ? ["mootdx", "eastmoney", "cache"]  // 实时：mootdx 优先
-      : ["tushare", "cache", "eastmoney"]; // 历史：Tushare 优先
+      : ["mootdx", "tushare", "cache", "eastmoney"]; // 历史：mootdx 优先
   }
 
   // 使用请求队列，避免并发限流
