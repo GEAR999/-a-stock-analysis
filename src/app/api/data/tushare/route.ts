@@ -228,6 +228,9 @@ export async function GET(request: NextRequest) {
   // 转换数据格式
   const klineData = transformKLineData(result.data.items || []);
 
+  // 反转数组：Tushare 返回的是倒序（最新在前），需要转为正序（最旧在前）
+  klineData.reverse();
+
   return NextResponse.json({
     success: true,
     data: klineData,
