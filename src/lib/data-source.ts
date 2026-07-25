@@ -119,7 +119,7 @@ export interface DataSourceConfig {
 }
 
 const DEFAULT_CONFIG: DataSourceConfig = {
-  priority: ["tushare", "eastmoney", "cache"],
+  priority: ["mootdx", "tushare", "eastmoney", "cache"],
   tushareTimeout: 10000,
   mootdxTimeout: 5000,
   eastmoneyTimeout: 10000,
