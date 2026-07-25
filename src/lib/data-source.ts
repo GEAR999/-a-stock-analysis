@@ -645,7 +645,10 @@ export async function fetchKLineData(
           
           // 写入数据库缓存（后端）
           try {
-            await fetch('/api/cache/kline', {
+            const baseUrl = typeof window === 'undefined' 
+              ? (process.env.COZE_PROJECT_DOMAIN_DEFAULT || `http://localhost:${process.env.DEPLOY_RUN_PORT || 5000}`)
+              : '';
+            await fetch(`${baseUrl}/api/cache/kline`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
