@@ -78,15 +78,23 @@ function transformKLineData(tushareData: string[][]): Array<{
     return [];
   }
 
-  return tushareData.map((row) => ({
-    date: row[0] || "", // trade_date
-    open: parseFloat(row[1]) || 0,
-    high: parseFloat(row[2]) || 0,
-    low: parseFloat(row[3]) || 0,
-    close: parseFloat(row[4]) || 0,
-    volume: parseFloat(row[5]) || 0, // vol (手)
-    amount: parseFloat(row[6]) || 0, // amount (千元)
-  }));
+  return tushareData.map((row) => {
+    // 转换日期格式：YYYYMMDD → YYYY-MM-DD
+    let dateStr = row[0] || "";
+    if (dateStr.length === 8 && /^\d{8}$/.test(dateStr)) {
+      dateStr = `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)}`;
+    }
+    
+    return {
+      date: dateStr,
+      open: parseFloat(row[1]) || 0,
+      high: parseFloat(row[2]) || 0,
+      low: parseFloat(row[3]) || 0,
+      close: parseFloat(row[4]) || 0,
+      volume: parseFloat(row[5]) || 0, // vol (手)
+      amount: parseFloat(row[6]) || 0, // amount (千元)
+    };
+  });
 }
 
 /**
