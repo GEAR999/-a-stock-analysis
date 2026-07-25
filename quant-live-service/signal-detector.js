@@ -2,8 +2,8 @@
 // 用于量化实时账户的分时数据信号检测
 
 // 技术指标计算函数（从 backtest-engine.ts 复制）
-function calcEMA(data: number[], period: number): number[] {
-  const ema: number[] = [];
+function calcEMA(data, period) {
+  const ema = [];
   const k = 2 / (period + 1);
   ema[0] = data[0];
   for (let i = 1; i < data.length; i++) {
@@ -12,7 +12,7 @@ function calcEMA(data: number[], period: number): number[] {
   return ema;
 }
 
-function calcMACD(closes: number[]) {
+function calcMACD(closes) {
   const ema12 = calcEMA(closes, 12);
   const ema26 = calcEMA(closes, 26);
   const dif = ema12.map((v, i) => v - ema26[i]);
@@ -21,10 +21,10 @@ function calcMACD(closes: number[]) {
   return { dif, dea, macd };
 }
 
-function calcKDJ(highs: number[], lows: number[], closes: number[], period = 9) {
-  const k: number[] = [];
-  const d: number[] = [];
-  const rsv: number[] = [];
+function calcKDJ(highs, lows, closes, period = 9) {
+  const k = [];
+  const d = [];
+  const rsv = [];
   
   let prevK = 50;
   let prevD = 50;
@@ -53,8 +53,8 @@ function calcKDJ(highs: number[], lows: number[], closes: number[], period = 9) 
   return { k, d, rsv };
 }
 
-function calcRSI(closes: number[], period = 14): number[] {
-  const rsi: number[] = [];
+function calcRSI(closes, period = 14) {
+  const rsi = [];
   let avgGain = 0;
   let avgLoss = 0;
   
@@ -85,10 +85,10 @@ function calcRSI(closes: number[], period = 14): number[] {
   return rsi;
 }
 
-function calcBoll(closes: number[], period = 20) {
-  const upper: number[] = [];
-  const middle: number[] = [];
-  const lower: number[] = [];
+function calcBoll(closes, period = 20) {
+  const upper = [];
+  const middle = [];
+  const lower = [];
   
   for (let i = 0; i < closes.length; i++) {
     if (i < period - 1) {
@@ -111,8 +111,8 @@ function calcBoll(closes: number[], period = 20) {
   return { upper, middle, lower };
 }
 
-function calcMA(closes: number[], period: number): number[] {
-  const ma: number[] = [];
+function calcMA(closes, period) {
+  const ma = [];
   for (let i = 0; i < closes.length; i++) {
     if (i < period - 1) {
       ma[i] = closes[i];
@@ -125,38 +125,8 @@ function calcMA(closes: number[], period: number): number[] {
 }
 
 // 信号检测
-export interface Signal {
-  index: number;
-  signal: 'buy' | 'sell';
-  strategy: string;
-  price: number;
-  timestamp: string;
-}
-
-export interface MinuteData {
-  time: string;
-  price: number;
-  volume: number;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-}
-
-export function detectSignals(
-  minuteData: MinuteData[],
-  strategyConfig: {
-    signals: {
-      buySignals: string[];
-      sellSignals: string[];
-      buyLogic: 'AND' | 'OR';
-      sellLogic: 'AND' | 'OR';
-      minBuyMatch: number;
-      minSellMatch: number;
-    };
-  }
-): Signal[] {
-  const signals: Signal[] = [];
+function detectSignals(minuteData, strategyConfig) {
+  const signals = [];
   
   if (minuteData.length < 30) {
     return signals; // 数据不足，无法计算指标
@@ -220,17 +190,7 @@ export function detectSignals(
   return signals;
 }
 
-function checkBuySignals(
-  i: number,
-  macd: any,
-  kdj: any,
-  rsi: number[],
-  ma5: number[],
-  ma20: number[],
-  boll: any,
-  closes: number[],
-  buySignals: string[]
-): number {
+function checkBuySignals(i, macd, kdj, rsi, ma5, ma20, boll, closes, buySignals) {
   let count = 0;
   
   for (const signal of buySignals) {
@@ -266,17 +226,7 @@ function checkBuySignals(
   return count;
 }
 
-function checkSellSignals(
-  i: number,
-  macd: any,
-  kdj: any,
-  rsi: number[],
-  ma5: number[],
-  ma20: number[],
-  boll: any,
-  closes: number[],
-  sellSignals: string[]
-): number {
+function checkSellSignals(i, macd, kdj, rsi, ma5, ma20, boll, closes, sellSignals) {
   let count = 0;
   
   for (const signal of sellSignals) {
@@ -311,3 +261,5 @@ function checkSellSignals(
   
   return count;
 }
+
+module.exports = { detectSignals };
