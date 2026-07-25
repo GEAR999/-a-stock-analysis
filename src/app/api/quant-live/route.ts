@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const QUANT_LIVE_API = 'http://47.122.115.203:8889';
+const QUANT_LIVE_API = 'http://localhost:8890';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
