@@ -50,7 +50,7 @@ export async function searchStocks(keyword: string): Promise<StockInfo[]> {
   }
 }
 
-// Get real-time quote - mootdx primary, East Money fallback
+// Get real-time quote - mootdx primary, cache fallback
 export async function getQuote(code: string): Promise<StockQuote | null> {
   // Try mootdx first
   if (isMootdxAvailable()) {
@@ -63,12 +63,13 @@ export async function getQuote(code: string): Promise<StockQuote | null> {
         }
       }
     } catch (error) {
-      console.warn('[mootdx] getQuote failed, falling back to East Money:', error);
+      console.warn('[mootdx] getQuote failed:', error);
     }
   }
 
-  // Fallback to East Money
-  return getQuoteFromEastMoney(code);
+  // No fallback to East Money (rate limit risk)
+  // Return null and rely on cached data
+  return null;
 }
 
 // Convert mootdx quote to StockQuote format

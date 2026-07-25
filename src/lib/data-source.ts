@@ -566,9 +566,10 @@ export async function fetchKLineData(
   if (!options.config?.priority) {
     // 非交易时间优先使用缓存，避免请求失败
     const isTradingHours = new Date().getHours() >= 9 && new Date().getHours() < 15;
+    // 移除东方财富，避免限流风险
     config.priority = isRealtime
-      ? (isTradingHours ? ["mootdx", "cache", "eastmoney"] : ["cache", "mootdx", "eastmoney"])
-      : (isTradingHours ? ["mootdx", "tushare", "cache", "eastmoney"] : ["cache", "mootdx", "tushare", "eastmoney"]);
+      ? (isTradingHours ? ["mootdx", "cache"] : ["cache", "mootdx"])
+      : (isTradingHours ? ["mootdx", "tushare", "cache"] : ["cache", "mootdx", "tushare"]);
   }
 
   // 使用请求队列，避免并发限流

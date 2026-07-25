@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 // 缓存5分钟
 const cache = new Map<string, { data: unknown; timestamp: number }>();
-const CACHE_TTL = 5 * 60 * 1000;
+const CACHE_TTL = 10 * 60 * 1000;
 
 function getFromCache<T>(key: string): T | null {
   const cached = cache.get(key);
