@@ -236,7 +236,13 @@ async function fetchFromTushare(
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-    const response = await fetch(`/api/data/tushare?${params.toString()}`, {
+    // 后端环境需要使用完整 URL
+    const baseUrl = typeof window === 'undefined' 
+      ? (process.env.COZE_PROJECT_DOMAIN_DEFAULT || `http://localhost:${process.env.DEPLOY_RUN_PORT || 5000}`)
+      : '';
+    const tushareUrl = `${baseUrl}/api/data/tushare?${params.toString()}`;
+    
+    const response = await fetch(tushareUrl, {
       signal: controller.signal,
     });
 
@@ -580,7 +586,12 @@ export async function fetchKLineData(
 
     // 2. 检查数据库缓存（后端）
     try {
-      const dbCacheResponse = await fetch(`/api/cache/kline?code=${code}&period=${period}&isRealtime=${isRealtime}`);
+      // 后端环境需要使用完整 URL
+      const baseUrl = typeof window === 'undefined' 
+        ? (process.env.COZE_PROJECT_DOMAIN_DEFAULT || `http://localhost:${process.env.DEPLOY_RUN_PORT || 5000}`)
+        : '';
+      const dbCacheUrl = `${baseUrl}/api/cache/kline?code=${code}&period=${period}&isRealtime=${isRealtime}`;
+      const dbCacheResponse = await fetch(dbCacheUrl);
       if (dbCacheResponse.ok) {
         const dbCacheResult = await dbCacheResponse.json();
         if (dbCacheResult.success && dbCacheResult.data) {
