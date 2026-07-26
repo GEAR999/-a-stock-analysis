@@ -7,7 +7,7 @@ A股智能分析系统 - 专业的股票分析Web应用，支持缠论、波浪�
 - Next.js 16 (App Router) + React 19 + TypeScript 5
 - Tailwind CSS 4 + shadcn/ui
 - ECharts (K线图渲染)
-- 数据源：东方财富HTTP API
+- 数据源：mootdx（K 线/实时行情）+ 东方财富（情绪分析/资金流向）
 
 ## 目录结构
 ```
@@ -113,14 +113,14 @@ quant-live-service/
 ```
 
 ## API 接口
-- `GET /api/stock?action=search&keyword={code}` - 搜索股票
-- `GET /api/stock?action=quote&code={code}` - 实时行情
-- `GET /api/stock?action=kline&code={code}&period={period}&limit={n}` - K线数据
-- `GET /api/stock?action=sentiment` - 大盘市场情绪
-- `GET /api/stock?action=sector_list` - 获取全市场板块列表（实时数据）
-- `GET /api/stock?action=sector_sentiment&sector={code}` - 板块情绪分析（实时数据，支持板块代码或名称）
-- `GET /api/stock?action=stock_sentiment&code={code}` - 个股情绪分析（实时数据，技术强度/量能/动量/支撑压力）
-- `GET /api/stock?action=comprehensive_sentiment` - 综合情绪评估（大盘/板块/个股三维度）
+- `GET /api/stock?action=search&keyword={code}` - 搜索股票（mootdx）
+- `GET /api/stock?action=quote&code={code}` - 实时行情（mootdx）
+- `GET /api/stock?action=kline&code={code}&period={period}&limit={n}` - K 线数据（mootdx，支持 daily/weekly/monthly/60min/30min/15min/5min）
+- `GET /api/stock?action=sentiment` - 大盘市场情绪（东方财富）
+- `GET /api/stock?action=sector_list` - 获取全市场板块列表（东方财富）
+- `GET /api/stock?action=sector_sentiment&sector={code}` - 板块情绪分析（东方财富）
+- `GET /api/stock?action=stock_sentiment&code={code}` - 个股情绪分析（东方财富）
+- `GET /api/stock?action=comprehensive_sentiment` - 综合情绪评估（东方财富）
 
 ### Neon 数据库 API（云端持久化）
 - `GET /api/migrate` - 检查数据库迁移状态（10张表）
