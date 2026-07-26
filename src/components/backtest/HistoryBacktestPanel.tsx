@@ -661,7 +661,7 @@ export function HistoryBacktestPanel() {
               <BarChart3 className="w-3 h-3" /> K 线周期
             </div>
             <div className="flex flex-wrap gap-1">
-              {(['minute', 'daily', 'weekly', 'monthly', 'yearly'] as KLinePeriod[]).map((period) => (
+              {(['minute', 'daily', 'weekly', 'monthly'] as KLinePeriod[]).map((period) => (
                 <button
                   key={period}
                   onClick={() => setKlinePeriod(period)}
@@ -671,7 +671,7 @@ export function HistoryBacktestPanel() {
                       : 'bg-[var(--bg-primary)]/50 text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                   }`}
                 >
-                  {period === 'minute' ? '分时' : period === 'daily' ? '日 K' : period === 'weekly' ? '周 K' : period === 'monthly' ? '月 K' : '年 K'}
+                  {period === 'minute' ? '分时' : period === 'daily' ? '日 K' : period === 'weekly' ? '周 K' : '月 K'}
                 </button>
               ))}
             </div>

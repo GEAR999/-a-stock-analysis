@@ -16,7 +16,6 @@ const PERIODS: Array<{ key: string; label: string }> = [
   { key: 'daily', label: '日 K' },
   { key: 'weekly', label: '周 K' },
   { key: 'monthly', label: '月 K' },
-  { key: 'yearly', label: '年 K' },
   { key: '60min', label: '60 分' },
   { key: '30min', label: '30 分' },
   { key: '15min', label: '15 分' },
