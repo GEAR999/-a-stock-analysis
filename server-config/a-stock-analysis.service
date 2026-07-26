@@ -1,0 +1,31 @@
+[Unit]
+Description=A股智能分析系统
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/var/www/a-stock-analysis
+ExecStart=/usr/bin/node dist/server.js
+Restart=always
+RestartSec=5
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=a-stock-analysis
+Environment=NODE_ENV=production
+Environment=PORT=5000
+
+# 内存限制（可选，防止 OOM）
+MemoryMax=2G
+
+# 优雅关闭
+KillSignal=SIGTERM
+KillTimeout=10s
+
+# 安全加固（可选）
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

@@ -13,7 +13,7 @@ import { IndustryMappingPanel } from '@/components/industry/IndustryMappingPanel
 import { SentimentSummary } from '@/components/sentiment/SentimentSummary';
 import OverseasMapping from '@/components/analysis/OverseasMapping';
 import { BacktestPanel } from '@/components/backtest/BacktestPanel';
-import { IndependentBacktest } from '@/components/backtest/IndependentBacktest';
+import { HistoryBacktestPanel } from '@/components/backtest/HistoryBacktestPanel';
 import { StrategyLibrary } from '@/components/strategy/StrategyLibrary';
 import { SignalSummaryBar } from '@/components/analysis/SignalSummaryBar';
 import { AIInterpretation } from '@/components/analysis/AIInterpretation';
@@ -285,7 +285,7 @@ export function RightPanel() {
           icon="📊"
           summary="策略回测+AI依据"
         >
-          <IndependentBacktest />
+          <HistoryBacktestPanel />
         </AccordionSection>
 
         {/* 6.6 策略库 */}
