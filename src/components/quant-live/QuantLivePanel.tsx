@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useQuantLiveMonitor } from './useQuantLiveMonitor';
 import type { QuantLiveAccount } from './types';
 import { getAllStrategies, type StrategyDefinition } from '@/lib/strategy-library';
+import type { KLinePeriod } from '@/lib/types';
 import QuantLiveChart from './QuantLiveChart';
 import TradeHistory from './TradeHistory';
 import PerformanceAnalysis from './PerformanceAnalysis';
@@ -17,6 +18,7 @@ export function QuantLivePanel() {
   const [selectedStrategyId, setSelectedStrategyId] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'chart' | 'trades' | 'performance'>('chart');
   const [klineData, setKlineData] = useState<Array<{date: string; open: number; close: number; low: number; high: number; volume: number}>>([]);
+  const [klinePeriod, setKlinePeriod] = useState<KLinePeriod>('daily'); // K 线周期
 
   const {
     status,
@@ -44,7 +46,9 @@ export function QuantLivePanel() {
     
     const fetchKline = async () => {
       try {
-        const res = await fetch(`/api/stock?action=kline&code=${selectedAccount.stock_code}&period=daily&limit=120`);
+        const action = klinePeriod === 'minute' ? 'minute' : 'kline';
+        const params = klinePeriod === 'minute' ? `code=${selectedAccount.stock_code}` : `code=${selectedAccount.stock_code}&period=${klinePeriod}&limit=120`;
+        const res = await fetch(`/api/stock?action=${action}&${params}`);
         const data = await res.json();
         if (data.success && data.data) {
           setKlineData(data.data.map((k: any) => ({
@@ -62,7 +66,7 @@ export function QuantLivePanel() {
     };
     
     fetchKline();
-  }, [selectedAccount?.stock_code]);
+  }, [selectedAccount?.stock_code, klinePeriod]);
 
   const handleCreate = async () => {
     if (!newAccount.name || !newAccount.stockCode || !newAccount.initialCapital) return;

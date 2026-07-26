@@ -12,13 +12,15 @@ import { DataSourceToggle } from './DataSourceToggle';
 import type { DataSourceConfig } from './DataSourceToggle';
 
 const PERIODS: Array<{ key: string; label: string }> = [
-  { key: 'daily', label: '日K' },
-  { key: 'weekly', label: '周K' },
-  { key: 'monthly', label: '月K' },
-  { key: '60min', label: '60分' },
-  { key: '30min', label: '30分' },
-  { key: '15min', label: '15分' },
-  { key: '5min', label: '5分' },
+  { key: 'minute', label: '分时' },
+  { key: 'daily', label: '日 K' },
+  { key: 'weekly', label: '周 K' },
+  { key: 'monthly', label: '月 K' },
+  { key: 'yearly', label: '年 K' },
+  { key: '60min', label: '60 分' },
+  { key: '30min', label: '30 分' },
+  { key: '15min', label: '15 分' },
+  { key: '5min', label: '5 分' },
 ];
 
 export function KLineChart() {
@@ -43,7 +45,13 @@ export function KLineChart() {
       setError(null);
       setShowError(false);
       try {
-        const res = await fetchWithRetry(`/api/stock?action=kline&code=${selectedStock.code}&period=${klinePeriod}&limit=250`);
+        // 分时图使用不同的接口
+        const action = klinePeriod === 'minute' ? 'minute' : 'kline';
+        const url = klinePeriod === 'minute'
+          ? `/api/stock?action=${action}&code=${selectedStock.code}`
+          : `/api/stock?action=${action}&code=${selectedStock.code}&period=${klinePeriod}&limit=250`;
+
+        const res = await fetchWithRetry(url);
         const json = await res.json();
         if (json.success && !cancelled) {
           setKlineData(json.data);
@@ -97,10 +105,27 @@ export function KLineChart() {
       setShowError(false);
       const fetchKline = async () => {
         try {
-          const res = await fetchWithRetry(`/api/stock?action=kline&code=${selectedStock.code}&period=${klinePeriod}&limit=250`);
+          const action = klinePeriod === "minute" ? "minute" : "kline";
+          const params = klinePeriod === "minute" ? `code=${selectedStock.code}` : `code=${selectedStock.code}&period=${klinePeriod}&limit=250`;
+          const res = await fetchWithRetry(`/api/stock?action=${action}&${params}`);
           const json = await res.json();
           if (json.success) {
-            setKlineData(json.data);
+            // 分时图数据格式转换
+            const data = json.data;
+            if (klinePeriod === "minute" && Array.isArray(data)) {
+              const convertedData = data.map((d: any) => ({
+                date: d.date,
+                open: d.price,
+                high: d.price,
+                low: d.price,
+                close: d.price,
+                volume: d.volume,
+                amount: d.price * d.volume,
+              }));
+              setKlineData(convertedData);
+            } else {
+              setKlineData(data);
+            }
             if (json.source) {
               setCurrentDataSource(json.source);
             }
@@ -141,10 +166,27 @@ export function KLineChart() {
     setError(null);
     setShowError(false);
     try {
-      const res = await fetchWithRetry(`/api/stock?action=kline&code=${selectedStock.code}&period=${klinePeriod}&limit=120`);
+      const action = klinePeriod === "minute" ? "minute" : "kline";
+      const params = klinePeriod === "minute" ? `code=${selectedStock.code}` : `code=${selectedStock.code}&period=${klinePeriod}&limit=120`;
+      const res = await fetchWithRetry(`/api/stock?action=${action}&${params}`);
       const json = await res.json();
       if (json.success) {
-        setKlineData(json.data);
+            // 分时图数据格式转换
+            const data = json.data;
+            if (klinePeriod === "minute" && Array.isArray(data)) {
+              const convertedData = data.map((d: any) => ({
+                date: d.date,
+                open: d.price,
+                high: d.price,
+                low: d.price,
+                close: d.price,
+                volume: d.volume,
+                amount: d.price * d.volume,
+              }));
+              setKlineData(convertedData);
+            } else {
+              setKlineData(data);
+            }
       } else if (json.error) {
         setError({
           type: json.error,
@@ -181,17 +223,21 @@ export function KLineChart() {
 
     const chart = chartInstance.current;
     const dates = klineData.map(d => d.date);
-    const ohlc = klineData.map(d => [d.open, d.close, d.low, d.high]);
+    const isMinute = klinePeriod === 'minute';
+
+    // 分时图用收盘价作为折线图数据
+    const minuteData = isMinute ? klineData.map(d => d.close) : [];
+    const ohlc = !isMinute ? klineData.map(d => [d.open, d.close, d.low, d.high]) : [];
     const volumes = klineData.map(d => d.volume);
 
-    // Calculate indicators
-    const maData = analysisSettings.ma ? calculateMA(klineData, analysisSettings.maPeriods) : {};
-    const macdData = analysisSettings.macd ? calculateMACD(klineData) : [];
-    const kdjData = analysisSettings.kdj ? calculateKDJ(klineData) : [];
-    const rsiData = analysisSettings.rsi ? calculateRSI(klineData) : [];
-    const bollData = analysisSettings.boll ? calculateBOLL(klineData) : [];
-    const chanlunData = analysisSettings.chanlun ? analyzeChanlun(klineData) : null;
-    const waveData = analysisSettings.wave ? analyzeWaves(klineData, analysisSettings.waveSensitivity) : null;
+    // Calculate indicators (分时图不计算技术指标)
+    const maData = (!isMinute && analysisSettings.ma) ? calculateMA(klineData, analysisSettings.maPeriods) : {};
+    const macdData = (!isMinute && analysisSettings.macd) ? calculateMACD(klineData) : [];
+    const kdjData = (!isMinute && analysisSettings.kdj) ? calculateKDJ(klineData) : [];
+    const rsiData = (!isMinute && analysisSettings.rsi) ? calculateRSI(klineData) : [];
+    const bollData = (!isMinute && analysisSettings.boll) ? calculateBOLL(klineData) : [];
+    const chanlunData = (!isMinute && analysisSettings.chanlun) ? analyzeChanlun(klineData) : null;
+    const waveData = (!isMinute && analysisSettings.wave) ? analyzeWaves(klineData, analysisSettings.waveSensitivity) : null;
 
     // Count sub-chart grids
     const subCharts: string[] = [];
@@ -229,17 +275,21 @@ export function KLineChart() {
     // Series
     const series: Array<Record<string, unknown>> = [
       {
-        name: 'K线',
-        type: 'candlestick',
-        data: ohlc,
+        name: isMinute ? '分时' : 'K线',
+        type: isMinute ? 'line' : 'candlestick',
+        data: isMinute ? klineData.map(d => d.close) : ohlc,
         xAxisIndex: 0,
         yAxisIndex: 0,
-        itemStyle: {
+        itemStyle: isMinute ? undefined : {
           color: '#ef4444',
           color0: '#22c55e',
           borderColor: '#ef4444',
           borderColor0: '#22c55e',
         },
+        lineStyle: isMinute ? { width: 1.5, color: '#3b82f6' } : undefined,
+        areaStyle: isMinute ? { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: 'rgba(59,130,246,0.3)' }, { offset: 1, color: 'rgba(59,130,246,0.05)' }] } } : undefined,
+        symbol: isMinute ? 'none' : undefined,
+        smooth: isMinute,
       },
       {
         name: '成交量',

@@ -364,6 +364,7 @@ export async function getKLineData(
     const secid = getSecId(code);
 
     const periodMap: Record<KLinePeriod, string> = {
+      minute: '1', // 分时图不使用此接口
       daily: '101',
       weekly: '102',
       monthly: '103',
@@ -423,6 +424,7 @@ async function getKlineFromMootdx(
   try {
     const { getKline } = await import('@/lib/mootdx-client');
     const periodMap: Record<KLinePeriod, string> = {
+      minute: '1min', // 分时图不使用此接口
       daily: 'day',
       weekly: 'week',
       monthly: 'month',
@@ -469,6 +471,7 @@ export async function fetchKLineDataPaginated(
   
   // Estimate total bars needed based on period
   const periodDaysMap: Record<KLinePeriod, number> = {
+    'minute': 240, // 240 minutes per day
     '5min': 48, // 48 5-min bars per day
     '15min': 16,
     '30min': 8,

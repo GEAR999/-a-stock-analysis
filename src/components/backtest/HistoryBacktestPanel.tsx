@@ -15,7 +15,7 @@ import {
   type EnhancedBacktestResult,
   getStrategyLabel,
 } from '@/lib/backtest-engine';
-import type { KLineData } from '@/lib/types';
+import type { KLineData, KLinePeriod } from '@/lib/types';
 import { fetchKLineData as fetchKLineFromSource } from '@/lib/data-source';
 import {
   getAllStrategies,
@@ -92,6 +92,7 @@ type DetailTab = 'metrics' | 'equity' | 'positions' | 'trades' | 'params';
 export function HistoryBacktestPanel() {
   // 视图模式：config(配置) / result(结果) / sessions(历史记录)
   const [viewMode, setViewMode] = useState<'config' | 'result' | 'sessions'>('config');
+  const [klinePeriod, setKlinePeriod] = useState<KLinePeriod>('daily'); // K 线周期
 
   // 股票输入
   const [stockInput, setStockInput] = useState("");
@@ -652,6 +653,28 @@ export function HistoryBacktestPanel() {
                 ))}
               </div>
             )}
+          </div>
+
+          {/* K 线周期选择 */}
+          <div className="bg-[var(--bg-card)]/30 rounded-lg p-3 space-y-3">
+            <div className="text-xs text-[var(--text-secondary)] flex items-center gap-1">
+              <BarChart3 className="w-3 h-3" /> K 线周期
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {(['minute', 'daily', 'weekly', 'monthly', 'yearly'] as KLinePeriod[]).map((period) => (
+                <button
+                  key={period}
+                  onClick={() => setKlinePeriod(period)}
+                  className={`px-2 py-1 text-xs rounded transition-colors ${
+                    klinePeriod === period
+                      ? 'bg-[var(--accent-blue)] text-white'
+                      : 'bg-[var(--bg-primary)]/50 text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                  }`}
+                >
+                  {period === 'minute' ? '分时' : period === 'daily' ? '日 K' : period === 'weekly' ? '周 K' : period === 'monthly' ? '月 K' : '年 K'}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* 策略选择 */}

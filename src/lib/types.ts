@@ -31,7 +31,15 @@ export interface KLineData {
   amount: number;
 }
 
-export type KLinePeriod = 'daily' | 'weekly' | 'monthly' | 'yearly' | '60min' | '30min' | '15min' | '5min';
+export type KLinePeriod = 'minute' | 'daily' | 'weekly' | 'monthly' | 'yearly' | '60min' | '30min' | '15min' | '5min';
+
+// 分时图数据
+export interface MinuteData {
+  time: string;
+  price: number;
+  avgPrice: number;
+  volume: number;
+}
 
 // Analysis types
 export interface AnalysisSettings {

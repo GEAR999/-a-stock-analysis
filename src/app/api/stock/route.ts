@@ -155,6 +155,12 @@ export async function GET(request: NextRequest) {
           validationDiff: validation.diffPercent,
         });
       }
+      case 'minute': {
+        if (!code) return NextResponse.json({ error: 'Missing code' }, { status: 400 });
+        const { getMinute } = await import('@/lib/mootdx-client');
+        const minuteData = await getMinute(code);
+        return NextResponse.json({ success: true, data: minuteData, source: 'mootdx' });
+      }
             case 'kline': {
         if (!code) return NextResponse.json({ error: 'Missing code' }, { status: 400 });
         
