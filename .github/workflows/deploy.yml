@@ -23,9 +23,6 @@ jobs:
         with:
           version: 9.0.0
 
-      - name: Install dependencies
-        run: pnpm install
-
       - name: Deploy to Aliyun
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -45,8 +42,8 @@ jobs:
             pkill -9 -f "node.*server.js" 2>/dev/null
             sleep 2
             
-            # 构建（服务器有 4GB swap，不会 OOM）
-            NODE_OPTIONS="--max-old-space-size=4096" pnpm build
+            # 构建（服务器有 39GB 内存，不会 OOM）
+            pnpm build
             
             # 启动新服务
             PORT=5000 pm2 start dist/server.js --name a-stock-analysis
