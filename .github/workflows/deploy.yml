@@ -49,7 +49,9 @@ jobs:
             git reset --hard origin/main
             pnpm install --frozen-lockfile
             NODE_OPTIONS="--max-old-space-size=2048" pnpm build
-            pkill -9 -f node 2>/dev/null
+            pm2 stop a-stock-analysis 2>/dev/null
+            pm2 delete a-stock-analysis 2>/dev/null
+            pkill -9 -f "node.*server.js" 2>/dev/null
             sleep 2
             PORT=5000 pm2 start dist/server.js --name a-stock-analysis
             echo "Deployment completed at $(date)"
