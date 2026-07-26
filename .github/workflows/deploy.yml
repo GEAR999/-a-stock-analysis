@@ -27,7 +27,7 @@ jobs:
         run: pnpm install
 
       - name: Build project
-        run: pnpm build
+        run: NODE_OPTIONS="--max-old-space-size=2048" pnpm build
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
@@ -48,7 +48,7 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
             pnpm install --frozen-lockfile
-            pnpm build
+            NODE_OPTIONS="--max-old-space-size=2048" pnpm build
             pkill -9 -f node 2>/dev/null
             sleep 2
             PORT=5000 pm2 start dist/server.js --name a-stock-analysis
