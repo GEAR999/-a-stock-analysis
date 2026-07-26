@@ -12,7 +12,6 @@ import { DataSourceToggle } from './DataSourceToggle';
 import type { DataSourceConfig } from './DataSourceToggle';
 
 const PERIODS: Array<{ key: string; label: string }> = [
-  { key: 'minute', label: '分时' },
   { key: 'daily', label: '日 K' },
   { key: 'weekly', label: '周 K' },
   { key: 'monthly', label: '月 K' },
