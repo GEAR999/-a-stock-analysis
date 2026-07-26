@@ -227,6 +227,8 @@ export async function getKline(
       'daily': 'day',
       'weekly': 'week',
       'monthly': 'month',
+      'yearly': 'year',
+      'minute': '1min',
       'day': 'day',
       'week': 'week',
       'month': 'month',
