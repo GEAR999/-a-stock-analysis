@@ -45,8 +45,11 @@ jobs:
           port: ${{ secrets.SERVER_PORT || 22 }}
           script: |
             cd /var/www/a-stock-analysis
-            git pull origin main
+            git fetch origin main
+            git reset --hard origin/main
             pnpm install --frozen-lockfile
             pnpm build
-            pm2 restart a-stock-analysis
+            pkill -9 -f node 2>/dev/null
+            sleep 2
+            PORT=5000 pm2 start dist/server.js --name a-stock-analysis
             echo "Deployment completed at $(date)"
