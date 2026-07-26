@@ -8,6 +8,7 @@
 import { NextResponse } from 'next/server';
 import { runAllProbes, getHourlyStats, getAllSourceStates, getFallbackHistory } from '@/lib/monitor';
 import type { HealthSummary, SourceStatus, DataSourceName } from '@/lib/monitor';
+import { addAlert } from '@/lib/alert-store';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -48,6 +49,24 @@ export async function GET() {
       timestamp: new Date().toISOString(),
       stats,
     };
+
+    // 记录告警
+    if (overall === 'down') {
+      addAlert('error', '系统', '所有数据源不可用');
+    } else if (overall === 'degraded') {
+      const downSources = ['mootdx', 'tushare', 'eastmoney'].filter(
+        (s) => (probes as any)[s].status === 'down'
+      );
+      if (downSources.length > 0) {
+        addAlert('error', '数据源', `${downSources.join(', ')} 不可用`);
+      }
+      const degradedSources = ['mootdx', 'tushare', 'eastmoney'].filter(
+        (s) => (probes as any)[s].status === 'degraded'
+      );
+      if (degradedSources.length > 0) {
+        addAlert('warning', '数据源', `${degradedSources.join(', ')} 性能降级`);
+      }
+    }
 
     return NextResponse.json(summary);
   } catch (error) {

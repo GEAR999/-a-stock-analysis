@@ -175,7 +175,6 @@ export default function SystemStatusIndicator() {
               <a
                 href="/monitor"
                 className="block text-center text-xs text-[var(--accent)] hover:underline"
-                onClick={() => setExpanded(false)}
               >
                 查看完整监控面板 →
               </a>
