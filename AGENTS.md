@@ -43,7 +43,7 @@ src/
 │   │   └── QuoteHeader.tsx    # 行情信息头
 │   ├── layout/
 │   │   ├── Sidebar.tsx        # 左侧栏 (搜索+自选+情绪)
-│   │   └── RightPanel.tsx     # 右侧栏 (分析+建议)
+│   │   ── RightPanel.tsx     # 右侧栏 (分析+建议)
 │   ├── sentiment/SentimentPanel.tsx  # 市场情绪面板 (大盘/板块/个股三维度+跟随开关+全市场板块)
 │   ├── macro/MacroEconomyPanel.tsx   # 宏观经济分析面板 (中国/美国/欧洲/日本/韩国+经济指标+综合评估)
 │   ├── industry/IndustryMappingPanel.tsx # 产业链映射分析 (美股/日韩产业链映射)
@@ -52,7 +52,7 @@ src/
 │   │   ├── storage.ts         # 数据持久化层 (IndexedDB CRUD + 业务逻辑)
 │   │   ├── idb-account-storage.ts # IndexedDB迁移层 (localStorage→IDB)
 │   │   ├── strategy-storage.ts # 策略存储与权重计算 (最大余数法)
-│   │   ├── strategy-bridge.ts  # 策略桥接模块 (理论↔信号双向映射, resolveStrategyTypes)
+│   │   ├── strategy-bridge.ts  # 策略桥接模块 (理论信号双向映射, resolveStrategyTypes)
 │   │   ├── backtest-session-storage.ts # 历史回测会话存储层 (IndexedDB, 独立于模拟账户)
 │   │   ├── BacktestPanel.tsx  # 模拟交易主面板 (Tab切换+子组件编排, 纯账户管理)
 │   │   ├── AccountOverview.tsx # 账户概览子组件 (总资产/盈亏/持仓/资金曲线+锁定状态)
@@ -116,27 +116,17 @@ quant-live-service/
 - `GET /api/stock?action=search&keyword={code}` - 搜索股票（mootdx）
 - `GET /api/stock?action=quote&code={code}` - 实时行情（mootdx）
 - `GET /api/stock?action=kline&code={code}&period={period}&limit={n}` - K 线数据（mootdx，支持 daily/weekly/monthly/60min/30min/15min/5min）
+- `GET /api/stock?action=minute&code={code}` - 分时图数据（mootdx，保留 API 但前端已移除入口）
 - `GET /api/stock?action=sentiment` - 大盘市场情绪（东方财富）
 - `GET /api/stock?action=sector_list` - 获取全市场板块列表（东方财富）
 - `GET /api/stock?action=sector_sentiment&sector={code}` - 板块情绪分析（东方财富）
 - `GET /api/stock?action=stock_sentiment&code={code}` - 个股情绪分析（东方财富）
 - `GET /api/stock?action=comprehensive_sentiment` - 综合情绪评估（东方财富）
 
-### Neon 数据库 API（云端持久化）
-- `GET /api/migrate` - 检查数据库迁移状态（10张表）
-- `GET/POST /api/accounts` - 账户管理（CRUD）
-- `GET/PUT/DELETE /api/accounts/[id]` - 账户详情/更新/删除
-- `GET/POST /api/transactions` - 交易记录（买入/卖出）
-- `GET/DELETE /api/transactions/[id]` - 交易详情/删除
-- `GET /api/positions` - 持仓列表
-- `DELETE /api/positions/[id]` - 平仓操作
-- `GET/POST/DELETE /api/watchlist` - 自选股管理
-- `GET /api/strategies` - 策略列表（含内置+自定义）
-- `GET/POST/DELETE /api/strategies/custom` - 自定义策略管理
-- `GET/PUT /api/strategy-weights` - 策略权重配置
-- `GET/POST/DELETE /api/analysis-cache` - 分析结果缓存
-- `POST /api/ai/chat` - DeepSeek AI 对话（流式输出）
-- `GET/POST /api/learning/progress` - 学习进度管理
+### K 线周期
+- **支持周期**：daily（日 K）、weekly（周 K）、monthly（月 K）、60min（60 分钟）、30min（30 分钟）、15min（15 分钟）、5min（5 分钟）
+- **已移除**：yearly（年 K，mootdx 不支持）、minute（分时图，前端已移除入口但 API 保留）
+- **周期映射**：mootdx 服务器（47.122.115.203:8888）使用 `PERIOD_TO_FREQUENCY` 映射表将字符串周期转换为 mootdx 的 frequency 整数参数
 
 ### 量化实时账户 API（阿里云服务器 8889 端口）
 - `GET /api/accounts` - 账户列表
@@ -149,8 +139,6 @@ quant-live-service/
 - `POST /api/accounts/:id/run` - 手动触发一次检查
 - `GET /api/accounts/:id/snapshots` - 策略快照历史
 - `GET /api/accounts/:id/daily` - 每日账户快照（资金曲线）
-
-K线周期: daily/weekly/monthly/60min/30min/15min/5min
 
 ## 情绪分析系统
 - 大盘情绪：8个指标加权（涨跌家数比/涨停跌停比/成交额偏离度/连板高度/封板成功率/北向资金/两融变化/新高新低差）
@@ -359,19 +347,20 @@ K线周期: daily/weekly/monthly/60min/30min/15min/5min
 ### 服务器信息
 - **IP**: 47.122.115.203
 - **路径**: `/var/www/a-stock-analysis`
-- **端口**: 5000（主服务）、8890（quant-live WebSocket）
+- **端口**: 5000（主服务）、8888（mootdx K线服务）、8890（quant-live WebSocket）
 - **域名**: https://a-stock.xyz（Nginx 反向代理到 5000）
 
-### 部署步骤
+### mootdx 服务（47.122.115.203:8888）
+- **路径**: `/opt/mootdx-server/main.py`
+- **功能**: K 线数据、实时行情、分时图
+- **周期映射**: `PERIOD_TO_FREQUENCY` 将字符串周期（day/week/month/5min/15min/30min/60min）转换为 mootdx frequency 整数
+- **启动命令**: `cd /opt/mootdx-server && ./venv/bin/python main.py &`
+- **注意**: 该服务是 Python FastAPI 服务，不是 Node.js，不使用 PM2 管理
+
+### 部署步骤（手动部署，推荐）
 ```bash
 cd /var/www/a-stock-analysis
-git fetch origin main
-git reset --hard origin/main
-pnpm install
-pnpm build
-pkill -9 -f node 2>/dev/null
-sleep 2
-PORT=5000 pm2 start dist/server.js --name a-stock-analysis
+./deploy.sh
 ```
 
 ### 一键部署脚本
@@ -382,12 +371,24 @@ cat > /var/www/a-stock-analysis/deploy.sh << 'EOF'
 cd /var/www/a-stock-analysis
 git fetch origin main
 git reset --hard origin/main
-pnpm install
-pnpm build
+pnpm install --frozen-lockfile
+
+# 停止旧服务
+pm2 stop a-stock-analysis 2>/dev/null
+pm2 delete a-stock-analysis 2>/dev/null
 pkill -9 -f node 2>/dev/null
 sleep 2
+
+# 构建
+pnpm build
+
+# 启动新服务
 PORT=5000 pm2 start dist/server.js --name a-stock-analysis
-echo "部署完成！"
+sleep 5
+
+# 验证
+curl -I http://localhost:5000 | head -1
+echo "部署完成！$(date)"
 EOF
 chmod +x deploy.sh
 
@@ -405,6 +406,9 @@ ss -tulnp | grep 5000
 
 # 测试服务
 curl -I http://localhost:5000
+
+# 测试 mootdx 服务
+curl -s "http://localhost:8888/api/kline?code=600549&period=day&count=3" | python3 -m json.tool
 ```
 
 ---
@@ -451,21 +455,37 @@ pm2 restart a-stock-analysis
 3. Application 面板 → Clear storage → Clear site data
 4. 强制刷新（Ctrl+Shift+R）
 
+### 5. K 线图周期切换无效
+**症状**: 无论选择日 K、周 K、月 K 还是分钟 K，都显示 5 分钟数据
+
+**原因**: mootdx 服务器（47.122.115.203:8888）的 `/api/kline` 路由参数名是 `frequency`（整数），但前端传的是 `period`（字符串）
+
+**解决**: 修改 `/opt/mootdx-server/main.py`，添加 `PERIOD_TO_FREQUENCY` 映射表
+
+### 6. GitHub Actions 部署 OOM
+**症状**: GitHub Actions 构建时报 `Process exited with status 137 from signal KILL`
+
+**原因**: GitHub Actions runner 内存限制（7GB），Next.js 构建内存不足
+
+**解决**: 改用手动部署（服务器有 39GB 内存），执行 `./deploy.sh`
+
 ---
 
-## 最新进展（2026-07-26）
+## 最新进展（2026-07-27）
 
 ### 已完成
+- ✅ K 线图周期切换问题修复：mootdx 服务器添加 `PERIOD_TO_FREQUENCY` 映射表
+- ✅ 移除年 K 选项：mootdx 不支持年 K，前端周期选择器已移除
+- ✅ 移除分时图选项：前端已移除分时图入口，后端 API 保留
+- ✅ 部署方式改为手动部署：避免 GitHub Actions OOM 问题
 - ✅ 数据源策略优化：K 线/实时行情优先使用 mootdx，移除东方财富降级
 - ✅ 资金流向缓存时间延长：5 分钟 → 10 分钟
-- ✅ 代码已推送到 GitHub（提交：2697bd5）
-- ✅ 服务器代码已更新，服务已重启
 
-### 待验证
-- ️ K 线图是否正常显示（需用户刷新浏览器验证）
--  控制台是否还有 `push2his.eastmoney.com` 错误
+### 当前 K 线周期选项
+- 日 K、周 K、月 K
+- 60 分、30 分、15 分、5 分
 
 ### 待办事项
-- [ ] 验证 K 线图显示效果
-- [ ] 检查是否需要进一步优化数据源策略
+- [ ] 验证 K 线图所有周期显示效果
 - [ ] 考虑将财务数据切换到 Tushare（减少东方财富依赖）
+- [ ] mootdx 服务 systemd 持久化（开机自启、崩溃自动重启）
