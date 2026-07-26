@@ -31,7 +31,7 @@ export interface KLineData {
   amount: number;
 }
 
-export type KLinePeriod = 'daily' | 'weekly' | 'monthly' | '60min' | '30min' | '15min' | '5min';
+export type KLinePeriod = 'daily' | 'weekly' | 'monthly' | 'yearly' | '60min' | '30min' | '15min' | '5min';
 
 // Analysis types
 export interface AnalysisSettings {

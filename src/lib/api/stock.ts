@@ -1,6 +1,40 @@
 import type { StockInfo, StockQuote, KLineData, KLinePeriod, MarketSentiment } from '@/lib/types';
 import { getQuote as mootdxGetQuote, getQuoteWithFallback, isMootdxAvailable, getIndexQuote, type MootdxQuoteData } from '@/lib/mootdx-client';
 
+// 年 K 聚合函数：将月 K 数据按年份聚合
+function aggregateYearlyKline(monthlyData: KLineData[]): KLineData[] {
+  const yearMap = new Map<string, KLineData>();
+
+  monthlyData.forEach((item) => {
+    // 日期格式：YYYY-MM 或 YYYYMM
+    const year = item.date.substring(0, 4);
+    if (!year) return;
+
+    const existing = yearMap.get(year);
+    if (!existing) {
+      yearMap.set(year, {
+        date: `${year}-12-31`,
+        open: item.open,
+        high: item.high,
+        low: item.low,
+        close: item.close,
+        volume: item.volume,
+        amount: item.amount,
+      });
+    } else {
+      // 更新最高价、最低价、收盘价、成交量
+      existing.high = Math.max(existing.high, item.high);
+      existing.low = Math.min(existing.low, item.low);
+      existing.close = item.close;
+      existing.volume += item.volume;
+      existing.amount += item.amount;
+    }
+  });
+
+  // 按年份排序
+  return Array.from(yearMap.values()).sort((a, b) => a.date.localeCompare(b.date));
+}
+
 // East Money API base URLs
 const EASTMONEY_SEARCH_URL = 'https://searchapi.eastmoney.com/api/suggest/get';
 const EASTMONEY_KLINE_URL = 'https://push2his.eastmoney.com/api/qt/stock/kline/get';
@@ -333,6 +367,7 @@ export async function getKLineData(
       daily: '101',
       weekly: '102',
       monthly: '103',
+      yearly: '103', // 年 K 使用月 K 数据聚合
       '60min': '60',
       '30min': '30',
       '15min': '15',
@@ -355,7 +390,7 @@ export async function getKLineData(
 
     if (!data.data?.klines) return [];
 
-    return data.data.klines.map((line: string) => {
+    const result = data.data.klines.map((line: string) => {
       const parts = line.split(',');
       return {
         date: parts[0],
@@ -367,6 +402,13 @@ export async function getKLineData(
         amount: parseFloat(parts[6]),
       };
     });
+
+    // 年 K 聚合
+    if (period === 'yearly') {
+      return aggregateYearlyKline(result);
+    }
+
+    return result;
   } catch {
     return [];
   }
@@ -384,6 +426,7 @@ async function getKlineFromMootdx(
       daily: 'day',
       weekly: 'week',
       monthly: 'month',
+      yearly: 'month', // 年 K 使用月 K 数据聚合
       '60min': '60min',
       '30min': '30min',
       '15min': '15min',
@@ -392,7 +435,7 @@ async function getKlineFromMootdx(
     
     const data = await getKline(code, periodMap[period], limit);
     
-    return data.map((item: any) => ({
+    const result = data.map((item: any) => ({
       date: item.datetime || item.date || '',
       open: Number(item.open) || 0,
       high: Number(item.high) || 0,
@@ -401,6 +444,13 @@ async function getKlineFromMootdx(
       volume: Number(item.vol || item.volume) || 0,
       amount: Number(item.amount) || 0,
     }));
+
+    // 年 K 聚合：将月 K 数据按年份聚合
+    if (period === 'yearly') {
+      return aggregateYearlyKline(result);
+    }
+
+    return result;
   } catch {
     return [];
   }
@@ -426,6 +476,7 @@ export async function fetchKLineDataPaginated(
     'daily': 1,
     'weekly': 0.2,
     'monthly': 0.05,
+    'yearly': 0.003, // ~1 bar per year
   };
   
   let totalBars = 1000; // default
