@@ -73,4 +73,4 @@ export interface WSMessage {
 }
 
 // 监控状态
-export type MonitorStatus = 'idle' | 'connecting' | 'connected' | 'paused' | 'error';
+export type MonitorStatus = 'idle' | 'connecting' | 'connected' | 'paused' | 'error' | 'disconnected';
