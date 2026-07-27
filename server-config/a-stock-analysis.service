@@ -9,8 +9,8 @@ WorkingDirectory=/var/www/a-stock-analysis
 ExecStart=/usr/bin/node dist/server.js
 Restart=always
 RestartSec=5
-StandardOutput=syslog
-StandardError=syslog
+StandardOutput=journal
+StandardError=journal
 SyslogIdentifier=a-stock-analysis
 Environment=NODE_ENV=production
 Environment=PORT=5000
@@ -20,7 +20,7 @@ MemoryMax=2G
 
 # 优雅关闭
 KillSignal=SIGTERM
-KillTimeout=10s
+TimeoutStopSec=10s
 
 # 安全加固（可选）
 NoNewPrivileges=true

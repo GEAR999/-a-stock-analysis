@@ -9,8 +9,8 @@ WorkingDirectory=/opt/mootdx-server
 ExecStart=/opt/mootdx-server/venv/bin/python main.py
 Restart=always
 RestartSec=5
-StandardOutput=syslog
-StandardError=syslog
+StandardOutput=journal
+StandardError=journal
 SyslogIdentifier=mootdx
 Environment=PYTHONUNBUFFERED=1
 
@@ -19,7 +19,7 @@ MemoryMax=512M
 
 # 优雅关闭
 KillSignal=SIGTERM
-KillTimeout=10s
+TimeoutStopSec=10s
 
 # 安全加固（可选）
 NoNewPrivileges=true
