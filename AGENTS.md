@@ -398,7 +398,7 @@ quant-live-service/
 ### 服务器信息
 - **IP**: 47.122.115.203
 - **路径**: `/var/www/a-stock-analysis`
-- **端口**: 5000（主服务）、8888（mootdx K线服务）、8890（quant-live WebSocket）
+- **端口**: 5000（主服务）、8888（mootdx K线服务）、8889（quant-live 量化实时服务）
 - **域名**: https://a-stock.xyz（Nginx 反向代理到 5000）
 
 ### mootdx 服务（47.122.115.203:8888）
@@ -412,8 +412,12 @@ quant-live-service/
 
 **工作流**：
 ```
-本地开发 → git push → GitHub → 飞书通知 → 服务器手动 ./deploy.sh
+AI 推送代码 → GitHub → 飞书通知 → 用户手动 ./deploy.sh
 ```
+
+**职责分工**：
+- **AI 负责**：推送代码到 GitHub（`git push origin main`）+ 告知用户部署命令
+- **用户负责**：在服务器上执行 `./deploy.sh`
 
 **原因**：
 - GitHub Actions runner 内存限制 7GB，Next.js 构建容易 OOM（状态 137）
@@ -654,6 +658,15 @@ pm2 restart a-stock-analysis
 - ✅ **健康检查脚本**：`server-config/health-check.sh`（每 5 分钟检测 + 飞书告警）
 - ✅ **改进版部署脚本**：`server-config/deploy.sh`（增加启动验证）
 - ✅ **删除旧版组件**：`IndependentBacktest.tsx` 已删除，替换为 `HistoryBacktestPanel`
+- ✅ **mootdx 服务 systemd 持久化**：配置开机自启、崩溃自动重启
+- ✅ **mootdx 只读文件系统修复**：修改源码将配置路径从 `/root/.mootdx` 改为 `/var/lib/mootdx`
+- ✅ **mootdx 健康检查脚本**：`server-config/mootdx-health-check.sh`
+- ✅ **清理 package.json 重复字段**：删除第 115 行重复的 `packageManager`
+- ✅ **清理 systemd 配置警告**：`syslog` → `journal`，`KillTimeout` → `TimeoutStopSec`
+- ✅ **GitHub Actions 优化**：改为仅发送飞书通知，不执行构建部署
+- ✅ **量化实时账户 API 代理修复**：`/api/quant-live` 代理地址从 `localhost:8890` 改为 `47.122.115.203:8889`
+- ✅ **量化账户创建表单验证**：添加必填字段错误提示
+- ✅ **工作流程明确**：AI 负责推送 GitHub，用户负责服务器部署
 
 ### 服务器稳定性方案
 
@@ -700,6 +713,37 @@ sudo systemctl restart a-stock-analysis
 ### 待办事项
 - [ ] 验证 K 线图所有周期显示效果
 - [ ] 考虑将财务数据切换到 Tushare（减少东方财富依赖）
-- [ ] mootdx 服务 systemd 持久化（开机自启、崩溃自动重启）
-- [ ] 清理 package.json 重复的 `packageManager` 字段（第 115 行）
 - [ ] 配置飞书 webhook 告警（health-check.sh）
+- [ ] 量化实时账户创建功能验证（待用户部署后测试）
+
+### 已完成（2026-07 更新）
+- ✅ **mootdx 服务 systemd 持久化**：配置开机自启、崩溃自动重启
+- ✅ **mootdx 只读文件系统修复**：修改源码将配置路径从 `/root/.mootdx` 改为 `/var/lib/mootdx`
+- ✅ **mootdx 健康检查脚本**：`server-config/mootdx-health-check.sh`
+- ✅ **清理 package.json 重复字段**：删除第 115 行重复的 `packageManager`
+- ✅ **清理 systemd 配置警告**：`syslog` → `journal`，`KillTimeout` → `TimeoutStopSec`
+- ✅ **GitHub Actions 优化**：改为仅发送飞书通知，不执行构建部署
+- ✅ **量化实时账户 API 代理修复**：`/api/quant-live` 代理地址从 `localhost:8890` 改为 `47.122.115.203:8889`
+- ✅ **量化账户创建表单验证**：添加必填字段错误提示
+
+## 工作流程（2026-07 更新）
+
+### 代码推送与部署职责
+
+**AI 负责**：
+- ✅ 推送代码到 GitHub（`git push origin main`）
+- ✅ 告知用户需要执行的部署命令
+
+**用户负责**：
+- ⚠️ 在服务器上执行 `./deploy.sh`
+
+### 部署流程
+```
+AI 推送代码到 GitHub → 飞书通知 → 用户执行 ./deploy.sh
+```
+
+### 服务器部署命令
+```bash
+cd /var/www/a-stock-analysis
+./deploy.sh
+```
