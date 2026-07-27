@@ -408,6 +408,36 @@ quant-live-service/
 - **启动命令**: `cd /opt/mootdx-server && ./venv/bin/python main.py &`
 - **注意**: 该服务是 Python FastAPI 服务，不是 Node.js，不使用 PM2 管理
 
+### 部署策略：GitHub 推送 + 服务器手动部署
+
+**工作流**：
+```
+本地开发 → git push → GitHub → 飞书通知 → 服务器手动 ./deploy.sh
+```
+
+**原因**：
+- GitHub Actions runner 内存限制 7GB，Next.js 构建容易 OOM（状态 137）
+- 服务器有 39GB 内存，构建更稳定
+- 手动部署可控性更强，便于排查问题
+
+**GitHub Actions 角色**：
+- 代码托管和版本管理
+- 推送后发送飞书通知（提醒部署）
+- **不执行实际构建和部署**
+
+**服务器部署步骤**：
+```bash
+cd /var/www/a-stock-analysis
+./deploy.sh
+```
+
+**部署脚本功能**（`./deploy.sh`）：
+1. `git pull origin main` - 拉取最新代码
+2. `pnpm install --frozen-lockfile` - 安装依赖
+3. `pnpm build` - 构建生产版本
+4. `sudo systemctl restart a-stock-analysis` - 重启服务
+5. `curl -I http://localhost:5000` - 验证服务正常
+
 ### 部署步骤（手动部署，推荐）
 ```bash
 cd /var/www/a-stock-analysis
