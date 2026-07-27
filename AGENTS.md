@@ -711,6 +711,10 @@ sudo systemctl restart a-stock-analysis
 - 60 分、30 分、15 分、5 分
 
 ### 待办事项
+- [ ] **解决 mootdx 返回空数据问题**（最高优先级）
+  - 方案 1：更新 mootdx 库
+  - 方案 2：更换 TDX 服务器
+  - 方案 3：集成 AKShare 替代
 - [ ] 验证 K 线图所有周期显示效果
 - [ ] 考虑将财务数据切换到 Tushare（减少东方财富依赖）
 - [ ] 配置飞书 webhook 告警（health-check.sh）
@@ -727,6 +731,38 @@ sudo systemctl restart a-stock-analysis
 - ✅ **量化账户创建表单验证**：添加必填字段错误提示
 - ✅ **部署脚本改用 systemd**：从 PM2 迁移到 systemd，解决端口冲突问题
 - ✅ **5000 端口占用问题解决**：部署脚本添加 `systemctl stop` + `pkill` + `sleep 2` 确保端口释放
+- ✅ **mootdx TDX 连接修复**：配置 `/var/lib/mootdx/config.json` 的 `BESTIP.HQ` 为 `["8.129.13.54", 7709]`（之前是空字符串导致解包失败）
+- ✅ **mootdx 连接复用优化**：添加全局客户端 `_client` 和 `_last_connect_time`，5 分钟内复用连接，失败重试 3 次
+- ✅ **Next.js 访问路径优化**：`.env` 添加 `MOOTDX_SERVER_URL=http://localhost:8888`（之前用公网 IP 导致超时）
+- ✅ **mootdx bars 方法参数修正**：添加 `market` 参数（sh=1, sz=0）和 `start=0` 参数，符合 mootdx 文档规范
+
+### 待解决问题（2026-07-27）
+
+#### mootdx 返回空数据
+- **症状**：TDX 连接成功，但 `client.bars()` 返回空数据（`{"data":[]}`）
+- **已尝试**：
+  - 更换 TDX 服务器（8.129.13.54）
+  - 修正 bars 方法参数（market/symbol/frequency/start/offset）
+  - 测试不同股票代码格式（600549/sh600549/000001）
+- **响应时间**：从 29 秒优化到 0.6 秒（使用带市场前缀的股票代码）
+- **可能原因**：
+  - TDX 服务器（8.129.13.54）不支持数据查询
+  - mootdx 库版本过旧
+  - 需要其他 TDX 服务器
+- **备选方案**：
+  - 更新 mootdx 库：`./venv/bin/pip install --upgrade mootdx`
+  - 使用 AKShare 替代：`./venv/bin/pip install akshare`
+  - 回退到东方财富 API（但有限流问题）
+
+#### 数据源状态
+| 数据源 | 状态 | 问题 |
+|--------|------|------|
+| mootdx | ️ 连接成功但返回空数据 | TDX 服务器可能不支持查询 |
+| 东方财富 | ❌ 不可用 | API 限流，从未成功 |
+| AKShare | ⏳ 未测试 | 备选方案 |
+
+### 技术栈更新
+- 数据源：mootdx（K 线/实时行情，待修复）+ 东方财富（情绪分析/资金流向，限流中）+ AKShare（备选）
 
 ## 工作流程（2026-07 更新）
 
