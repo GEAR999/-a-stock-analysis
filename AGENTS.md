@@ -105,13 +105,16 @@ src/
 ```
 server-config/
 ├── a-stock-analysis.service    # systemd 服务配置（崩溃后 5 秒自动重启）
-├── health-check.sh             # 健康检查脚本（每 5 分钟检测 + 飞书告警）
-├── ecosystem.config.js         # PM2 备选配置（推荐 systemd）
+├── mootdx.service              # mootdx systemd 服务配置（Python 行情服务）
+── health-check.sh             # 主服务健康检查脚本（每 5 分钟检测 + 飞书告警）
+├── mootdx-health-check.sh      # mootdx 健康检查脚本（每 5 分钟检测 + 告警）
+── ecosystem.config.js         # PM2 备选配置（推荐 systemd）
 ├── deploy.sh                   # 改进版部署脚本（增加启动验证）
-└── README.md                   # 配置说明文档
+── README.md                   # 主服务配置说明
+└── MOOTDX-README.md            # mootdx 服务配置说明
 ```
 
-### 部署流程
+### 主服务部署流程
 ```bash
 cd /var/www/a-stock-analysis
 git pull origin main
@@ -120,19 +123,33 @@ pnpm build
 sudo systemctl restart a-stock-analysis
 ```
 
+### mootdx 服务配置
+```bash
+# 首次配置
+sudo cp server-config/mootdx.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable mootdx
+sudo systemctl start mootdx
+
+# 健康检查（可选）
+sudo cp server-config/mootdx-health-check.sh /opt/mootdx-server/health-check.sh
+sudo chmod +x /opt/mootdx-server/health-check.sh
+(crontab -l 2>/dev/null; echo "*/5 * * * * /opt/mootdx-server/health-check.sh") | crontab -
+```
+
 ### 常用命令
 ```bash
-# 查看服务状态
+# 主服务
 sudo systemctl status a-stock-analysis
-
-# 查看日志
 sudo journalctl -u a-stock-analysis -f
 
-# 重启服务
-sudo systemctl restart a-stock-analysis
+# mootdx 服务
+sudo systemctl status mootdx
+sudo journalctl -u mootdx -f
 
 # 手动健康检查
 /var/www/a-stock-analysis/server-config/health-check.sh
+/opt/mootdx-server/health-check.sh
 ```
 
 ## 量化实时服务（阿里云服务器 47.122.115.203:8889）
