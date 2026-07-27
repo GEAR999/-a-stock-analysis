@@ -101,6 +101,40 @@ src/
         └── sentiment-panel.ts   # 综合评估模块
 ```
 
+## 服务器配置（server-config/）
+```
+server-config/
+├── a-stock-analysis.service    # systemd 服务配置（崩溃后 5 秒自动重启）
+├── health-check.sh             # 健康检查脚本（每 5 分钟检测 + 飞书告警）
+├── ecosystem.config.js         # PM2 备选配置（推荐 systemd）
+├── deploy.sh                   # 改进版部署脚本（增加启动验证）
+└── README.md                   # 配置说明文档
+```
+
+### 部署流程
+```bash
+cd /var/www/a-stock-analysis
+git pull origin main
+pnpm install --frozen-lockfile
+pnpm build
+sudo systemctl restart a-stock-analysis
+```
+
+### 常用命令
+```bash
+# 查看服务状态
+sudo systemctl status a-stock-analysis
+
+# 查看日志
+sudo journalctl -u a-stock-analysis -f
+
+# 重启服务
+sudo systemctl restart a-stock-analysis
+
+# 手动健康检查
+/var/www/a-stock-analysis/server-config/health-check.sh
+```
+
 ## 量化实时服务（阿里云服务器 47.122.115.203:8889）
 ```
 quant-live-service/
@@ -415,23 +449,111 @@ curl -s "http://localhost:8888/api/kline?code=600549&period=day&count=3" | pytho
 
 ## 常见问题
 
-### 1. 5000 端口被占用（EADDRINUSE）
-**症状**: PM2 启动报错 `listen EADDRINUSE: address already in use :::5000`
+### 1. 502 Bad Gateway（服务崩溃）
+**症状**: 访问 a-stock.xyz 显示 502 Bad Gateway
+
+**原因**: systemd 服务崩溃，通常是 `.next` 构建产物缺失
 
 **解决**:
 ```bash
+cd /var/www/a-stock-analysis
+
+# 停止服务
+sudo systemctl stop a-stock-analysis
+
+# 重新构建
+pnpm build
+
+# 启动服务
+sudo systemctl start a-stock-analysis
+
+# 验证
+curl -I http://localhost:5000
+```
+
+**预防**: 
+- 健康检查脚本每 5 分钟自动检测并重启
+- systemd 配置 `Restart=always`，崩溃后 5 秒自动恢复
+
+### 2. 服务启动失败（MODULE_NOT_FOUND）
+**症状**: `journalctl -u a-stock-analysis` 显示 `MODULE_NOT_FOUND` 或 `Cannot find module`
+
+**原因**: 依赖未安装或 `.next` 目录不完整
+
+**解决**:
+```bash
+cd /var/www/a-stock-analysis
+pnpm install --frozen-lockfile
+pnpm build
+sudo systemctl restart a-stock-analysis
+```
+
+### 3. 5000 端口被占用（EADDRINUSE）
+**症状**: 服务启动报错 `listen EADDRINUSE: address already in use :::5000`
+
+**解决**:
+```bash
+# 查找占用端口的进程
+ss -tulnp | grep 5000
+
+# 停止旧服务
+sudo systemctl stop a-stock-analysis
 pkill -9 -f node
-sleep 2
-PORT=5000 pm2 start dist/server.js --name a-stock-analysis
+
+# 重新启动
+sudo systemctl start a-stock-analysis
 ```
 
-### 2. PM2 进程不存在
-**症状**: `pm2 restart a-stock-analysis` 报错 `Process or Namespace not found`
+### 4. 内存不足（OOM）
+**症状**: 服务被系统 kill，日志显示 `Killed` 或 `Out of memory`
 
 **解决**:
 ```bash
-PORT=5000 pm2 start dist/server.js --name a-stock-analysis
+# 查看内存使用
+free -h
+
+# 调整 systemd 内存限制
+sudo nano /etc/systemd/system/a-stock-analysis.service
+# 修改 MemoryMax=4G
+
+sudo systemctl daemon-reload
+sudo systemctl restart a-stock-analysis
 ```
+
+### 5. 代码未更新
+**症状**: 浏览器仍调用旧版 API
+
+**解决**:
+```bash
+cd /var/www/a-stock-analysis
+git log --oneline -3  # 检查代码版本
+git pull origin main  # 拉取最新代码
+pnpm build
+sudo systemctl restart a-stock-analysis
+```
+
+### 6. 浏览器缓存问题
+**症状**: 代码已更新，但浏览器仍显示旧版行为
+
+**解决**:
+1. 打开开发者工具（F12）
+2. Network 面板 → 勾选 "Disable cache"
+3. Application 面板 → Clear storage → Clear site data
+4. 强制刷新（Ctrl+Shift+R）
+
+### 7. K 线图周期切换无效
+**症状**: 无论选择日 K、周 K、月 K 还是分钟 K，都显示 5 分钟数据
+
+**原因**: mootdx 服务器（47.122.115.203:8888）的 `/api/kline` 路由参数名是 `frequency`（整数），但前端传的是 `period`（字符串）
+
+**解决**: 修改 `/opt/mootdx-server/main.py`，添加 `PERIOD_TO_FREQUENCY` 映射表
+
+### 8. GitHub Actions 部署 OOM
+**症状**: GitHub Actions 构建时报 `Process exited with status 137 from signal KILL`
+
+**原因**: GitHub Actions runner 内存限制（7GB），Next.js 构建内存不足
+
+**解决**: 改用手动部署（服务器有 39GB 内存），执行 `./deploy.sh`
 
 ### 3. 代码未更新
 **症状**: 浏览器仍调用旧版 API（如东方财富）
@@ -480,6 +602,49 @@ pm2 restart a-stock-analysis
 - ✅ 部署方式改为手动部署：避免 GitHub Actions OOM 问题
 - ✅ 数据源策略优化：K 线/实时行情优先使用 mootdx，移除东方财富降级
 - ✅ 资金流向缓存时间延长：5 分钟 → 10 分钟
+- ✅ **502 故障修复**：PM2 进程不稳定，改用 systemd 服务管理
+- ✅ **systemd 服务配置**：`server-config/a-stock-analysis.service`（崩溃后 5 秒自动重启）
+- ✅ **健康检查脚本**：`server-config/health-check.sh`（每 5 分钟检测 + 飞书告警）
+- ✅ **改进版部署脚本**：`server-config/deploy.sh`（增加启动验证）
+- ✅ **删除旧版组件**：`IndependentBacktest.tsx` 已删除，替换为 `HistoryBacktestPanel`
+
+### 服务器稳定性方案
+
+#### systemd 服务（`server-config/a-stock-analysis.service`）
+```ini
+[Unit]
+Description=A股智能分析系统
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/var/www/a-stock-analysis
+ExecStart=/usr/bin/node dist/server.js
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+Environment=PORT=5000
+MemoryMax=2G
+
+[Install]
+WantedBy=multi-user.target
+```
+
+#### 健康检查（`server-config/health-check.sh`）
+- 每 5 分钟检测 HTTP 200
+- 失败自动重启（最多 3 次）
+- 可选飞书 webhook 告警
+- 日志：`/var/www/a-stock-analysis/logs/health-check.log`
+
+#### 部署流程
+```bash
+cd /var/www/a-stock-analysis
+git pull origin main
+pnpm install --frozen-lockfile
+pnpm build
+sudo systemctl restart a-stock-analysis
+```
 
 ### 当前 K 线周期选项
 - 日 K、周 K、月 K
@@ -489,3 +654,5 @@ pm2 restart a-stock-analysis
 - [ ] 验证 K 线图所有周期显示效果
 - [ ] 考虑将财务数据切换到 Tushare（减少东方财富依赖）
 - [ ] mootdx 服务 systemd 持久化（开机自启、崩溃自动重启）
+- [ ] 清理 package.json 重复的 `packageManager` 字段（第 115 行）
+- [ ] 配置飞书 webhook 告警（health-check.sh）
