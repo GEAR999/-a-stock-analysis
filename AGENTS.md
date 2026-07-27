@@ -725,6 +725,8 @@ sudo systemctl restart a-stock-analysis
 - ✅ **GitHub Actions 优化**：改为仅发送飞书通知，不执行构建部署
 - ✅ **量化实时账户 API 代理修复**：`/api/quant-live` 代理地址从 `localhost:8890` 改为 `47.122.115.203:8889`
 - ✅ **量化账户创建表单验证**：添加必填字段错误提示
+- ✅ **部署脚本改用 systemd**：从 PM2 迁移到 systemd，解决端口冲突问题
+- ✅ **5000 端口占用问题解决**：部署脚本添加 `systemctl stop` + `pkill` + `sleep 2` 确保端口释放
 
 ## 工作流程（2026-07 更新）
 
