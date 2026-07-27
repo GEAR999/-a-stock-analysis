@@ -19,6 +19,7 @@ export function QuantLivePanel() {
   const [activeTab, setActiveTab] = useState<'chart' | 'trades' | 'performance'>('chart');
   const [klineData, setKlineData] = useState<Array<{date: string; open: number; close: number; low: number; high: number; volume: number}>>([]);
   const [klinePeriod, setKlinePeriod] = useState<KLinePeriod>('daily'); // K 线周期
+  const [createError, setCreateError] = useState<string>(''); // 创建错误提示
 
   const {
     status,
@@ -69,7 +70,12 @@ export function QuantLivePanel() {
   }, [selectedAccount?.stock_code, klinePeriod]);
 
   const handleCreate = async () => {
-    if (!newAccount.name || !newAccount.stockCode || !newAccount.initialCapital) return;
+    setCreateError(''); // 清除之前的错误
+    
+    if (!newAccount.name || !newAccount.stockCode || !newAccount.initialCapital) {
+      setCreateError('请填写必填字段：账户名称、股票代码、初始资金');
+      return;
+    }
     
     const selectedStrategy = strategies.find(s => s.id === selectedStrategyId);
     const account = await createAccount(
@@ -86,6 +92,9 @@ export function QuantLivePanel() {
       setShowCreateDialog(false);
       setNewAccount({ name: '', stockCode: '', stockName: '', initialCapital: 100000 });
       setSelectedStrategyId('');
+      setCreateError('');
+    } else {
+      setCreateError('创建失败，请检查网络连接或稍后重试');
     }
   };
 
@@ -310,6 +319,14 @@ export function QuantLivePanel() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-slate-800 rounded-lg p-6 w-[500px] border border-slate-700">
             <h3 className="text-lg font-bold text-slate-200 mb-4">新建量化账户</h3>
+            
+            {/* 错误提示 */}
+            {createError && (
+              <div className="mb-4 p-3 bg-red-900/30 border border-red-700/50 rounded text-sm text-red-400">
+                {createError}
+              </div>
+            )}
+            
             <div className="space-y-3">
               <div>
                 <label className="text-xs text-slate-400">账户名称</label>
