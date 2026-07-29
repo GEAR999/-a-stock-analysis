@@ -9,6 +9,7 @@ import { TechnicalCard } from '@/components/analysis/TechnicalCard';
 import { ComprehensiveAnalysis } from '@/components/analysis/ComprehensiveAnalysis';
 import { AdvicePanel } from '@/components/analysis/AdvicePanel';
 import { MacroEconomyPanel } from '@/components/macro/MacroEconomyPanel';
+import { RealtimeMarketPanel } from '@/components/realtime-market/RealtimeMarketPanel';
 import { IndustryMappingPanel } from '@/components/industry/IndustryMappingPanel';
 import { SentimentSummary } from '@/components/sentiment/SentimentSummary';
 import OverseasMapping from '@/components/analysis/OverseasMapping';
@@ -230,6 +231,15 @@ export function RightPanel() {
           summary="中性"
         >
           <MacroEconomyPanel enabled={true} />
+        </AccordionSection>
+
+        {/* 2.5 实时行情 - 手风琴模式 */}
+        <AccordionSection
+          title="实时行情"
+          icon="⚡"
+          summary="李富贵推送"
+        >
+          <RealtimeMarketPanel />
         </AccordionSection>
 
         {/* 3. 产业链映射 - 手风琴模式 */}

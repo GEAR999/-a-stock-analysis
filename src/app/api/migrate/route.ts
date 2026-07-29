@@ -158,6 +158,42 @@ const MIGRATION_STATEMENTS = [
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_learning_unique ON learning_progress(user_id, module, lesson_id)`,
   `CREATE INDEX IF NOT EXISTS idx_learning_user_id ON learning_progress(user_id)`,
+
+  // 11. 实时市场参数表（李富贵推送的大盘/自选股快照）
+  `CREATE TABLE IF NOT EXISTS realtime_market_params (
+    id BIGSERIAL PRIMARY KEY,
+    timestamp TIMESTAMP NOT NULL,
+    sh_price DECIMAL(10,2),
+    sh_change_pct DECIMAL(5,2),
+    sz_price DECIMAL(10,2),
+    sz_change_pct DECIMAL(5,2),
+    cyb_price DECIMAL(10,2),
+    cyb_change_pct DECIMAL(5,2),
+    advance_count INTEGER,
+    decline_count INTEGER,
+    limit_up INTEGER,
+    limit_down INTEGER,
+    total_volume DECIMAL(12,2),
+    watchlist_data JSONB DEFAULT '{"etf":[],"stock":[]}'::jsonb,
+    created_at TIMESTAMP DEFAULT NOW()
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_realtime_market_params_timestamp ON realtime_market_params(timestamp DESC)`,
+  `CREATE INDEX IF NOT EXISTS idx_realtime_market_params_created_at ON realtime_market_params(created_at DESC)`,
+
+  // 12. 市场参数配置表（自选股/ETF 配置）
+  `CREATE TABLE IF NOT EXISTS market_params_config (
+    id BIGSERIAL PRIMARY KEY,
+    user_id UUID DEFAULT '00000000-0000-0000-0000-000000000000',
+    watchlist_etf JSONB DEFAULT '[]'::jsonb,
+    watchlist_stock JSONB DEFAULT '[]'::jsonb,
+    push_token VARCHAR(255) NOT NULL DEFAULT 'env-managed',
+    push_times TEXT[] DEFAULT ARRAY['09:35', '10:00', '10:30', '13:05', '14:00', '14:45'],
+    update_interval INTEGER DEFAULT 60,
+    data_retention_days INTEGER DEFAULT 30,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_market_params_config_user_id ON market_params_config(user_id)`,
 ];
 
 const EXPECTED_TABLES = [
@@ -171,6 +207,8 @@ const EXPECTED_TABLES = [
   "watchlist",
   "analysis_cache",
   "learning_progress",
+  "realtime_market_params",
+  "market_params_config",
 ];
 
 // POST: Execute migration
