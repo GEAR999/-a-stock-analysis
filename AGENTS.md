@@ -642,7 +642,6 @@ pm2 restart a-stock-analysis
 
 ### 待办事项
 - [ ] 验证 K 线图所有周期显示效果
-- [ ] 考虑将财务数据切换到 Tushare（减少东方财富依赖）
 - [ ] 配置飞书 webhook 告警（health-check.sh）
 - [ ] DNS 恢复解析后，配置 Nginx 反向代理（`a-stock.xyz` → `localhost:5000`）
 - [ ] 配置 HTTPS（Let's Encrypt 证书）
@@ -696,6 +695,25 @@ pm2 restart a-stock-analysis
 - ✅ **保留功能**：SyncStatusIndicator（云端同步）、AutoRefreshIndicator（交易时段刷新）、useAutoRefresh hook
 - ✅ **共删除约 225 行代码**
 
+#### 东方财富全部删除（2026-08）
+- ✅ **删除情绪分析服务**：`src/services/sentiment/` (8 个文件)
+- ✅ **删除情绪分析组件**：`src/components/sentiment/` (3 个文件)
+- ✅ **删除财务数据/资金流向**：financial-data.ts、money-flow.ts、对应 API 路由
+- ✅ **删除数据校验模块**：data-validator.ts、data-validator-xref.ts
+- ✅ **删除孤立组件**：FundamentalCard.tsx、MoneyFlowCard.tsx、SentimentTooltip.tsx
+- ✅ **修改 API 路由**：删除 5 个 sentiment action
+- ✅ **修改数据源**：删除东方财富相关函数，更新注释
+- ✅ **共删除约 3000+ 行代码**
+
+#### 东方财富全部删除（2026-08）
+- ✅ **删除情绪分析服务**：src/services/sentiment/ (8 个文件)
+- ✅ **删除情绪分析组件**：src/components/sentiment/ (3 个文件)
+- ✅ **删除财务/资金流向**：financial-data.ts / money-flow.ts / 对应 API 路由
+- ✅ **删除数据校验**：data-validator.ts / data-validator-xref.ts
+- ✅ **删除孤立组件**：FundamentalCard.tsx / MoneyFlowCard.tsx / SentimentTooltip.tsx
+- ✅ **修改引用**：api/stock/route.ts / api/stock.ts / RightPanel.tsx / api-client.ts / data-source.ts
+- ✅ **共删除约 3700 行代码**
+
 #### 服务部署
 - ✅ **账号创建**：`1119220189@qq.com` / `123456`
 - ✅ **服务正常运行**：`http://47.122.115.203:5000`
@@ -715,8 +733,9 @@ pm2 restart a-stock-analysis
 | 数据源 | 状态 | 用途 |
 |--------|------|------|
 | Tushare | ✅ 正常 | K 线/估值/M2 换手率/M5 融资余额补齐 |
-| 东方财富 | ⚠️ 限流中 | 情绪分析/资金流向（用缓存缓解） |
+| 李富贵推送 | ✅ 正常 | 市场情绪/资金流向/板块数据 |
 | mootdx | ❌ 已废弃 | 返回空数据，已确认废弃 |
+| 东方财富 | ❌ 已删除 | 所有相关代码已移除 |
 
 ## 最新进展（2026-07-27）
 
