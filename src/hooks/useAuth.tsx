@@ -29,14 +29,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        // 尝试从 cookie 中获取用户信息
-        const token = document.cookie.split(';').find(c => c.trim().startsWith('auth-token='));
-        if (token) {
-          // 有 token，尝试验证
-          const res = await api.auth.me();
-          if (res.ok && res.data) {
-            setUser(res.data as User);
-          }
+        // 直接调用 /api/auth/me，middleware 会自动检查 cookie
+        // 如果 cookie 无效/过期，API 返回 401
+        const res = await api.auth.me();
+        if (res.ok && res.data) {
+          setUser(res.data as User);
         }
       } catch {
         // 未登录
