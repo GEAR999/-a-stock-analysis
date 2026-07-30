@@ -18,7 +18,6 @@ import { AutoRefreshIndicator } from '@/components/chart/AutoRefreshIndicator';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import AIChatWidget from '@/components/ai/AIChatWidget';
 import { SyncStatusIndicator } from '@/components/SyncStatusIndicator';
-import SystemStatusIndicator from '@/components/SystemStatusIndicator';
 
 type MainTab = 'analysis' | 'backtest' | 'history-backtest' | 'learning';
 
@@ -139,8 +138,6 @@ export default function Home() {
               📚 学习中心
             </button>
             <div className="ml-auto flex items-center gap-2 pr-3">
-              {/* 系统状态指示器 */}
-              <SystemStatusIndicator />
               {/* 云端同步状态 */}
               <SyncStatusIndicator />
               {/* 消息通知 */}

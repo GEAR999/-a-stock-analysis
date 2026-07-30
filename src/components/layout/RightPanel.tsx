@@ -9,7 +9,7 @@ import { TechnicalCard } from '@/components/analysis/TechnicalCard';
 import { ComprehensiveAnalysis } from '@/components/analysis/ComprehensiveAnalysis';
 import { AdvicePanel } from '@/components/analysis/AdvicePanel';
 import { MacroEconomyPanel } from '@/components/macro/MacroEconomyPanel';
-import { RealtimeMarketPanel } from '@/components/realtime-market/RealtimeMarketPanel';
+
 import { IndustryMappingPanel } from '@/components/industry/IndustryMappingPanel';
 import { SentimentSummary } from '@/components/sentiment/SentimentSummary';
 import OverseasMapping from '@/components/analysis/OverseasMapping';
@@ -22,14 +22,13 @@ import { StockComparison } from '@/components/analysis/StockComparison';
 import { HistoricalSignalsPanel } from '@/components/analysis/HistoricalSignalsPanel';
 import MultiFactorPanel from '@/components/multifactor/MultiFactorPanel';
 
-// 市场参考 Tab（宏观/实时行情/产业链/海外，聚合成一个手风琴，默认收起）
-type MarketRefTab = 'macro' | 'realtime' | 'industry' | 'overseas';
+// 市场参考 Tab（宏观/产业链/海外，聚合成一个手风琴，默认收起）
+type MarketRefTab = 'macro' | 'industry' | 'overseas';
 
 function MarketReferenceTabs({ stockCode, stockName }: { stockCode?: string; stockName?: string }) {
   const [tab, setTab] = useState<MarketRefTab>('macro');
   const tabs: { key: MarketRefTab; label: string }[] = [
     { key: 'macro', label: '宏观' },
-    { key: 'realtime', label: '实时' },
     { key: 'industry', label: '产业链' },
     { key: 'overseas', label: '海外' },
   ];
@@ -52,7 +51,6 @@ function MarketReferenceTabs({ stockCode, stockName }: { stockCode?: string; sto
       </div>
       <div className="p-1">
         {tab === 'macro' && <MacroEconomyPanel enabled={true} />}
-        {tab === 'realtime' && <RealtimeMarketPanel />}
         {tab === 'industry' && <IndustryMappingPanel stockCode={stockCode} />}
         {tab === 'overseas' && <OverseasMapping stockCode={stockCode || ''} stockName={stockName || ''} />}
       </div>

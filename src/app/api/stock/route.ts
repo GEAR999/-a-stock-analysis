@@ -4,7 +4,6 @@ import { calculateStockSentiment } from '@/lib/analysis';
 import { calculateSectorSentiment } from '@/services/sentiment/sector-sentiment';
 import { fetchComprehensiveSentiment } from '@/services/sentiment/sentiment-panel';
 import { crossValidateQuote, crossValidateKline } from '@/lib/data-validator-xref';
-import { recordRequest, checkRecovery } from '@/lib/monitor';
 import type { KLinePeriod, StockQuote } from '@/lib/types';
 
 // 缓存：板块数据5分钟，个股数据1分钟
@@ -124,9 +123,6 @@ export async function GET(request: NextRequest) {
   const sector = searchParams.get('sector');
   const limit = parseInt(searchParams.get('limit') || '250');
 
-  // 检查是否有数据源已恢复
-  await checkRecovery();
-
   try {
     switch (action) {
       case 'search': {
@@ -136,16 +132,12 @@ export async function GET(request: NextRequest) {
       }
       case 'quote': {
         if (!code) return NextResponse.json({ error: 'Missing code' }, { status: 400 });
-        const startTime = Date.now();
         const quote = await getQuote(code);
         if (!quote) return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
         
         // 交叉验证（非阻塞）
         const { data: verifiedData, validation } = await crossValidateQuote(quote);
         const responseData = verifiedData || quote;
-        
-        // 记录请求统计
-        recordRequest(!!responseData, Date.now() - startTime, validation.overridden);
         
         return NextResponse.json({
           success: true,
