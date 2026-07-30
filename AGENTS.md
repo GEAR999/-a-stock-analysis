@@ -106,13 +106,10 @@ src/
 ```
 server-config/
 ├── a-stock-analysis.service    # systemd 服务配置（崩溃后 5 秒自动重启）
-├── mootdx.service              # mootdx systemd 服务配置（Python 行情服务）
-── health-check.sh             # 主服务健康检查脚本（每 5 分钟检测 + 飞书告警）
-├── mootdx-health-check.sh      # mootdx 健康检查脚本（每 5 分钟检测 + 告警）
-── ecosystem.config.js         # PM2 备选配置（推荐 systemd）
+├── health-check.sh             # 主服务健康检查脚本（每 5 分钟检测 + 飞书告警）
+├── ecosystem.config.js         # PM2 备选配置（推荐 systemd）
 ├── deploy.sh                   # 改进版部署脚本（增加启动验证）
-── README.md                   # 主服务配置说明
-└── MOOTDX-README.md            # mootdx 服务配置说明
+└── README.md                   # 主服务配置说明
 ```
 
 ### 主服务部署流程
@@ -132,51 +129,21 @@ Environment=HOSTNAME=0.0.0.0
 Environment=PORT=5000
 ```
 
-### mootdx 服务配置
-```bash
-# 首次配置
-sudo cp server-config/mootdx.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable mootdx
-sudo systemctl start mootdx
-
-# 健康检查（可选）
-sudo cp server-config/mootdx-health-check.sh /opt/mootdx-server/health-check.sh
-sudo chmod +x /opt/mootdx-server/health-check.sh
-(crontab -l 2>/dev/null; echo "*/5 * * * * /opt/mootdx-server/health-check.sh") | crontab -
-```
-
 ### 常用命令
 ```bash
 # 主服务
 sudo systemctl status a-stock-analysis
 sudo journalctl -u a-stock-analysis -f
 
-# mootdx 服务
-sudo systemctl status mootdx
-sudo journalctl -u mootdx -f
-
 # 手动健康检查
 /var/www/a-stock-analysis/server-config/health-check.sh
-/opt/mootdx-server/health-check.sh
-```
-
-## 量化实时服务（阿里云服务器 47.122.115.203:8889）
-```
-quant-live-service/
-├── index.js          ← 主服务（WebSocket + HTTP API）
-├── cron.js           ← 定时任务逻辑
-├── db.js             ← Neon 数据库连接
-├── mootdx.js         ← mootdx 数据获取
-├── signals.js        ← 信号检测
-└── .env              ← 环境变量
 ```
 
 ## API 接口
-- `GET /api/stock?action=search&keyword={code}` - 搜索股票（mootdx）
-- `GET /api/stock?action=quote&code={code}` - 实时行情（mootdx）
-- `GET /api/stock?action=kline&code={code}&period={period}&limit={n}` - K 线数据（mootdx，支持 daily/weekly/monthly/60min/30min/15min/5min）
-- `GET /api/stock?action=minute&code={code}` - 分时图数据（mootdx，保留 API 但前端已移除入口）
+- `GET /api/stock?action=search&keyword={code}` - 搜索股票（Tushare）
+- `GET /api/stock?action=quote&code={code}` - 实时行情（Tushare）
+- `GET /api/stock?action=kline&code={code}&period={period}&limit={n}` - K 线数据（Tushare，支持 daily/weekly/monthly）
+- `GET /api/stock?action=minute&code={code}` - 分时图数据（已废弃，Tushare 2000 积分不支持分钟数据）
 - `GET /api/stock?action=sentiment` - 大盘市场情绪（东方财富）
 - `GET /api/stock?action=sector_list` - 获取全市场板块列表（东方财富）
 - `GET /api/stock?action=sector_sentiment&sector={code}` - 板块情绪分析（东方财富）
@@ -184,9 +151,8 @@ quant-live-service/
 - `GET /api/stock?action=comprehensive_sentiment` - 综合情绪评估（东方财富）
 
 ### K 线周期
-- **支持周期**：daily（日 K）、weekly（周 K）、monthly（月 K）、60min（60 分钟）、30min（30 分钟）、15min（15 分钟）、5min（5 分钟）
-- **已移除**：yearly（年 K，mootdx 不支持）、minute（分时图，前端已移除入口但 API 保留）
-- **周期映射**：mootdx 服务器（47.122.115.203:8888）使用 `PERIOD_TO_FREQUENCY` 映射表将字符串周期转换为 mootdx 的 frequency 整数参数
+- **支持周期**：daily（日 K）、weekly（周 K）、monthly（月 K）
+- **已移除**：yearly（年 K）、minute（分时图）、60min/30min/15min/5min（Tushare 2000 积分不支持分钟数据）
 
 ## 情绪分析系统
 - 大盘情绪：8个指标加权（涨跌家数比/涨停跌停比/成交额偏离度/连板高度/封板成功率/北向资金/两融变化/新高新低差）
@@ -413,15 +379,8 @@ quant-live-service/
 ### 服务器信息
 - **IP**: 47.122.115.203
 - **路径**: `/var/www/a-stock-analysis`
-- **端口**: 5000（主服务）、8888（mootdx K线服务）、8889（quant-live 量化实时服务）
+- **端口**: 5000（主服务）
 - **域名**: https://a-stock.xyz（Nginx 反向代理到 5000）
-
-### mootdx 服务（47.122.115.203:8888）
-- **路径**: `/opt/mootdx-server/main.py`
-- **功能**: K 线数据、实时行情、分时图
-- **周期映射**: `PERIOD_TO_FREQUENCY` 将字符串周期（day/week/month/5min/15min/30min/60min）转换为 mootdx frequency 整数
-- **启动命令**: `cd /opt/mootdx-server && ./venv/bin/python main.py &`
-- **注意**: 该服务是 Python FastAPI 服务，不是 Node.js，不使用 PM2 管理
 
 ### 部署策略：GitHub 推送 + 服务器手动部署
 
@@ -721,6 +680,14 @@ pm2 restart a-stock-analysis
 - ✅ **删除 /api/quant-live 路由**：API 代理已移除
 - ✅ **停止 8889 端口服务**：PM2 进程已停止，端口已释放
 - ✅ **清理代码**：共删除约 1700 行孤立代码
+
+#### 废弃数据源代码清理（2026-08）
+- ✅ **删除 mootdx 服务器配置**：mootdx.service / mootdx-health-check.sh / MOOTDX-README.md
+- ✅ **删除 RealtimeMarketPanel**：实时行情面板（数据源已废弃）
+- ✅ **删除数据源监控系统**：src/lib/monitor/ / src/app/monitor/ / src/app/api/monitor/ / src/app/api/health/
+- ✅ **删除 SystemStatusIndicator 组件**：数据源状态指示器
+- ✅ **清理引用**：从 RightPanel/Sidebar/page.tsx/api/stock 移除相关引用
+- ✅ **共删除约 3600 行代码**
 
 #### 服务部署
 - ✅ **账号创建**：`1119220189@qq.com` / `123456`
