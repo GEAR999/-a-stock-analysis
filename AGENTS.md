@@ -689,6 +689,13 @@ pm2 restart a-stock-analysis
 - ✅ **清理引用**：从 RightPanel/Sidebar/page.tsx/api/stock 移除相关引用
 - ✅ **共删除约 3600 行代码**
 
+#### 废弃功能深度清理（2026-08）
+- ✅ **删除 DataSourceToggle 组件**：数据源切换已无意义（主备都是 Tushare）
+- ✅ **删除实时监控开关**：Sidebar 和 QuoteHeader 中的"实时监控"开关（名称易误解）
+- ✅ **删除 isMonitoring 状态**：useAppState 中的状态和 5 秒自动刷新逻辑
+- ✅ **保留功能**：SyncStatusIndicator（云端同步）、AutoRefreshIndicator（交易时段刷新）、useAutoRefresh hook
+- ✅ **共删除约 225 行代码**
+
 #### 服务部署
 - ✅ **账号创建**：`1119220189@qq.com` / `123456`
 - ✅ **服务正常运行**：`http://47.122.115.203:5000`
