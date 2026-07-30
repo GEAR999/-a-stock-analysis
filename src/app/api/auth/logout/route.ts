@@ -5,7 +5,7 @@ export async function POST() {
   const response = NextResponse.json({ ok: true, message: '已登出' });
   response.cookies.set('auth-token', '', {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: process.env.COOKIE_SECURE === 'true',
     sameSite: 'lax',
     maxAge: 0,
     path: '/',
