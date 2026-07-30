@@ -8,14 +8,12 @@ import { useState } from 'react';
 
 export interface DataSourceConfig {
   tushare: boolean;
-  mootdx: boolean;
   eastmoney: boolean;
 }
 
 export const DEFAULT_DATASOURCE_CONFIG: DataSourceConfig = {
   tushare: true,
-  mootdx: true,
-  eastmoney: false, // 默认关闭东方财富（易限流）
+  eastmoney: true, // /api/stock 备用通道（服务端 Tushare + 缓存）
 };
 
 // ============================================================================
@@ -62,7 +60,6 @@ export function DataSourceToggle({ currentSource, onConfigChange }: DataSourceTo
         数据：
         <span className={`font-medium ${
           currentSource === 'tushare' ? 'text-blue-400' :
-          currentSource === 'mootdx' ? 'text-green-400' :
           currentSource === 'eastmoney' ? 'text-red-400' :
           'text-[#94a3b8]'
         }`}>
@@ -88,20 +85,6 @@ export function DataSourceToggle({ currentSource, onConfigChange }: DataSourceTo
         </button>
 
         <button
-          onClick={() => handleToggle('mootdx')}
-          className={`px-2 py-0.5 rounded text-[10px] transition-all ${
-            config.mootdx
-              ? currentSource === 'mootdx'
-                ? 'bg-green-600 text-white ring-2 ring-green-400'
-                : 'bg-green-600/20 text-green-400 hover:bg-green-600/30'
-              : 'bg-[#1e293b] text-[#475569] line-through'
-          }`}
-          title="mootdx (本地服务)"
-        >
-          M
-        </button>
-
-        <button
           onClick={() => handleToggle('eastmoney')}
           className={`px-2 py-0.5 rounded text-[10px] transition-all ${
             config.eastmoney
@@ -110,7 +93,7 @@ export function DataSourceToggle({ currentSource, onConfigChange }: DataSourceTo
                 : 'bg-red-600/20 text-red-400 hover:bg-red-600/30'
               : 'bg-[#1e293b] text-[#475569] line-through'
           }`}
-          title="东方财富 (易限流)"
+          title="备用通道 (/api/stock，服务端 Tushare + 缓存)"
         >
           E
         </button>

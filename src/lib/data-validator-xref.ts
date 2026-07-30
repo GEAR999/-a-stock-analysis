@@ -3,7 +3,7 @@
  * 第31轮第3批需求
  * 
  * 功能：
- * - mootdx vs Tushare 行情/K线/财务数据交叉验证
+ * - 主数据源（李富贵推送 / Tushare）vs Tushare 行情/K线/财务数据交叉验证
  * - 可配置阈值，异步验证不阻塞主流程
  * - 5分钟内存缓存避免重复验证
  * - 异常数据console日志记录
@@ -66,7 +66,8 @@ interface FinancialData {
 
 interface ValidationResult {
   verified: boolean;
-  source: 'mootdx' | 'tushare' | 'eastmoney';
+  // primary = 主数据源（李富贵推送 / Tushare 日线）
+  source: 'primary' | 'tushare' | 'eastmoney';
   overridden: boolean;
   diffPercent?: number;
   message?: string;
@@ -255,74 +256,73 @@ export function resetXrefStats() {
 
 /**
  * 实时行情交叉验证
- * mootdx返回实时行情后，用Tushare最近一条日线收盘价做对比
- * 
+ * 主数据源（李富贵推送 / Tushare 日线）返回行情后，用 Tushare 最近一条日线收盘价做对比
+ *
  * 验证规则：
- * - 价格差异 ≤ 阈值 → 通过，使用mootdx数据
- * - 价格差异 > 阈值 → 标记异常，使用Tushare数据覆盖
- * - mootdx请求失败 → 直接用Tushare
+ * - 价格差异 ≤ 阈值 → 通过，使用主数据源
+ * - 价格差异 > 阈值 → 标记异常，使用 Tushare 数据覆盖
  * - 非交易时间不做验证
  */
 export async function crossValidateQuote(
-  mootdxQuote: QuoteData | null
+  quote: QuoteData | null
 ): Promise<{ data: QuoteData | null; validation: ValidationResult }> {
   const config = getConfig();
   if (!config.enabled) {
     return {
-      data: mootdxQuote,
-      validation: { verified: false, source: 'mootdx', overridden: false, message: 'xref disabled' },
+      data: quote,
+      validation: { verified: false, source: 'primary', overridden: false, message: 'xref disabled' },
     };
   }
 
-  if (!mootdxQuote) {
+  if (!quote) {
     return {
       data: null,
-      validation: { verified: false, source: 'mootdx', overridden: false, message: 'no mootdx data' },
+      validation: { verified: false, source: 'primary', overridden: false, message: 'no quote data' },
     };
   }
 
   // 非交易时间不验证
   if (!isTradingTime()) {
     return {
-      data: mootdxQuote,
-      validation: { verified: false, source: 'mootdx', overridden: false, message: 'non-trading hours' },
+      data: quote,
+      validation: { verified: false, source: 'primary', overridden: false, message: 'non-trading hours' },
     };
   }
 
   // 检查缓存
-  const cacheKey = getCacheKey('quote', mootdxQuote.code);
+  const cacheKey = getCacheKey('quote', quote.code);
   const cached = getCached<ValidationResult>(cacheKey, config.cacheTtl);
   if (cached) {
-    return { data: mootdxQuote, validation: { ...cached, message: (cached.message || '') + ' (cached)' } };
+    return { data: quote, validation: { ...cached, message: (cached.message || '') + ' (cached)' } };
   }
 
   // 获取Tushare验证数据
-  const tsData = await getTushareLatestClose(mootdxQuote.code);
+  const tsData = await getTushareLatestClose(quote.code);
   if (!tsData) {
-    const result: ValidationResult = { verified: false, source: 'mootdx', overridden: false, message: 'tushare unavailable' };
+    const result: ValidationResult = { verified: false, source: 'primary', overridden: false, message: 'tushare unavailable' };
     setCache(cacheKey, result);
-    return { data: mootdxQuote, validation: result };
+    return { data: quote, validation: result };
   }
 
-  const diff = Math.abs(mootdxQuote.price - tsData.close) / tsData.close;
+  const diff = Math.abs(quote.price - tsData.close) / tsData.close;
   const passed = diff <= config.quoteThreshold;
 
-  recordStat(mootdxQuote.code, passed);
+  recordStat(quote.code, passed);
 
   if (passed) {
     const result: ValidationResult = {
       verified: true,
-      source: 'mootdx',
+      source: 'primary',
       overridden: false,
       diffPercent: parseFloat((diff * 100).toFixed(4)),
-      message: `mootdx vs tushare diff ${(diff * 100).toFixed(3)}%`,
+      message: `primary vs tushare diff ${(diff * 100).toFixed(3)}%`,
     };
     setCache(cacheKey, result);
-    return { data: mootdxQuote, validation: result };
+    return { data: quote, validation: result };
   } else {
     // 差异超过阈值，记录异常日志
     console.warn(
-      `[XREF] quote mismatch ${mootdxQuote.code}: mootdx=${mootdxQuote.price} tushare=${tsData.close} diff=${(diff * 100).toFixed(3)}%`
+      `[XREF] quote mismatch ${quote.code}: primary=${quote.price} tushare=${tsData.close} diff=${(diff * 100).toFixed(3)}%`
     );
     const result: ValidationResult = {
       verified: false,
@@ -334,7 +334,7 @@ export async function crossValidateQuote(
     setCache(cacheKey, result);
     // 使用Tushare数据覆盖价格
     const overriddenQuote: QuoteData = {
-      ...mootdxQuote,
+      ...quote,
       price: tsData.close,
     };
     return { data: overriddenQuote, validation: result };
@@ -343,7 +343,7 @@ export async function crossValidateQuote(
 
 /**
  * K线数据交叉验证
- * mootdx返回K线数据后，抽样最后5条与Tushare对比
+ * 主数据源返回K线数据后，抽样最后5条与Tushare对比
  * 
  * 验证规则：
  * - OHLC任一字段差异 ≤ 阈值 → 通过
@@ -353,29 +353,29 @@ export async function crossValidateQuote(
  */
 export async function crossValidateKline(
   code: string,
-  mootdxKline: KLineItem[],
+  klineDataX: KLineItem[],
   period: string = 'day'
 ): Promise<{ data: KLineItem[]; validation: KlineValidationResult }> {
   const config = getConfig();
   if (!config.enabled) {
     return {
-      data: mootdxKline,
-      validation: { verified: false, source: 'mootdx', overridden: false, message: 'xref disabled' },
+      data: klineDataX,
+      validation: { verified: false, source: 'primary', overridden: false, message: 'xref disabled' },
     };
   }
 
-  if (!mootdxKline || mootdxKline.length === 0) {
+  if (!klineDataX || klineDataX.length === 0) {
     return {
       data: [],
-      validation: { verified: false, source: 'mootdx', overridden: false, message: 'no mootdx data' },
+      validation: { verified: false, source: 'primary', overridden: false, message: 'no kline data' },
     };
   }
 
   // 分钟级K线不做验证
   if (['1min', '5min', '15min', '30min', '60min'].includes(period)) {
     return {
-      data: mootdxKline,
-      validation: { verified: false, source: 'mootdx', overridden: false, message: 'minute kline skipped' },
+      data: klineDataX,
+      validation: { verified: false, source: 'primary', overridden: false, message: 'minute kline skipped' },
     };
   }
 
@@ -383,22 +383,22 @@ export async function crossValidateKline(
   const cacheKey = getCacheKey('kline', code);
   const cached = getCached<KlineValidationResult>(cacheKey, config.cacheTtl);
   if (cached) {
-    return { data: mootdxKline, validation: { ...cached, message: (cached.message || '') + ' (cached)' } };
+    return { data: klineDataX, validation: { ...cached, message: (cached.message || '') + ' (cached)' } };
   }
 
   // 获取Tushare K线数据对比（取最后5条）
-  const sampleCount = Math.min(5, mootdxKline.length);
+  const sampleCount = Math.min(5, klineDataX.length);
   const tsKline = await getTushareKline(code, sampleCount);
 
   if (!tsKline || tsKline.length === 0) {
-    const result: KlineValidationResult = { verified: false, source: 'mootdx', overridden: false, message: 'tushare unavailable' };
+    const result: KlineValidationResult = { verified: false, source: 'primary', overridden: false, message: 'tushare unavailable' };
     setCache(cacheKey, result);
-    return { data: mootdxKline, validation: result };
+    return { data: klineDataX, validation: result };
   }
 
   // 对比最后N条K线
-  const startIdx = Math.max(0, mootdxKline.length - sampleCount);
-  const lastN = mootdxKline.slice(startIdx);
+  const startIdx = Math.max(0, klineDataX.length - sampleCount);
+  const lastN = klineDataX.slice(startIdx);
   const overriddenIndices: number[] = [];
   let consecutiveErrors = 0;
   let maxConsecutive = 0;
@@ -459,20 +459,20 @@ export async function crossValidateKline(
 
   // 逐条覆盖异常K线
   if (overriddenIndices.length > 0) {
-    const merged = [...mootdxKline];
+    const merged = [...klineDataX];
     for (let i = 0; i < overriddenIndices.length; i++) {
       const idx = overriddenIndices[i];
       const tsIdx = idx - startIdx;
       if (tsIdx >= 0 && tsIdx < tsKline.length) {
         console.warn(
-          `[XREF] kline override ${code}[${idx}]: mootdx close=${merged[idx].close} tushare close=${tsKline[tsIdx].close}`
+          `[XREF] kline override ${code}[${idx}]: primary close=${merged[idx].close} tushare close=${tsKline[tsIdx].close}`
         );
         merged[idx] = tsKline[tsIdx];
       }
     }
     const result: KlineValidationResult = {
       verified: true,
-      source: 'mootdx',
+      source: 'primary',
       overridden: true,
       overriddenIndices,
       message: `overridden ${overriddenIndices.length} kline items`,
@@ -484,12 +484,12 @@ export async function crossValidateKline(
   // 全部通过
   const result: KlineValidationResult = {
     verified: true,
-    source: 'mootdx',
+    source: 'primary',
     overridden: false,
     message: 'all passed',
   };
   setCache(cacheKey, result);
-  return { data: mootdxKline, validation: result };
+  return { data: klineDataX, validation: result };
 }
 
 /**

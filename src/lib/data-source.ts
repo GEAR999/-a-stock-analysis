@@ -1,22 +1,21 @@
 /**
  * 统一数据源管理器
- * 
- * 实现多数据源分层架构：
- * 1. Tushare Pro（历史数据主力）- 稳定、数据全
- * 2. mootdx（实时数据主力）- 本地服务，延迟低
- * 3. 东方财富（降级兜底）- 当主力数据源失败时
- * 4. 本地缓存（兜底）- IndexedDB 缓存
- * 
+ *
+ * 数据源架构（2026-08 改造）：
+ * 1. Tushare Pro（历史数据主力，2000 积分）- 稳定、数据全
+ * 2. /api/stock 备用通道（服务端 Tushare + 缓存）
+ * 3. 本地缓存（兜底）- IndexedDB 缓存
+ *
+ * 已废弃：mootdx（连接成功但查询返回空数据）、东方财富 K 线直连（限流）
+ *
  * 智能路由策略：
- * - 历史数据：Tushare → 缓存 → 东方财富
- * - 实时数据：mootdx → 东方财富 → 缓存
+ * - Tushare → 备用通道 → 缓存
  * - 同一股票同一天数据只请求一次
  * - 请求队列避免并发限流
  */
 
 import type { KLineData } from "./types";
 import { getCachedKline, setCachedKline } from "./idb-cache";
-import { getKline as mootdxGetKline, isMootdxAvailable } from "./mootdx-client";
 
 // ============================================================================
 // 类型定义
@@ -44,7 +43,7 @@ export enum DataSourceError {
 export interface DataSourceResult {
   success: boolean;
   data: KLineData[];
-  source: "tushare" | "mootdx" | "eastmoney" | "cache" | "database" | "none";
+  source: "tushare" | "eastmoney" | "cache" | "database" | "none";
   error?: DataSourceError;
   errorMessage?: string; // 面向用户的错误信息
   suggestion?: string; // 解决方案建议
@@ -96,13 +95,11 @@ export const ERROR_MESSAGES: Record<DataSourceError, { message: string; suggesti
 };
 
 export interface DataSourceConfig {
-  // 数据源优先级（默认：历史 tushare→cache→eastmoney，实时 mootdx→eastmoney→cache）
-  priority: ("tushare" | "mootdx" | "eastmoney" | "cache")[];
+  // 数据源优先级（默认：tushare → eastmoney(/api/stock 备用通道) → cache）
+  priority: ("tushare" | "eastmoney" | "cache")[];
   // Tushare 超时时间（毫秒）
   tushareTimeout: number;
-  // mootdx 超时时间（毫秒）
-  mootdxTimeout: number;
-  // 东方财富超时时间（毫秒）
+  // 备用通道超时时间（毫秒）
   eastmoneyTimeout: number;
   // 是否启用缓存
   enableCache: boolean;
@@ -113,23 +110,20 @@ export interface DataSourceConfig {
   // 数据源开关（用户可配置）
   enabled?: {
     tushare: boolean;
-    mootdx: boolean;
     eastmoney: boolean;
   };
 }
 
 const DEFAULT_CONFIG: DataSourceConfig = {
-  priority: ["mootdx", "tushare", "eastmoney", "cache"],
+  priority: ["tushare", "eastmoney", "cache"],
   tushareTimeout: 10000,
-  mootdxTimeout: 5000,
   eastmoneyTimeout: 10000,
   enableCache: true,
   historicalCacheTTL: 7 * 24 * 60 * 60 * 1000, // 7 天
   realtimeCacheTTL: 5 * 60 * 1000, // 5 分钟
   enabled: {
     tushare: true,
-    mootdx: true,
-    eastmoney: false, // 默认关闭东方财富（易限流）
+    eastmoney: true, // /api/stock 备用通道（服务端 Tushare + 缓存）
   },
 };
 
@@ -148,8 +142,7 @@ export function getUserDataSourceConfig(): DataSourceConfig {
       ...DEFAULT_CONFIG,
       enabled: {
         tushare: userConfig.tushare ?? true,
-        mootdx: userConfig.mootdx ?? true,
-        eastmoney: userConfig.eastmoney ?? false,
+        eastmoney: userConfig.eastmoney ?? true,
       },
     };
   } catch {
@@ -223,11 +216,13 @@ async function fetchFromTushare(
   period: KLinePeriod,
   startDate?: string,
   endDate?: string,
-  timeout = 10000
+  timeout = 10000,
+  limit = 250
 ): Promise<DataSourceResult> {
   const params = new URLSearchParams({
     code,
     period,
+    limit: String(limit),
   });
   if (startDate) params.set("start_date", startDate);
   if (endDate) params.set("end_date", endDate);
@@ -305,71 +300,7 @@ async function fetchFromTushare(
 }
 
 // ============================================================================
-// mootdx 数据源（实时数据优先）
-// ============================================================================
-
-async function fetchFromMootdx(
-  code: string,
-  period: KLinePeriod,
-  limit = 100,
-  timeout = 5000
-): Promise<DataSourceResult> {
-  // 检查 mootdx 服务是否可用
-  if (!isMootdxAvailable()) {
-    return {
-      success: false,
-      data: [],
-      source: "mootdx",
-      error: DataSourceError.MOOTDX_UNAVAILABLE,
-    };
-  }
-
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-    const data = await mootdxGetKline(code, period, limit);
-
-    clearTimeout(timeoutId);
-
-    if (!data || data.length === 0) {
-      return {
-        success: false,
-        data: [],
-        source: "mootdx",
-        error: DataSourceError.NO_DATA,
-      };
-    }
-
-    // 转换数据格式（mootdx 返回的格式可能与 KLineData 略有不同）
-    const klineData: KLineData[] = data.map((item: any) => ({
-      date: item.datetime || item.date || "",
-      open: Number(item.open) || 0,
-      high: Number(item.high) || 0,
-      low: Number(item.low) || 0,
-      close: Number(item.close) || 0,
-      volume: Number(item.vol || item.volume) || 0,
-      amount: Number(item.amount) || 0,
-    }));
-
-    return {
-      success: true,
-      data: klineData,
-      source: "mootdx",
-    };
-  } catch (error) {
-    const errMsg = error instanceof Error ? error.message : "Unknown error";
-    return {
-      success: false,
-      data: [],
-      source: "mootdx",
-      error: errMsg.includes("abort") ? DataSourceError.REQUEST_TIMEOUT : DataSourceError.SERVER_ERROR,
-    };
-  }
-}
-
-// ============================================================================
-// 东方财富数据源
+// 备用通道（/api/stock，服务端 Tushare + 缓存）
 // ============================================================================
 
 async function fetchFromEastMoney(
@@ -562,14 +493,9 @@ export async function fetchKLineData(
   // 判断是否为实时数据
   const isRealtime = isRealtimeData(period, limit);
 
-  // 如果未指定优先级，根据数据类型自动选择
+  // 如果未指定优先级，默认：Tushare → 备用通道 → 缓存
   if (!options.config?.priority) {
-    // 非交易时间优先使用缓存，避免请求失败
-    const isTradingHours = new Date().getHours() >= 9 && new Date().getHours() < 15;
-    // 移除东方财富，避免限流风险
-    config.priority = isRealtime
-      ? (isTradingHours ? ["mootdx", "cache"] : ["cache", "mootdx"])
-      : (isTradingHours ? ["mootdx", "tushare", "cache"] : ["cache", "mootdx", "tushare"]);
+    config.priority = ["tushare", "eastmoney", "cache"];
   }
 
   // 使用请求队列，避免并发限流
@@ -626,10 +552,7 @@ export async function fetchKLineData(
 
       switch (source) {
         case "tushare":
-          result = await fetchFromTushare(code, period, startDate, endDate, config.tushareTimeout);
-          break;
-        case "mootdx":
-          result = await fetchFromMootdx(code, period, limit, config.mootdxTimeout);
+          result = await fetchFromTushare(code, period, startDate, endDate, config.tushareTimeout, limit);
           break;
         case "eastmoney":
           result = await fetchFromEastMoney(code, period, limit, config.eastmoneyTimeout);
@@ -744,11 +667,9 @@ export async function clearDataCache(code?: string): Promise<void> {
 export function getDataSourceStatus(): {
   memoryCacheSize: number;
   tushareAvailable: boolean;
-  mootdxAvailable: boolean;
 } {
   return {
     memoryCacheSize: requestCache.size,
     tushareAvailable: true, // 实际可用性需要运行时检测
-    mootdxAvailable: isMootdxAvailable(),
   };
 }

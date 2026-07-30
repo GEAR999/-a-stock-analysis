@@ -1,5 +1,5 @@
 import type { StockInfo, StockQuote, KLineData, KLinePeriod, MarketSentiment } from '@/lib/types';
-import { getQuote as mootdxGetQuote, getQuoteWithFallback, isMootdxAvailable, getIndexQuote, type MootdxQuoteData } from '@/lib/mootdx-client';
+import { getKLineFromTushare } from '@/lib/tushare-client';
 
 // 年 K 聚合函数：将月 K 数据按年份聚合
 function aggregateYearlyKline(monthlyData: KLineData[]): KLineData[] {
@@ -35,26 +35,50 @@ function aggregateYearlyKline(monthlyData: KLineData[]): KLineData[] {
   return Array.from(yearMap.values()).sort((a, b) => a.date.localeCompare(b.date));
 }
 
-// East Money API base URLs
+// East Money API base URLs（仅保留：搜索降级兜底）
 const EASTMONEY_SEARCH_URL = 'https://searchapi.eastmoney.com/api/suggest/get';
-const EASTMONEY_KLINE_URL = 'https://push2his.eastmoney.com/api/qt/stock/kline/get';
-const EASTMONEY_QUOTE_URL = 'https://push2.eastmoney.com/api/qt/stock/get';
-const EASTMONEY_MARKET_URL = 'https://push2.eastmoney.com/api/qt/clist/get';
 
-// Market code mapping
-function getMarketCode(code: string): string {
-  if (code.startsWith('6') || code.startsWith('9')) return '1'; // Shanghai
-  if (code.startsWith('0') || code.startsWith('2') || code.startsWith('3')) return '0'; // Shenzhen
-  if (code.startsWith('4') || code.startsWith('8')) return '0'; // Beijing
-  return '1';
-}
-
-function getSecId(code: string): string {
-  return `${getMarketCode(code)}.${code}`;
-}
-
-// Search stocks
+// Search stocks - 本地 stock_list 表优先（Tushare 全量同步），东财降级
 export async function searchStocks(keyword: string): Promise<StockInfo[]> {
+  const trimmed = keyword.trim();
+  if (!trimmed) return [];
+
+  // 1. 本地数据库搜索（stock_list 表由 Tushare stock_basic 同步）
+  try {
+    const { queryRaw } = await import('@/lib/db');
+    const { rows } = await queryRaw<{
+      code: string;
+      name: string;
+      market: string;
+    }>(
+      `SELECT code, name, market
+       FROM stock_list
+       WHERE code LIKE $1 || '%' OR name ILIKE '%' || $1 || '%'
+       ORDER BY
+         CASE WHEN code LIKE $1 || '%' THEN 0 ELSE 1 END,
+         code
+       LIMIT 20`,
+      [trimmed]
+    );
+
+    if (rows.length > 0) {
+      return rows.map((r) => ({
+        code: r.code,
+        name: r.name,
+        market: (r.market === 'sh' || r.market === 'bj' ? r.market : 'sz') as StockInfo['market'],
+        type: 'stock' as const,
+      }));
+    }
+  } catch (error) {
+    console.warn('[search] local stock_list search failed:', error);
+  }
+
+  // 2. 降级：东方财富搜索（本地表未同步时兜底）
+  return searchStocksFromEastMoney(trimmed);
+}
+
+// East Money search (fallback, 本地表为空时兜底)
+async function searchStocksFromEastMoney(keyword: string): Promise<StockInfo[]> {
   try {
     const params = new URLSearchParams({
       input: keyword,
@@ -84,91 +108,85 @@ export async function searchStocks(keyword: string): Promise<StockInfo[]> {
   }
 }
 
-// Get real-time quote - mootdx primary, cache fallback
+// Get real-time quote - 李富贵推送优先（配置的自选股），Tushare 日线降级
 export async function getQuote(code: string): Promise<StockQuote | null> {
-  // Try mootdx first
-  if (isMootdxAvailable()) {
-    try {
-      const mootdxQuote = await mootdxGetQuote(code);
-      if (mootdxQuote) {
-        const quote = convertMootdxQuote(mootdxQuote, code);
-        if (quote) {
-          return quote;
-        }
-      }
-    } catch (error) {
-      console.warn('[mootdx] getQuote failed:', error);
-    }
+  // 1. 李富贵推送（realtime_market_params.watchlist_data 中配置的个股）
+  try {
+    const pushed = await getQuoteFromPush(code);
+    if (pushed) return pushed;
+  } catch (error) {
+    console.warn('[quote] 李富贵推送查询失败:', error);
   }
 
-  // No fallback to East Money (rate limit risk)
-  // Return null and rely on cached data
+  // 2. Tushare 日线降级（最近两个交易日，用昨收和最新收盘计算涨跌）
+  try {
+    const klines = await getKLineFromTushare(code, 'daily', 2);
+    if (klines.length > 0) {
+      const latest = klines[klines.length - 1];
+      const prevClose = klines.length >= 2 ? klines[klines.length - 2].close : latest.open;
+      const change = latest.close - prevClose;
+      const changePercent = prevClose > 0 ? (change / prevClose) * 100 : 0;
+
+      return {
+        code,
+        name: code,
+        price: latest.close,
+        change,
+        changePercent,
+        open: latest.open,
+        high: latest.high,
+        low: latest.low,
+        preClose: prevClose,
+        volume: latest.volume,
+        amount: latest.amount,
+        timestamp: Date.now(),
+      };
+    }
+  } catch (error) {
+    console.warn('[quote] Tushare 日线降级失败:', error);
+  }
+
   return null;
 }
 
-// Convert mootdx quote to StockQuote format
-function convertMootdxQuote(mootdxQuote: MootdxQuoteData, code: string): StockQuote | null {
-  const price = mootdxQuote.price;
-  const prevClose = mootdxQuote.preClose;
-  if (!price || !prevClose) return null;
+// 从李富贵推送数据中获取个股行情
+async function getQuoteFromPush(code: string): Promise<StockQuote | null> {
+  const { queryRaw } = await import('@/lib/db');
+  const { rows } = await queryRaw<{ watchlist_data: unknown }>(
+    `SELECT watchlist_data FROM realtime_market_params ORDER BY timestamp DESC LIMIT 1`
+  );
+  if (rows.length === 0) return null;
 
-  const change = price - prevClose;
-  const changePercent = prevClose > 0 ? (change / prevClose) * 100 : 0;
+  let data = rows[0].watchlist_data;
+  if (typeof data === 'string') {
+    try { data = JSON.parse(data); } catch { return null; }
+  }
+  if (!data || typeof data !== 'object') return null;
+
+  const record = data as { stock?: Array<{ code: string; name: string; price?: number; change_pct?: number }> };
+  const stocks = Array.isArray(record.stock) ? record.stock : [];
+  const cleanCode = code.replace(/[^0-9]/g, '');
+  const item = stocks.find((s) => s.code.replace(/[^0-9]/g, '') === cleanCode);
+  if (!item || typeof item.price !== 'number') return null;
+
+  const changePct = typeof item.change_pct === 'number' ? item.change_pct : 0;
+  const preClose = changePct !== -100 ? item.price / (1 + changePct / 100) : item.price;
+  const change = item.price - preClose;
 
   return {
-    code,
-    name: mootdxQuote.name || code,
-    price,
+    code: cleanCode,
+    name: item.name || cleanCode,
+    price: item.price,
     change,
-    changePercent,
-    volume: mootdxQuote.volume,
-    high: mootdxQuote.high,
-    low: mootdxQuote.low,
-    open: mootdxQuote.open,
-    preClose: prevClose,
-    amount: mootdxQuote.amount,
+    changePercent: changePct,
+    open: item.price, // 推送不含 OHLC，用最新价近似
+    high: item.price,
+    low: item.price,
+    preClose,
+    volume: 0,
+    amount: 0,
     timestamp: Date.now(),
   };
-}
-
-// East Money quote (fallback)
-async function getQuoteFromEastMoney(code: string): Promise<StockQuote | null> {
-  try {
-    const secid = getSecId(code);
-    const params = new URLSearchParams({
-      secid,
-      fields: 'f43,f44,f45,f46,f47,f48,f57,f58,f60,f169,f170,f171',
-      ut: 'fa5fd1943c7b386f172d6893dbbd1',
-    });
-
-    const res = await fetch(`${EASTMONEY_QUOTE_URL}?${params.toString()}`);
-    const data = await res.json();
-
-    if (!data.data) return null;
-
-    const d = data.data;
-    const price = d.f43 / 100;
-    const preClose = d.f60 / 100;
-    const change = d.f169 / 100;
-    const changePercent = d.f170 / 100;
-
-    return {
-      code: d.f57,
-      name: d.f58,
-      price,
-      change,
-      changePercent,
-      open: d.f46 / 100,
-      high: d.f44 / 100,
-      low: d.f45 / 100,
-      preClose,
-      volume: d.f47,
-      amount: d.f48,
-      timestamp: Date.now(),
-    };
-  } catch {
-    return null;
-  }
 }
 
 // Market index type
@@ -180,73 +198,93 @@ export interface MarketIndex {
   changePercent: number;
 }
 
-// Get market indices (上证/深证/创业板/科创50/恒生) - mootdx primary, East Money fallback
+// Get market indices (上证/深证/创业板) - 李富贵推送优先，Tushare 指数日线降级
 export async function getMarketIndices(): Promise<MarketIndex[]> {
-  const indices = [
-    { code: '1.000001', name: '上证指数' },
-    { code: '0.399001', name: '深证成指' },
-    { code: '0.399006', name: '创业板指' },
-    { code: '1.000688', name: '科创50' },
-    { code: '100.HSI', name: '恒生指数' },
-  ];
-
-  // Try mootdx first for index quotes
-  if (isMootdxAvailable()) {
-    try {
-      const results: MarketIndex[] = [];
-      for (const idx of indices) {
-        const mootdxQuote = await getIndexQuote(idx.code);
-        if (mootdxQuote) {
-          results.push({
-            code: idx.code,
-            name: mootdxQuote.name || idx.name,
-            price: mootdxQuote.price,
-            change: mootdxQuote.price - mootdxQuote.preClose,
-            changePercent: mootdxQuote.preClose > 0 
-              ? ((mootdxQuote.price - mootdxQuote.preClose) / mootdxQuote.preClose) * 100 
-              : 0,
-          });
-        }
-      }
-      if (results.length > 0) {
-        return results;
-      }
-    } catch (error) {
-      console.warn('[mootdx] getIndexQuote failed, falling back to East Money:', error);
-    }
+  // 1. 李富贵推送（realtime_market_params 最新一行）
+  try {
+    const pushed = await getIndicesFromPush();
+    if (pushed.length > 0) return pushed;
+  } catch (error) {
+    console.warn('[indices] 李富贵推送查询失败:', error);
   }
 
-  // Fallback to East Money
-  return getMarketIndicesFromEastMoney(indices);
+  // 2. Tushare 指数日线降级
+  try {
+    const { callTushare } = await import('@/lib/tushare-client');
+    const indexDefs = [
+      { tsCode: '000001.SH', code: '1.000001', name: '上证指数' },
+      { tsCode: '399001.SZ', code: '0.399001', name: '深证成指' },
+      { tsCode: '399006.SZ', code: '0.399006', name: '创业板指' },
+    ];
+    const results: MarketIndex[] = [];
+    for (const idx of indexDefs) {
+      const rows = await callTushare(
+        'index_daily',
+        { ts_code: idx.tsCode, limit: '2' },
+        'close,pre_close,pct_chg'
+      );
+      if (rows.length > 0) {
+        const latest = rows[0]; // index_daily 返回降序
+        const close = Number(latest.close) || 0;
+        const preClose = Number(latest.pre_close) || 0;
+        results.push({
+          code: idx.code,
+          name: idx.name,
+          price: close,
+          change: close - preClose,
+          changePercent: Number(latest.pct_chg) || 0,
+        });
+      }
+    }
+    if (results.length > 0) return results;
+  } catch (error) {
+    console.warn('[indices] Tushare 指数降级失败:', error);
+  }
+
+  return [];
 }
 
-// East Money market indices (fallback)
-async function getMarketIndicesFromEastMoney(indices: { code: string; name: string }[]): Promise<MarketIndex[]> {
-  try {
-    const secids = indices.map(i => i.code).join(',');
-    const url = `${EASTMONEY_QUOTE_URL}?fltt=2&invt=2&fields=f2,f3,f4,f12,f14&secids=${secids}`;
-    
-    const res = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Referer': 'https://quote.eastmoney.com/',
-      },
-      next: { revalidate: 30 },
-    });
-    const json = await res.json();
+// 从李富贵推送数据中获取大盘指数
+async function getIndicesFromPush(): Promise<MarketIndex[]> {
+  const { queryRaw } = await import('@/lib/db');
+  const { rows } = await queryRaw<{
+    sh_price: number | string | null;
+    sh_change_pct: number | string | null;
+    sz_price: number | string | null;
+    sz_change_pct: number | string | null;
+    cyb_price: number | string | null;
+    cyb_change_pct: number | string | null;
+  }>(
+    `SELECT sh_price, sh_change_pct, sz_price, sz_change_pct, cyb_price, cyb_change_pct
+     FROM realtime_market_params ORDER BY timestamp DESC LIMIT 1`
+  );
+  if (rows.length === 0) return [];
 
-    if (!json.data?.diff) return [];
+  const row = rows[0];
+  const toNum = (v: number | string | null): number | null => {
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
 
-    return json.data.diff.map((item: Record<string, unknown>, index: number) => ({
-      code: String(item.f12 || indices[index].code),
-      name: String(item.f14 || indices[index].name),
-      price: Number(item.f2) || 0,
-      change: Number(item.f4) || 0,
-      changePercent: Number(item.f3) || 0,
-    }));
-  } catch {
-    return [];
+  const results: MarketIndex[] = [];
+  const defs = [
+    { price: toNum(row.sh_price), pct: Number(row.sh_change_pct) || 0, code: '1.000001', name: '上证指数' },
+    { price: toNum(row.sz_price), pct: Number(row.sz_change_pct) || 0, code: '0.399001', name: '深证成指' },
+    { price: toNum(row.cyb_price), pct: Number(row.cyb_change_pct) || 0, code: '0.399006', name: '创业板指' },
+  ];
+  for (const d of defs) {
+    if (d.price !== null) {
+      const preClose = d.pct !== -100 ? d.price / (1 + d.pct / 100) : d.price;
+      results.push({
+        code: d.code,
+        name: d.name,
+        price: d.price,
+        change: d.price - preClose,
+        changePercent: d.pct,
+      });
+    }
   }
+  return results;
 }
 
 // Sector types
@@ -260,6 +298,7 @@ export interface SectorInfo {
 }
 
 // Get sector list from East Money
+// @deprecated 东方财富是板块功能唯一数据源（限流风险），待 Tushare 板块接口替代
 export async function getSectorList(): Promise<SectorInfo[]> {
   try {
     const url = 'https://push2.eastmoney.com/api/qt/clist/get';
@@ -300,6 +339,7 @@ export async function getSectorList(): Promise<SectorInfo[]> {
 }
 
 // Get sector stocks (constituents)
+// @deprecated 东方财富是板块功能唯一数据源（限流风险），待 Tushare 板块接口替代
 export async function getSectorStocks(sectorName: string): Promise<StockQuote[]> {
   try {
     const url = 'https://push2.eastmoney.com/api/qt/clist/get';
@@ -345,115 +385,28 @@ export async function getSectorStocks(sectorName: string): Promise<StockQuote[]>
   }
 }
 
-// Get K-line data - use mootdx instead of East Money
+// Get K-line data - Tushare 主数据源（前复权，日/周/月）
 export async function getKLineData(
   code: string,
   period: KLinePeriod = 'daily',
   limit: number = 250
 ): Promise<KLineData[]> {
-  try {
-    // Use mootdx (avoid East Money rate limiting)
-    if (isMootdxAvailable()) {
-      const mootdxData = await getKlineFromMootdx(code, period, limit);
-      if (mootdxData && mootdxData.length > 0) {
-        return mootdxData;
-      }
-    }
-
-    // Fallback to East Money only if mootdx fails
-    const secid = getSecId(code);
-
-    const periodMap: Record<KLinePeriod, string> = {
-      minute: '1', // 分时图不使用此接口
-      daily: '101',
-      weekly: '102',
-      monthly: '103',
-      yearly: '103', // 年 K 使用月 K 数据聚合
-      '60min': '60',
-      '30min': '30',
-      '15min': '15',
-      '5min': '5',
-    };
-
-    const params = new URLSearchParams({
-      secid,
-      fields1: 'f1,f2,f3,f4,f5,f6',
-      fields2: 'f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61',
-      klt: periodMap[period],
-      fqt: '1',
-      lmt: String(limit),
-      end: '20500101',
-      ut: 'fa5fd1943c7b386f172d6893dbbd1',
-    });
-
-    const res = await fetch(`${EASTMONEY_KLINE_URL}?${params.toString()}`);
-    const data = await res.json();
-
-    if (!data.data?.klines) return [];
-
-    const result = data.data.klines.map((line: string) => {
-      const parts = line.split(',');
-      return {
-        date: parts[0],
-        open: parseFloat(parts[1]),
-        close: parseFloat(parts[2]),
-        high: parseFloat(parts[3]),
-        low: parseFloat(parts[4]),
-        volume: parseInt(parts[5]),
-        amount: parseFloat(parts[6]),
-      };
-    });
-
-    // 年 K 聚合
-    if (period === 'yearly') {
-      return aggregateYearlyKline(result);
-    }
-
-    return result;
-  } catch {
+  // 分钟级 K 线：Tushare 2000 积分不支持（stk_mins 需 5000 积分），已废弃
+  if (period === 'minute' || period === '5min' || period === '15min' || period === '30min' || period === '60min') {
     return [];
   }
-}
 
-// Get K-line data from mootdx
-async function getKlineFromMootdx(
-  code: string,
-  period: KLinePeriod,
-  limit: number
-): Promise<KLineData[]> {
   try {
-    const { getKline } = await import('@/lib/mootdx-client');
-    const periodMap: Record<KLinePeriod, string> = {
-      minute: '1min', // 分时图不使用此接口
-      daily: 'day',
-      weekly: 'week',
-      monthly: 'month',
-      yearly: 'month', // 年 K 使用月 K 数据聚合
-      '60min': '60min',
-      '30min': '30min',
-      '15min': '15min',
-      '5min': '5min',
-    };
-    
-    const data = await getKline(code, periodMap[period], limit);
-    
-    const result = data.map((item: any) => ({
-      date: item.datetime || item.date || '',
-      open: Number(item.open) || 0,
-      high: Number(item.high) || 0,
-      low: Number(item.low) || 0,
-      close: Number(item.close) || 0,
-      volume: Number(item.vol || item.volume) || 0,
-      amount: Number(item.amount) || 0,
-    }));
-
-    // 年 K 聚合：将月 K 数据按年份聚合
+    // 年 K：拉月 K 后按年聚合
     if (period === 'yearly') {
-      return aggregateYearlyKline(result);
+      const monthly = await getKLineFromTushare(code, 'monthly', Math.max(limit * 12, 120));
+      return aggregateYearlyKline(monthly);
     }
 
-    return result;
-  } catch {
+    const tsPeriod = period === 'weekly' ? 'weekly' : period === 'monthly' ? 'monthly' : 'daily';
+    return await getKLineFromTushare(code, tsPeriod, limit);
+  } catch (error) {
+    console.warn('[kline] Tushare 获取失败:', error);
     return [];
   }
 }
@@ -532,64 +485,41 @@ export async function fetchKLineDataPaginated(
   return result;
 }
 
-// Get market sentiment data
+// Get market sentiment data - 李富贵推送（realtime_market_params 市场广度字段）
 export async function getMarketSentiment(): Promise<MarketSentiment | null> {
   try {
-    // Get market overview - up/down counts
-    const params = new URLSearchParams({
-      pn: '1',
-      pz: '1',
-      po: '1',
-      np: '1',
-      fltt: '2',
-      invt: '2',
-      fid: 'f3',
-      fs: 'm:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048',
-      fields: 'f2,f3,f4,f12,f14',
-      ut: 'fa5fd1943c7b386f172d6893dbbd1',
-    });
+    const { queryRaw } = await import('@/lib/db');
+    const { rows } = await queryRaw<{
+      advance_count: number | string | null;
+      decline_count: number | string | null;
+      limit_up: number | string | null;
+      limit_down: number | string | null;
+      total_volume: number | string | null;
+    }>(
+      `SELECT advance_count, decline_count, limit_up, limit_down, total_volume
+       FROM realtime_market_params ORDER BY timestamp DESC LIMIT 1`
+    );
 
-    const res = await fetch(`${EASTMONEY_MARKET_URL}?${params.toString()}`);
-    const data = await res.json();
+    if (rows.length === 0) return null;
 
-    if (!data.data) return null;
+    const toNum = (v: number | string | null): number => {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : 0;
+    };
 
-    const total = data.data.total || 5000;
-    const diff = data.data.diff || [];
-
-    // Calculate up/down/flat from sample
-    let upCount = 0;
-    let downCount = 0;
-    let limitUpCount = 0;
-    let limitDownCount = 0;
-
-    for (const item of diff) {
-      const changePercent = item.f3;
-      if (changePercent > 0) upCount++;
-      else if (changePercent < 0) downCount++;
-      else downCount++;
-
-      if (changePercent >= 9.9) limitUpCount++;
-      if (changePercent <= -9.9) limitDownCount++;
-    }
-
-    // Extrapolate to full market
-    const sampleSize = diff.length || 1;
-    const ratio = total / sampleSize;
-    upCount = Math.round(upCount * ratio);
-    downCount = Math.round(downCount * ratio);
-    const flatCount = total - upCount - downCount;
-
-    // Heat score calculation
-    const heatScore = Math.min(100, Math.round((upCount / total) * 100 * 1.5));
+    const row = rows[0];
+    const upCount = toNum(row.advance_count);
+    const downCount = toNum(row.decline_count);
+    const total = upCount + downCount;
+    const heatScore = total > 0 ? Math.min(100, Math.round((upCount / total) * 100 * 1.5)) : 50;
 
     return {
       upCount,
       downCount,
-      flatCount: Math.max(0, flatCount),
-      limitUpCount,
-      limitDownCount,
-      totalVolume: 0,
+      flatCount: 0, // 推送不含平盘家数
+      limitUpCount: toNum(row.limit_up),
+      limitDownCount: toNum(row.limit_down),
+      totalVolume: toNum(row.total_volume),
       avgVolume5d: 0,
       volumeRatio: 1,
       heatScore,

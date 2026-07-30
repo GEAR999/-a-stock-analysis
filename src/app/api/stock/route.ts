@@ -156,10 +156,11 @@ export async function GET(request: NextRequest) {
         });
       }
       case 'minute': {
-        if (!code) return NextResponse.json({ error: 'Missing code' }, { status: 400 });
-        const { getMinute } = await import('@/lib/mootdx-client');
-        const minuteData = await getMinute(code);
-        return NextResponse.json({ success: true, data: minuteData, source: 'mootdx' });
+        // 分时图已废弃：mootdx 数据源已下线，Tushare 2000 积分不支持分钟数据
+        return NextResponse.json(
+          { error: '分时图功能已下线（分钟级数据源不可用）' },
+          { status: 410 }
+        );
       }
             case 'kline': {
         if (!code) return NextResponse.json({ error: 'Missing code' }, { status: 400 });
@@ -187,19 +188,8 @@ export async function GET(request: NextRequest) {
           });
         }
         
-        // 交叉验证 K 线数据（跳过 mootdx 数据源，避免重复请求）
+        // 交叉验证 K 线数据
         if (result.success && result.data.length > 0) {
-          // 如果数据源已经是 mootdx，跳过交叉验证（mootdx 是本地服务，数据可靠）
-          if (result.source === 'mootdx') {
-            return NextResponse.json({
-              success: true,
-              data: result.data,
-              source: 'mootdx',
-              verified: true,
-            });
-          }
-          
-          // 其他数据源需要交叉验证
           const { data: validatedKline, validation: klineValidation } = await crossValidateKline(
             code,
             result.data,

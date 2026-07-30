@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getMarketIndices, type MarketIndex } from '@/lib/api/stock';
+import type { MarketIndex } from '@/lib/api/stock';
 
 export function MarketIndexTicker() {
   const [indices, setIndices] = useState<MarketIndex[]>([]);
@@ -10,8 +10,11 @@ export function MarketIndexTicker() {
   useEffect(() => {
     const fetchIndices = async () => {
       try {
-        const data = await getMarketIndices();
-        setIndices(data);
+        const res = await fetch('/api/stock?action=market_indices');
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          setIndices(json.data);
+        }
       } catch (err) {
         console.error('Failed to fetch market indices:', err);
       } finally {

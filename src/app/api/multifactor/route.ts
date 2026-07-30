@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getKLineData, getQuote } from "@/lib/api/stock";
+import { getDailyBasic, calcPercentile } from "@/lib/tushare-client";
 import { analyzeChanlun } from "@/lib/analysis";
 import { analyzeWaves } from "@/lib/analysis";
 import { calculateStockFactors, calculatePosition, calculateSentiment, getCorrectionFactor } from "@/lib/multifactor";
@@ -21,10 +22,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 获取K线数据和实时行情
-    const [klineData, quoteData] = await Promise.all([
+    // 获取K线数据、实时行情、估值数据（S1 因子）
+    const [klineData, quoteData, dailyBasic] = await Promise.all([
       getKLineData(code, "daily", 120),
       getQuote(code),
+      getDailyBasic(code, 250),
     ]);
 
     if (!klineData || klineData.length === 0) {
@@ -35,6 +37,19 @@ export async function GET(request: NextRequest) {
     }
 
     const currentPrice = quoteData?.price || klineData[klineData.length - 1].close;
+
+    // 计算估值历史分位（近 250 个交易日）
+    let pePercentile: number | undefined;
+    let pbPercentile: number | undefined;
+    if (dailyBasic.length > 0) {
+      const latest = dailyBasic[dailyBasic.length - 1];
+      const peHistory = dailyBasic.map((d) => d.pe);
+      const pbHistory = dailyBasic.map((d) => d.pb);
+      const peP = calcPercentile(latest.pe, peHistory);
+      const pbP = calcPercentile(latest.pb, pbHistory);
+      if (peP !== null) pePercentile = peP;
+      if (pbP !== null) pbPercentile = pbP;
+    }
 
     // 运行缠论和波浪分析
     const chanlunResult = analyzeChanlun(klineData);
@@ -88,6 +103,8 @@ export async function GET(request: NextRequest) {
     const stockResult = calculateStockFactors({
       klineData,
       currentPrice,
+      pePercentile,
+      pbPercentile,
       chanlunSignal: chanlunStage,
       wavePosition: waveStage,
       selectedFactors: selectedFactors as { key: import("@/lib/multifactor/types").StockFactorKey; weight: number }[],
@@ -141,6 +158,13 @@ export async function GET(request: NextRequest) {
       data: {
         code,
         stockFactors: stockResult,
+        valuation: dailyBasic.length > 0 ? {
+          pe: dailyBasic[dailyBasic.length - 1].pe,
+          pb: dailyBasic[dailyBasic.length - 1].pb,
+          pePercentile: pePercentile ?? null,
+          pbPercentile: pbPercentile ?? null,
+          turnoverRate: dailyBasic[dailyBasic.length - 1].turnoverRate,
+        } : null,
         sentimentScore,
         sentimentMode,
         correctionFactor,

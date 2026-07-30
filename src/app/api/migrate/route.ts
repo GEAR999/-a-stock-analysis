@@ -243,6 +243,33 @@ const MIGRATION_STATEMENTS = [
     timestamp TIMESTAMP DEFAULT NOW()
   )`,
   `CREATE INDEX IF NOT EXISTS idx_position_log_code ON position_log(code, timestamp DESC)`,
+
+  // 16. 股票列表表（Tushare stock_basic 全量同步，用于本地化搜索）
+  `CREATE TABLE IF NOT EXISTS stock_list (
+    code VARCHAR(10) PRIMARY KEY,
+    name VARCHAR(50) NOT NULL,
+    market VARCHAR(5) NOT NULL,
+    industry VARCHAR(100),
+    list_date VARCHAR(10),
+    updated_at TIMESTAMP DEFAULT NOW()
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_stock_list_name ON stock_list(name)`,
+  `CREATE INDEX IF NOT EXISTS idx_stock_list_industry ON stock_list(industry)`,
+
+  // 17. K线缓存表（Tushare 数据落地缓存，减少重复请求）
+  `CREATE TABLE IF NOT EXISTS kline_cache (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    stock_code VARCHAR(10) NOT NULL,
+    period VARCHAR(20) NOT NULL,
+    is_realtime BOOLEAN DEFAULT false,
+    data JSONB NOT NULL,
+    source VARCHAR(20),
+    hit_count INTEGER DEFAULT 0,
+    expires_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(stock_code, period, is_realtime)
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_kline_cache_lookup ON kline_cache(stock_code, period, is_realtime)`,
 ];
 
 const EXPECTED_TABLES = [
@@ -261,6 +288,8 @@ const EXPECTED_TABLES = [
   "sentiment_snapshot",
   "strategy_sentiment_config",
   "position_log",
+  "stock_list",
+  "kline_cache",
 ];
 
 // POST: Execute migration

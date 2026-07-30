@@ -15,10 +15,7 @@ const PERIODS: Array<{ key: string; label: string }> = [
   { key: 'daily', label: '日 K' },
   { key: 'weekly', label: '周 K' },
   { key: 'monthly', label: '月 K' },
-  { key: '60min', label: '60 分' },
-  { key: '30min', label: '30 分' },
-  { key: '15min', label: '15 分' },
-  { key: '5min', label: '5 分' },
+  // 分钟级已移除：Tushare 2000 积分不支持分钟数据（stk_mins 需 5000 积分）
 ];
 
 export function KLineChart() {
@@ -29,9 +26,9 @@ export function KLineChart() {
   const [showError, setShowError] = useState(false);
   const [currentDataSource, setCurrentDataSource] = useState<string>('');
   const [dataSourceConfig, setDataSourceConfig] = useState<DataSourceConfig>(() => {
-    if (typeof window === 'undefined') return { tushare: true, mootdx: true, eastmoney: false };
+    if (typeof window === 'undefined') return { tushare: true, eastmoney: true };
     const saved = localStorage.getItem('dataSourceConfig');
-    return saved ? JSON.parse(saved) : { tushare: true, mootdx: true, eastmoney: false };
+    return saved ? JSON.parse(saved) : { tushare: true, eastmoney: true };
   });
 
   // Fetch kline data (backend handles caching)

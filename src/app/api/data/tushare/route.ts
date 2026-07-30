@@ -171,6 +171,7 @@ export async function GET(request: NextRequest) {
   const startDate = searchParams.get("start_date") || "";
   const endDate = searchParams.get("end_date") || "";
   const apiName = searchParams.get("api_name") || "daily";
+  const limit = searchParams.get("limit") || "";
 
   if (!code) {
     return NextResponse.json(
@@ -202,6 +203,12 @@ export async function GET(request: NextRequest) {
   }
   if (endDate) {
     params.end_date = endDate.replace(/-/g, "");
+  }
+  // 无日期范围时用 limit 控制返回条数（避免返回全量历史导致超时）
+  if (limit) {
+    params.limit = limit;
+  } else if (!startDate && !endDate) {
+    params.limit = "250";
   }
 
   // 确定返回字段

@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { SentimentRow } from "@/components/SentimentTooltip";
 import { fetchComprehensiveSentiment } from "@/services/sentiment/sentiment-panel";
 import type { ComprehensiveSentiment } from "@/services/sentiment/types";
-import { searchStocks } from "@/lib/api/stock";
 import type { StockInfo } from "@/lib/types";
 
 type ViewMode = "market" | "sector" | "stock";
@@ -89,8 +88,14 @@ export function SentimentPanel({ stockCode, stockName, sectorName }: SentimentPa
       return;
     }
     const timer = setTimeout(async () => {
-      const results = await searchStocks(searchKeyword);
-      setSearchResults(results.slice(0, 8));
+      try {
+        const res = await fetch(`/api/stock?action=search&keyword=${encodeURIComponent(searchKeyword)}`);
+        const json = await res.json();
+        const results: StockInfo[] = json.success && Array.isArray(json.data) ? json.data : [];
+        setSearchResults(results.slice(0, 8));
+      } catch {
+        setSearchResults([]);
+      }
     }, 300);
     return () => clearTimeout(timer);
   }, [searchKeyword, followCurrentStock]);
