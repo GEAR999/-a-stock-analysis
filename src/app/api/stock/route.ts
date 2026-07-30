@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { searchStocks, getQuote, getKLineData, getMarketSentiment, getSectorList, getSectorStocks, getMarketIndices } from '@/lib/api/stock';
+import { searchStocks, getQuote, getKLineData } from '@/lib/api/stock';
 import { calculateStockSentiment } from '@/lib/analysis';
-import { calculateSectorSentiment } from '@/services/sentiment/sector-sentiment';
-import { fetchComprehensiveSentiment } from '@/services/sentiment/sentiment-panel';
-import { crossValidateQuote, crossValidateKline } from '@/lib/data-validator-xref';
 import type { KLinePeriod, StockQuote } from '@/lib/types';
 
 // 缓存：板块数据5分钟，个股数据1分钟
@@ -209,93 +206,6 @@ export async function GET(request: NextRequest) {
           errorMessage: errorInfo?.message || '数据加载失败',
           suggestion: errorInfo?.suggestion || '请稍后重试',
         });
-      }
-      case 'sentiment': {
-        const sentiment = await getMarketSentiment();
-        if (!sentiment) return NextResponse.json({ error: 'Sentiment data unavailable' }, { status: 500 });
-        return NextResponse.json({ success: true, data: sentiment });
-      }
-      case 'market_indices': {
-        const indices = await getMarketIndices();
-        return NextResponse.json({ success: true, data: indices });
-      }
-      case 'sector_list': {
-        // 获取板块列表
-        const cachedList = getFromCache<string[]>('sector_list', SECTOR_CACHE_TTL);
-        if (cachedList) {
-          return NextResponse.json({ success: true, data: cachedList });
-        }
-        const sectorList = await getSectorList();
-        setCache('sector_list', sectorList);
-        return NextResponse.json({ success: true, data: sectorList });
-      }
-      case 'sector_sentiment': {
-        if (!sector) return NextResponse.json({ error: 'Missing sector name' }, { status: 400 });
-        
-        // 检查缓存
-        const cacheKey = `sector_${sector}`;
-        const cached = getFromCache<ReturnType<typeof calculateSectorSentiment>>(cacheKey, SECTOR_CACHE_TTL);
-        if (cached) {
-          return NextResponse.json({ success: true, data: cached });
-        }
-        
-        // 获取板块成分股
-        const stocks = await getSectorStocks(sector);
-        if (!stocks || stocks.length === 0) {
-          return NextResponse.json({ error: 'Sector not found or no stocks' }, { status: 404 });
-        }
-        
-        // 计算板块情绪 - 从股票列表计算SectorData
-        const upCount = stocks.filter(s => s.changePercent > 0).length;
-        const totalStocks = stocks.length;
-        const topStocks = [...stocks].sort((a, b) => b.changePercent - a.changePercent).slice(0, 3);
-        const top3AvgGain = topStocks.reduce((sum, s) => sum + s.changePercent, 0) / 3;
-        const avgChange = stocks.reduce((sum, s) => sum + s.changePercent, 0) / (totalStocks || 1);
-        
-        // 计算真实的换手率（从股票数据中获取，如果没有则显示暂无数据）
-        const avgTurnover = stocks.reduce((sum, s) => {
-          const stock = s as StockQuote & { turnoverRate?: number };
-          return sum + (stock.turnoverRate || 0);
-        }, 0) / (totalStocks || 1);
-        // 连涨天数需要历史数据，这里基于当前平均涨幅估算
-        const consecutiveUpDays = avgChange > 0 ? Math.min(5, Math.round(avgChange)) : 0;
-        
-        const sectorData = {
-          upCount,
-          totalStocks,
-          netInflow: stocks.reduce((sum, s) => sum + (s.volume || 0) * (s.changePercent > 0 ? 1 : -1), 0) * 1000,
-          marketCap: stocks.reduce((sum, s) => sum + (s.volume || 0) * 10000, 0),
-          turnoverRate: avgTurnover,
-          top3AvgGain,
-          consecutiveUpDays,
-        };
-        
-        const sentiment = calculateSectorSentiment(sectorData);
-        setCache(cacheKey, sentiment);
-        return NextResponse.json({ success: true, data: sentiment });
-      }
-      case 'stock_sentiment': {
-        if (!code) return NextResponse.json({ error: 'Missing code' }, { status: 400 });
-        
-        // 检查缓存
-        const cacheKey = `stock_${code}`;
-        const cached = getFromCache<ReturnType<typeof calculateStockSentiment>>(cacheKey, STOCK_CACHE_TTL);
-        if (cached) {
-          return NextResponse.json({ success: true, data: cached });
-        }
-        
-        const [quote, klineData] = await Promise.all([
-          getQuote(code),
-          getKLineData(code, 'daily', 60),
-        ]);
-        if (!quote) return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
-        const stockSentiment = calculateStockSentiment(klineData, quote);
-        setCache(cacheKey, stockSentiment);
-        return NextResponse.json({ success: true, data: stockSentiment });
-      }
-      case 'comprehensive_sentiment': {
-        const comprehensive = fetchComprehensiveSentiment(sector || undefined, code || undefined);
-        return NextResponse.json({ success: true, data: comprehensive });
       }
       default:
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });

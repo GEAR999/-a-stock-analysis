@@ -43,7 +43,7 @@ export enum DataSourceError {
 export interface DataSourceResult {
   success: boolean;
   data: KLineData[];
-  source: "tushare" | "eastmoney" | "cache" | "database" | "none";
+  source: "tushare" | "backup" | "cache" | "database" | "none";
   error?: DataSourceError;
   errorMessage?: string; // 面向用户的错误信息
   suggestion?: string; // 解决方案建议
@@ -95,12 +95,12 @@ export const ERROR_MESSAGES: Record<DataSourceError, { message: string; suggesti
 };
 
 export interface DataSourceConfig {
-  // 数据源优先级（默认：tushare → eastmoney(/api/stock 备用通道) → cache）
-  priority: ("tushare" | "eastmoney" | "cache")[];
+  // 数据源优先级（默认：tushare → backup(/api/stock 备用通道) → cache）
+  priority: ("tushare" | "backup" | "cache")[];
   // Tushare 超时时间（毫秒）
   tushareTimeout: number;
   // 备用通道超时时间（毫秒）
-  eastmoneyTimeout: number;
+  backupTimeout: number;
   // 是否启用缓存
   enableCache: boolean;
   // 历史数据缓存有效期（毫秒，默认 7 天）
@@ -110,20 +110,20 @@ export interface DataSourceConfig {
   // 数据源开关（用户可配置）
   enabled?: {
     tushare: boolean;
-    eastmoney: boolean;
+    backup: boolean;
   };
 }
 
 const DEFAULT_CONFIG: DataSourceConfig = {
-  priority: ["tushare", "eastmoney", "cache"],
+  priority: ["tushare", "backup", "cache"],
   tushareTimeout: 10000,
-  eastmoneyTimeout: 10000,
+  backupTimeout: 10000,
   enableCache: true,
   historicalCacheTTL: 7 * 24 * 60 * 60 * 1000, // 7 天
   realtimeCacheTTL: 5 * 60 * 1000, // 5 分钟
   enabled: {
     tushare: true,
-    eastmoney: true, // /api/stock 备用通道（服务端 Tushare + 缓存）
+    backup: true, // /api/stock 备用通道（服务端 Tushare + 缓存）
   },
 };
 
@@ -142,7 +142,7 @@ export function getUserDataSourceConfig(): DataSourceConfig {
       ...DEFAULT_CONFIG,
       enabled: {
         tushare: userConfig.tushare ?? true,
-        eastmoney: userConfig.eastmoney ?? true,
+        backup: userConfig.backup ?? true,
       },
     };
   } catch {
@@ -315,64 +315,6 @@ async function fetchFromTushare(
 // 备用通道（/api/stock，服务端 Tushare + 缓存）
 // ============================================================================
 
-async function fetchFromEastMoney(
-  code: string,
-  period: KLinePeriod,
-  limit = 500,
-  timeout = 10000
-): Promise<DataSourceResult> {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-    const params = new URLSearchParams({
-      action: "kline",
-      code,
-      period,
-      limit: limit.toString(),
-    });
-
-    const response = await fetch(`/api/stock?${params.toString()}`, {
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      return {
-        success: false,
-        data: [],
-        source: "eastmoney",
-        error: DataSourceError.SERVER_ERROR,
-      };
-    }
-
-    const result = await response.json();
-
-    if (!result.success || !result.data) {
-      return {
-        success: false,
-        data: [],
-        source: "eastmoney",
-        error: result.error || "东方财富返回空数据",
-      };
-    }
-
-    return {
-      success: true,
-      data: result.data,
-      source: "eastmoney",
-    };
-  } catch (error) {
-    const errMsg = error instanceof Error ? error.message : "Unknown error";
-    return {
-      success: false,
-      data: [],
-      source: "eastmoney",
-      error: errMsg.includes("abort") ? DataSourceError.REQUEST_TIMEOUT : DataSourceError.SERVER_ERROR,
-    };
-  }
-}
 
 // ============================================================================
 // 缓存数据源
@@ -507,7 +449,7 @@ export async function fetchKLineData(
 
   // 如果未指定优先级，默认：Tushare → 备用通道 → 缓存
   if (!options.config?.priority) {
-    config.priority = ["tushare", "eastmoney", "cache"];
+    config.priority = ["tushare", "backup", "cache"];
   }
 
   // 使用请求队列，避免并发限流
@@ -566,8 +508,8 @@ export async function fetchKLineData(
         case "tushare":
           result = await fetchFromTushare(code, period, startDate, endDate, config.tushareTimeout, limit);
           break;
-        case "eastmoney":
-          result = await fetchFromEastMoney(code, period, limit, config.eastmoneyTimeout);
+        case "backup":
+          result = await fetchFromBackup(code, period, limit, config.backupTimeout);
           break;
         case "cache":
           result = await fetchFromCache(code, period, isRealtime, config);

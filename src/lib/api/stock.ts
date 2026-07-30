@@ -35,15 +35,12 @@ function aggregateYearlyKline(monthlyData: KLineData[]): KLineData[] {
   return Array.from(yearMap.values()).sort((a, b) => a.date.localeCompare(b.date));
 }
 
-// East Money API base URLs（仅保留：搜索降级兜底）
-const EASTMONEY_SEARCH_URL = 'https://searchapi.eastmoney.com/api/suggest/get';
-
-// Search stocks - 本地 stock_list 表优先（Tushare 全量同步），东财降级
+// Search stocks - 本地 stock_list 表优先（Tushare 全量同步）
 export async function searchStocks(keyword: string): Promise<StockInfo[]> {
   const trimmed = keyword.trim();
   if (!trimmed) return [];
 
-  // 1. 本地数据库搜索（stock_list 表由 Tushare stock_basic 同步）
+  // 本地数据库搜索（stock_list 表由 Tushare stock_basic 同步）
   try {
     const { queryRaw } = await import('@/lib/db');
     const { rows } = await queryRaw<{
@@ -73,39 +70,7 @@ export async function searchStocks(keyword: string): Promise<StockInfo[]> {
     console.warn('[search] local stock_list search failed:', error);
   }
 
-  // 2. 降级：东方财富搜索（本地表未同步时兜底）
-  return searchStocksFromEastMoney(trimmed);
-}
-
-// East Money search (fallback, 本地表为空时兜底)
-async function searchStocksFromEastMoney(keyword: string): Promise<StockInfo[]> {
-  try {
-    const params = new URLSearchParams({
-      input: keyword,
-      type: '14',
-      token: 'D43BF722C8E33BDC906FB84D85E326E8',
-      count: '20',
-    });
-
-    const res = await fetch(`${EASTMONEY_SEARCH_URL}?${params.toString()}`);
-    const data = await res.json();
-
-    if (!data.QuotationCodeTable?.Data) return [];
-
-    return data.QuotationCodeTable.Data
-      .filter((item: Record<string, string>) => {
-        const type = item.MktNum;
-        return type === '0' || type === '1' || type === '0';
-      })
-      .map((item: Record<string, string>) => ({
-        code: item.Code,
-        name: item.Name,
-        market: item.MktNum === '1' ? 'sh' : item.MktNum === '0' ? 'sz' : 'bj',
-        type: item.SecurityTypeName === 'ETF' ? 'etf' as const : 'stock' as const,
-      }));
-  } catch {
-    return [];
-  }
+  return [];
 }
 
 // Get real-time quote - 李富贵推送优先（配置的自选股），Tushare 日线降级
@@ -299,91 +264,9 @@ export interface SectorInfo {
 
 // Get sector list from East Money
 // @deprecated 东方财富是板块功能唯一数据源（限流风险），待 Tushare 板块接口替代
-export async function getSectorList(): Promise<SectorInfo[]> {
-  try {
-    const url = 'https://push2.eastmoney.com/api/qt/clist/get';
-    const params = new URLSearchParams({
-      pn: '1',
-      pz: '100',
-      po: '1',
-      np: '1',
-      ut: 'bd1d9ddb04089700cf9c27f6f7426281',
-      fltt: '2',
-      invt: '2',
-      fid: 'f3',
-      fs: 'm:90+t:2',
-      fields: 'f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f12,f13,f14,f15,f16,f17,f18,f20,f21,f23,f24,f25,f26,f22,f33,f11,f62,f128,f136,f115,f152,f124,f107,f104,f105,f140,f141,f207,f208,f209,f222',
-    });
-
-    const response = await fetch(`${url}?${params}`, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0',
-        'Referer': 'https://quote.eastmoney.com/',
-      },
-    });
-    const data = await response.json();
-
-    if (!data?.data?.diff) return [];
-
-    return data.data.diff.map((item: Record<string, unknown>) => ({
-      name: item.f14 as string,
-      code: item.f12 as string,
-      changePercent: item.f3 as number,
-      turnover: item.f8 as number,
-      leadingStock: item.f128 as string || '',
-      leadingStockChange: item.f136 as number || 0,
-    }));
-  } catch {
-    return [];
-  }
-}
 
 // Get sector stocks (constituents)
 // @deprecated 东方财富是板块功能唯一数据源（限流风险），待 Tushare 板块接口替代
-export async function getSectorStocks(sectorName: string): Promise<StockQuote[]> {
-  try {
-    const url = 'https://push2.eastmoney.com/api/qt/clist/get';
-    const params = new URLSearchParams({
-      pn: '1',
-      pz: '50',
-      po: '1',
-      np: '1',
-      ut: 'bd1d9ddb04089700cf9c27f6f7426281',
-      fltt: '2',
-      invt: '2',
-      fid: 'f3',
-      fs: `b:${sectorName}`,
-      fields: 'f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f12,f13,f14,f15,f16,f17,f18,f20,f21,f23,f24,f25,f26,f22,f33,f11,f62,f128,f136,f115,f152',
-    });
-
-    const response = await fetch(`${url}?${params}`, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0',
-        'Referer': 'https://quote.eastmoney.com/',
-      },
-    });
-    const data = await response.json();
-
-    if (!data?.data?.diff) return [];
-
-    return data.data.diff.map((item: Record<string, unknown>) => ({
-      code: item.f12 as string,
-      name: item.f14 as string,
-      price: item.f2 as number,
-      change: item.f4 as number,
-      changePercent: item.f3 as number,
-      open: item.f17 as number,
-      high: item.f15 as number,
-      low: item.f16 as number,
-      preClose: item.f18 as number,
-      volume: item.f5 as number,
-      amount: item.f6 as number,
-      timestamp: Date.now(),
-    }));
-  } catch {
-    return [];
-  }
-}
 
 // Get K-line data - Tushare 主数据源（前复权，日/周/月）
 export async function getKLineData(
@@ -486,47 +369,3 @@ export async function fetchKLineDataPaginated(
 }
 
 // Get market sentiment data - 李富贵推送（realtime_market_params 市场广度字段）
-export async function getMarketSentiment(): Promise<MarketSentiment | null> {
-  try {
-    const { queryRaw } = await import('@/lib/db');
-    const { rows } = await queryRaw<{
-      advance_count: number | string | null;
-      decline_count: number | string | null;
-      limit_up: number | string | null;
-      limit_down: number | string | null;
-      total_volume: number | string | null;
-    }>(
-      `SELECT advance_count, decline_count, limit_up, limit_down, total_volume
-       FROM realtime_market_params ORDER BY timestamp DESC LIMIT 1`
-    );
-
-    if (rows.length === 0) return null;
-
-    const toNum = (v: number | string | null): number => {
-      const n = Number(v);
-      return Number.isFinite(n) ? n : 0;
-    };
-
-    const row = rows[0];
-    const upCount = toNum(row.advance_count);
-    const downCount = toNum(row.decline_count);
-    const total = upCount + downCount;
-    const heatScore = total > 0 ? Math.min(100, Math.round((upCount / total) * 100 * 1.5)) : 50;
-
-    return {
-      upCount,
-      downCount,
-      flatCount: 0, // 推送不含平盘家数
-      limitUpCount: toNum(row.limit_up),
-      limitDownCount: toNum(row.limit_down),
-      totalVolume: toNum(row.total_volume),
-      avgVolume5d: 0,
-      volumeRatio: 1,
-      heatScore,
-      sectorFlows: [],
-      timestamp: Date.now(),
-    };
-  } catch {
-    return null;
-  }
-}
