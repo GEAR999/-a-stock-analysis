@@ -102,9 +102,16 @@ const DEFAULT_STOCK_OPTIONS: WatchlistItem[] = [
   { code: 'hk09988', name: '阿里巴巴' },
 ];
 
-function formatNumber(value?: number, fractionDigits = 2) {
-  if (value === undefined || value === null || Number.isNaN(value)) return '--';
-  return value.toLocaleString('zh-CN', {
+function toNum(value?: number | string | null): number | undefined {
+  if (value === undefined || value === null) return undefined;
+  const n = typeof value === 'string' ? parseFloat(value) : value;
+  return Number.isNaN(n) ? undefined : n;
+}
+
+function formatNumber(value?: number | string | null, fractionDigits = 2) {
+  const n = toNum(value);
+  if (n === undefined) return '--';
+  return n.toLocaleString('zh-CN', {
     minimumFractionDigits: fractionDigits,
     maximumFractionDigits: fractionDigits,
   });
@@ -117,17 +124,19 @@ function formatTime(value?: string) {
   return date.toLocaleString('zh-CN', { hour12: false });
 }
 
-function changeClass(value?: number) {
-  if (value === undefined || value === null || Number.isNaN(value)) return 'text-slate-300';
-  if (value > 0) return 'text-red-400';
-  if (value < 0) return 'text-green-400';
+function changeClass(value?: number | string | null) {
+  const n = toNum(value);
+  if (n === undefined) return 'text-slate-300';
+  if (n > 0) return 'text-red-400';
+  if (n < 0) return 'text-green-400';
   return 'text-slate-300';
 }
 
-function changeText(value?: number) {
-  if (value === undefined || value === null || Number.isNaN(value)) return '--';
-  const sign = value > 0 ? '+' : '';
-  return `${sign}${value.toFixed(2)}%`;
+function changeText(value?: number | string | null) {
+  const n = toNum(value);
+  if (n === undefined) return '--';
+  const sign = n > 0 ? '+' : '';
+  return `${sign}${n.toFixed(2)}%`;
 }
 
 interface ConfigDialogProps {
