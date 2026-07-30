@@ -20,6 +20,7 @@ import { SignalSummaryBar } from '@/components/analysis/SignalSummaryBar';
 import { AIInterpretation } from '@/components/analysis/AIInterpretation';
 import { StockComparison } from '@/components/analysis/StockComparison';
 import { HistoricalSignalsPanel } from '@/components/analysis/HistoricalSignalsPanel';
+import MultiFactorPanel from '@/components/multifactor/MultiFactorPanel';
 
 // 手风琴面板组件
 function AccordionSection({ 
@@ -75,7 +76,7 @@ function AccordionSection({
 
 export function RightPanel() {
   const { analysisSettings, selectedStock, klineData } = useAppState();
-  const [activeAnalysisTab, setActiveAnalysisTab] = useState<'summary' | 'chanlun' | 'wave' | 'technical'>('summary');
+  const [activeAnalysisTab, setActiveAnalysisTab] = useState<'summary' | 'chanlun' | 'wave' | 'technical' | 'multifactor'>('summary');
   const [isRefreshingAnalysis, setIsRefreshingAnalysis] = useState(false);
   const [isRefreshingPositions, setIsRefreshingPositions] = useState(false);
   const [externalAddStock, setExternalAddStock] = useState<{ code: string; name: string } | null>(null);
@@ -132,7 +133,8 @@ export function RightPanel() {
           defaultOpen={true}
           summary={activeAnalysisTab === 'summary' ? '综合分析' : 
                    activeAnalysisTab === 'chanlun' ? '缠论' :
-                   activeAnalysisTab === 'wave' ? '波浪' : '技术指标'}
+                   activeAnalysisTab === 'wave' ? '波浪' :
+                   activeAnalysisTab === 'multifactor' ? '多因子' : '技术指标'}
           action={
             <button
               onClick={() => {
@@ -191,6 +193,16 @@ export function RightPanel() {
               >
                 技术
               </button>
+              <button
+                onClick={() => setActiveAnalysisTab('multifactor')}
+                className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
+                  activeAnalysisTab === 'multifactor' 
+                    ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' 
+                    : 'bg-[var(--bg-card)] text-[var(--text-secondary)] hover:bg-[var(--bg-card)]'
+                }`}
+              >
+                多因子
+              </button>
             </div>
 
             {/* 根据Tab显示内容 */}
@@ -214,6 +226,9 @@ export function RightPanel() {
                 <AnalysisPanel />
                 <TechnicalCard visible={true} />
               </div>
+            )}
+            {activeAnalysisTab === 'multifactor' && selectedStock && (
+              <MultiFactorPanel code={selectedStock.code} />
             )}
           </div>
         </AccordionSection>

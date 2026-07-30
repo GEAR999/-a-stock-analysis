@@ -194,6 +194,55 @@ const MIGRATION_STATEMENTS = [
     updated_at TIMESTAMP DEFAULT NOW()
   )`,
   `CREATE INDEX IF NOT EXISTS idx_market_params_config_user_id ON market_params_config(user_id)`,
+
+  // 13. 大盘情绪快照表（多因子分析 - 情绪层）
+  `CREATE TABLE IF NOT EXISTS sentiment_snapshot (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    timestamp TIMESTAMP NOT NULL,
+    total_volume DECIMAL(12,2),
+    volume_change_pct DECIMAL(6,2),
+    turnover_rate DECIMAL(6,2),
+    turnover_change_pct DECIMAL(6,2),
+    limit_up_count INTEGER,
+    limit_up_change_pct DECIMAL(6,2),
+    limit_down_count INTEGER,
+    limit_down_change_pct DECIMAL(6,2),
+    margin_balance DECIMAL(14,2),
+    margin_change_pct DECIMAL(6,2),
+    sentiment_score DECIMAL(4,2),
+    heat_level VARCHAR(20),
+    factor_scores JSONB,
+    raw_data JSONB,
+    created_at TIMESTAMP DEFAULT NOW()
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_sentiment_snapshot_timestamp ON sentiment_snapshot(timestamp DESC)`,
+
+  // 14. 策略情绪模式配置表（多因子分析 - 策略关联）
+  `CREATE TABLE IF NOT EXISTS strategy_sentiment_config (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    strategy_id VARCHAR(100) NOT NULL,
+    sentiment_mode VARCHAR(20) NOT NULL CHECK (sentiment_mode IN ('contrarian', 'trend_follow', 'neutral')),
+    custom_weights JSONB,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS idx_strategy_sentiment_config_strategy_id ON strategy_sentiment_config(strategy_id)`,
+
+  // 15. 仓位计算日志表（多因子分析 - 决策记录）
+  `CREATE TABLE IF NOT EXISTS position_log (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    code VARCHAR(10) NOT NULL,
+    strategy_id VARCHAR(100),
+    factor_scores JSONB NOT NULL,
+    total_score DECIMAL(4,2) NOT NULL,
+    base_position DECIMAL(5,2) NOT NULL,
+    sentiment_score DECIMAL(4,2) NOT NULL,
+    correction_factor DECIMAL(4,2) NOT NULL,
+    final_position DECIMAL(5,2) NOT NULL,
+    position_label VARCHAR(20),
+    timestamp TIMESTAMP DEFAULT NOW()
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_position_log_code ON position_log(code, timestamp DESC)`,
 ];
 
 const EXPECTED_TABLES = [
@@ -209,6 +258,9 @@ const EXPECTED_TABLES = [
   "learning_progress",
   "realtime_market_params",
   "market_params_config",
+  "sentiment_snapshot",
+  "strategy_sentiment_config",
+  "position_log",
 ];
 
 // POST: Execute migration
