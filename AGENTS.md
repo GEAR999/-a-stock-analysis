@@ -43,7 +43,10 @@ src/
 │   │   └── QuoteHeader.tsx    # 行情信息头
 │   ├── layout/
 │   │   ├── Sidebar.tsx        # 左侧栏 (搜索+自选+情绪)
-│   │   ── RightPanel.tsx     # 右侧栏 (分析+建议)
+│   │   ── RightPanel.tsx     # 右侧栏 (分析+建议, 市场参考聚合手风琴: 宏观/实时/产业链/海外 Tab 切换默认收起)
+│   ├── multifactor/
+│   │   ├── MultiFactorPanel.tsx      # 多因子面板 (策略选择器+情绪模式+因子权重+仓位建议)
+│   │   └── PositionHistoryChart.tsx  # 仓位历史曲线 (SVG, 读 position_log)
 │   ├── sentiment/SentimentPanel.tsx  # 市场情绪面板 (大盘/板块/个股三维度+跟随开关+全市场板块)
 │   ├── macro/MacroEconomyPanel.tsx   # 宏观经济分析面板 (中国/美国/欧洲/日本/韩国+经济指标+综合评估)
 │   ├── industry/IndustryMappingPanel.tsx # 产业链映射分析 (美股/日韩产业链映射)
@@ -89,6 +92,8 @@ src/
 │   ├── strategy-library.ts    # 策略库存储逻辑 (内置/自定义/AI生成+收藏+使用统计)
 │   ├── idb-cache.ts           # IndexedDB K线缓存 (24h有效期, LRU清理)
 │   ├── trading-time.ts        # A股交易时间判断
+│   ├── tushare-client.ts      # Tushare 服务端封装 (K线/估值/股票列表/M2换手率/M5融资余额补齐)
+│   ├── multifactor/           # 多因子系统 (M1-M5情绪引擎/S1-S7个股因子/仓位计算器)
 │   ├── slippage.ts            # 滑点模拟
 │   ├── types.ts               # 类型定义
 │   └── utils.ts               # 工具函数
@@ -286,6 +291,24 @@ quant-live-service/
 - `GET /api/strategies` - 策略列表（含内置+自定义+AI生成）
 - `GET/POST/DELETE /api/strategies/custom` - 自定义策略管理
 - `PUT /api/strategies/custom/[id]` - 更新自定义策略
+
+## API接口（多因子阶段二）
+- `GET/POST /api/multifactor/strategy-config` - 策略情绪模式绑定（strategy_sentiment_config 表，POST 传 {strategyId, sentimentMode, customWeights?}，upsert）
+- `GET /api/multifactor/position-log?code=&limit=` - 个股仓位计算历史（升序返回，供仓位曲线）
+- `GET /api/multifactor?code=&strategy_id=` - strategy_id 命中策略配置时覆盖 mode/weights，position_log 落库带 strategy_id
+- `POST /api/multifactor`（Bearer）- 情绪推送；M2/M5 缺失时服务端自动从 Tushare 补齐（换手率=全市场 daily_basic 加权，缓存 10 分钟；融资余额=margin 沪深合计，当日缓存）；change_pct 缺失时与上一条 sentiment_snapshot 对比计算
+- `GET /api/ping` - 存活探针（middleware 白名单，健康检查脚本专用）
+
+## 访问控制（v2.2）
+- **middleware.ts**：全站强制登录。校验 cookie `auth-token`（jose HS256 JWT，7 天）
+  - 白名单：/login、/api/ping、/api/auth/{login,register,me,logout}、静态资源
+  - `Authorization: Bearer <PUSH_TOKEN>` 精确匹配放行（李富贵推送 + 服务端内部自调用）
+  - 未登录：API 返回 401，页面 307 重定向 /login
+- **服务端内部自调用**：data-source.ts 自调 /api/data/tushare、/api/cache/kline 时自动携带 Bearer PUSH_TOKEN（internalAuthHeaders()，仅服务端生效）
+- **注册开关**：`DISABLE_REGISTRATION=true` 时 /api/auth/register 返回 403（生产建议开启）
+- **管理员建号**：`node scripts/create-admin-user.mjs <email> <password> [username]`（注册关闭后使用，已存在则重置密码）
+- **健康检查**：health-check.sh 与 deploy.sh 的存活验证已改为 /api/ping（首页 307 不代表服务异常）
+- **情绪引擎兼容**：字段缺失的因子标记 unavailable 不参与总分平均；value 有但 change_pct 缺失时退化为纯水位分
 
 ## 开发命令
 - `pnpm dev` - 启动开发服务

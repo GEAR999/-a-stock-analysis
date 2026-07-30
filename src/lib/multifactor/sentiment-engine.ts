@@ -187,8 +187,23 @@ export function calculateSentiment(data: SentimentRawData): SentimentResult {
     const value = config.getValue(data);
     const changePct = config.getChangePct(data);
 
+    // 字段缺失：因子标记为不可用，不参与总分平均
+    if (value === undefined) {
+      factors.push({
+        key: config.key,
+        name: config.name,
+        levelScore: 0,
+        trendScore: 0,
+        score: 0,
+        rawValue: undefined,
+        changePct: undefined,
+        unavailable: true,
+      });
+      continue;
+    }
+
     // 水位分
-    const levelScore = value !== undefined ? findLevelScore(value, config.levels) : 0;
+    const levelScore = findLevelScore(value, config.levels);
 
     // 趋势分
     let trendScore = 0;
@@ -201,7 +216,11 @@ export function calculateSentiment(data: SentimentRawData): SentimentResult {
     }
 
     // 综合分 = 水位×0.6 + 趋势×0.4
-    const score = Math.round((levelScore * 0.6 + trendScore * 0.4) * 100) / 100;
+    // 变化率缺失时退化为纯水位分（避免 0.4 权重把极值水位打折）
+    const score =
+      changePct !== undefined
+        ? Math.round((levelScore * 0.6 + trendScore * 0.4) * 100) / 100
+        : levelScore;
 
     factors.push({
       key: config.key,
@@ -214,9 +233,12 @@ export function calculateSentiment(data: SentimentRawData): SentimentResult {
     });
   }
 
-  // 综合情绪评分 = 5个因子等权平均
+  // 综合情绪评分 = 有效因子等权平均（缺失因子不参与）
+  const available = factors.filter((f) => !f.unavailable);
   const totalScore =
-    Math.round((factors.reduce((sum, f) => sum + f.score, 0) / factors.length) * 100) / 100;
+    available.length > 0
+      ? Math.round((available.reduce((sum, f) => sum + f.score, 0) / available.length) * 100) / 100
+      : 0;
 
   // 热度等级
   const heatLevel = getHeatLabel(totalScore);

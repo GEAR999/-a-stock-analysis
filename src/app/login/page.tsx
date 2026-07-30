@@ -25,10 +25,20 @@ export default function LoginPage() {
         return;
       }
       const res = await register(email, username || email.split('@')[0], password);
-      if (!res.ok) setError(res.error || '注册失败');
+      if (!res.ok) {
+        setError(res.error || '注册失败');
+      } else {
+        window.location.href = '/';
+        return;
+      }
     } else {
       const res = await login(email, password);
-      if (!res.ok) setError(res.error || '登录失败');
+      if (!res.ok) {
+        setError(res.error || '登录失败');
+      } else {
+        window.location.href = '/';
+        return;
+      }
     }
 
     setLoading(false);
@@ -119,19 +129,6 @@ export default function LoginPage() {
               className="text-[var(--accent-blue)] text-sm hover:underline"
             >
               {isRegister ? '已有账户？去登录' : '没有账户？去注册'}
-            </button>
-          </div>
-
-          <div className="mt-4 pt-4 border-t border-[var(--border-default)] text-center">
-            <button
-              onClick={() => {
-                // 跳过登录，使用本地数据模式
-                localStorage.setItem('auth_local_mode', 'true');
-                window.location.href = '/';
-              }}
-              className="text-[var(--text-secondary)] text-sm hover:text-[var(--text-primary)] transition-colors"
-            >
-              跳过登录，使用本地数据 →
             </button>
           </div>
         </div>

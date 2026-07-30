@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getKLineData, getQuote } from "@/lib/api/stock";
-import { getDailyBasic, calcPercentile } from "@/lib/tushare-client";
+import { getDailyBasic, calcPercentile, getMarketTurnoverRate, getMarginBalance } from "@/lib/tushare-client";
 import { analyzeChanlun } from "@/lib/analysis";
 import { analyzeWaves } from "@/lib/analysis";
 import { calculateStockFactors, calculatePosition, calculateSentiment, getCorrectionFactor } from "@/lib/multifactor";
@@ -12,8 +12,9 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const code = searchParams.get("code");
-    const sentimentMode = (searchParams.get("mode") || "neutral") as SentimentMode;
+    let sentimentMode = (searchParams.get("mode") || "neutral") as SentimentMode;
     const customWeightsParam = searchParams.get("weights");
+    const strategyId = searchParams.get("strategy_id");
 
     if (!code) {
       return NextResponse.json(
@@ -99,6 +100,30 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // 策略绑定：strategy_id 命中 strategy_sentiment_config 时，
+    // 用策略配置的情绪模式与因子权重覆盖查询参数
+    if (strategyId) {
+      try {
+        const { rows: cfgRows } = await queryRaw<{
+          sentiment_mode: string;
+          custom_weights: Record<string, number> | null;
+        }>(
+          `SELECT sentiment_mode, custom_weights FROM strategy_sentiment_config WHERE strategy_id = $1`,
+          [strategyId]
+        );
+        if (cfgRows.length > 0) {
+          sentimentMode = cfgRows[0].sentiment_mode as SentimentMode;
+          if (cfgRows[0].custom_weights) {
+            selectedFactors = Object.entries(cfgRows[0].custom_weights).map(
+              ([key, weight]) => ({ key, weight: weight as number })
+            );
+          }
+        }
+      } catch {
+        // 配置查询失败时保持查询参数
+      }
+    }
+
     // 计算个股因子评分
     const stockResult = calculateStockFactors({
       klineData,
@@ -136,10 +161,11 @@ export async function GET(request: NextRequest) {
     const positionLabel = positionResult.finalPosition >= 80 ? '重仓' : positionResult.finalPosition >= 50 ? '中等仓位' : positionResult.finalPosition >= 20 ? '轻仓' : positionResult.finalPosition > 0 ? '极轻仓' : '空仓';
     try {
       await queryRaw(
-        `INSERT INTO position_log (code, factor_scores, total_score, base_position, sentiment_score, correction_factor, final_position, position_label)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        `INSERT INTO position_log (code, strategy_id, factor_scores, total_score, base_position, sentiment_score, correction_factor, final_position, position_label)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
         [
           code,
+          strategyId,
           JSON.stringify(stockResult.factors),
           stockResult.totalScore,
           positionResult.basePosition,
@@ -157,6 +183,7 @@ export async function GET(request: NextRequest) {
       success: true,
       data: {
         code,
+        strategyId: strategyId ?? null,
         stockFactors: stockResult,
         valuation: dailyBasic.length > 0 ? {
           pe: dailyBasic[dailyBasic.length - 1].pe,
@@ -209,6 +236,59 @@ export async function POST(request: NextRequest) {
       margin_balance: body.margin_balance,
       margin_change_pct: body.margin_change_pct,
     };
+
+    // M2/M5 字段补齐：李富贵推送只含 M1/M3/M4，
+    // 换手率与融资余额由服务端从 Tushare 自动补齐（带缓存，补齐失败则因子不参与评分）
+    const needTurnover = rawData.turnover_rate === undefined || rawData.turnover_rate === null;
+    const needMargin = rawData.margin_balance === undefined || rawData.margin_balance === null;
+    if (needTurnover || needMargin) {
+      const [tushareTurnover, tushareMargin] = await Promise.all([
+        needTurnover ? getMarketTurnoverRate() : Promise.resolve(null),
+        needMargin ? getMarginBalance() : Promise.resolve(null),
+      ]);
+      if (needTurnover && tushareTurnover !== null) {
+        rawData.turnover_rate = tushareTurnover;
+      }
+      if (needMargin && tushareMargin !== null) {
+        rawData.margin_balance = tushareMargin;
+      }
+    }
+
+    // 变化率补齐：推送未携带 change_pct 时，与上一条情绪快照对比计算
+    const needChangePct =
+      rawData.volume_change_pct === undefined ||
+      (rawData.turnover_rate !== undefined && rawData.turnover_change_pct === undefined) ||
+      rawData.limit_up_change_pct === undefined ||
+      rawData.limit_down_change_pct === undefined ||
+      (rawData.margin_balance !== undefined && rawData.margin_change_pct === undefined);
+    if (needChangePct) {
+      try {
+        const { rows } = await queryRaw<{
+          total_volume: number | null;
+          turnover_rate: number | null;
+          limit_up_count: number | null;
+          limit_down_count: number | null;
+          margin_balance: number | null;
+        }>(
+          `SELECT total_volume, turnover_rate, limit_up_count, limit_down_count, margin_balance
+           FROM sentiment_snapshot ORDER BY timestamp DESC LIMIT 1`
+        );
+        const prev = rows[0];
+        if (prev) {
+          const pct = (cur: number | undefined, old: number | null): number | undefined => {
+            if (cur === undefined || old === null || Number(old) === 0) return undefined;
+            return Math.round(((cur - Number(old)) / Math.abs(Number(old))) * 10000) / 100;
+          };
+          rawData.volume_change_pct ??= pct(rawData.total_volume, prev.total_volume);
+          rawData.turnover_change_pct ??= pct(rawData.turnover_rate, prev.turnover_rate);
+          rawData.limit_up_change_pct ??= pct(rawData.limit_up_count, prev.limit_up_count);
+          rawData.limit_down_change_pct ??= pct(rawData.limit_down_count, prev.limit_down_count);
+          rawData.margin_change_pct ??= pct(rawData.margin_balance, prev.margin_balance);
+        }
+      } catch {
+        // 快照查询失败时保持 change_pct 缺失，引擎退化为纯水位分
+      }
+    }
 
     // 计算情绪评分
     const sentimentResult = calculateSentiment(rawData);

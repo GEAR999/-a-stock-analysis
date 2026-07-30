@@ -39,7 +39,7 @@ send_alert() {
 # ============ 健康检查 ============
 check_service() {
     local response
-    response=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 http://localhost:5000/ 2>/dev/null || echo "000")
+    response=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 http://localhost:5000/api/ping 2>/dev/null || echo "000")
     
     if [ "$response" = "200" ]; then
         return 0

@@ -4,6 +4,11 @@ import { apiSuccess, apiError } from '@/lib/api-utils';
 
 export async function POST(request: NextRequest) {
   try {
+    // 生产环境关闭公开注册（个人系统，账号由管理员直接在数据库创建）
+    if (process.env.DISABLE_REGISTRATION === 'true') {
+      return apiError('注册已关闭，请联系管理员开通账号', 'REGISTRATION_DISABLED', 403);
+    }
+
     const { email, username, password } = await request.json();
 
     if (!email || !password) {

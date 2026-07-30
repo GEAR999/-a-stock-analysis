@@ -190,6 +190,17 @@ const klineQueue = new RequestQueue();
 // ============================================================================
 
 /**
+ * 服务端内部自调用凭证
+ * middleware 校验 Authorization: Bearer <PUSH_TOKEN> 后放行，
+ * 仅服务端生效（客户端 process.env.PUSH_TOKEN 为 undefined，不会注入 bundle）
+ */
+function internalAuthHeaders(): Record<string, string> {
+  if (typeof window !== "undefined") return {};
+  const token = process.env.PUSH_TOKEN;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+/**
  * 判断是否为实时数据
  * - 日 K 线且请求条数<=5，视为实时数据
  * - 分钟线视为实时数据
@@ -239,6 +250,7 @@ async function fetchFromTushare(
     
     const response = await fetch(tushareUrl, {
       signal: controller.signal,
+      headers: internalAuthHeaders(),
     });
 
     clearTimeout(timeoutId);
@@ -520,7 +532,7 @@ export async function fetchKLineData(
         ? (process.env.COZE_PROJECT_DOMAIN_DEFAULT || `http://localhost:${process.env.DEPLOY_RUN_PORT || 5000}`)
         : '';
       const dbCacheUrl = `${baseUrl}/api/cache/kline?code=${code}&period=${period}&isRealtime=${isRealtime}`;
-      const dbCacheResponse = await fetch(dbCacheUrl);
+      const dbCacheResponse = await fetch(dbCacheUrl, { headers: internalAuthHeaders() });
       if (dbCacheResponse.ok) {
         const dbCacheResult = await dbCacheResponse.json();
         if (dbCacheResult.success && dbCacheResult.data) {
@@ -576,7 +588,7 @@ export async function fetchKLineData(
               : '';
             await fetch(`${baseUrl}/api/cache/kline`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 'Content-Type': 'application/json', ...internalAuthHeaders() },
               body: JSON.stringify({
                 code,
                 period,

@@ -265,6 +265,112 @@ export async function getStockBasicList(): Promise<StockBasicItem[]> {
     .filter((s) => s.code && s.name);
 }
 
+// ============ 市场级情绪数据补齐（多因子 M2/M5） ============
+
+/**
+ * 李富贵推送只包含 M1/M3/M4（成交额/涨停/跌停），
+ * M2（全市场换手率）与 M5（融资余额）由服务端从 Tushare 自动补齐：
+ * - M2：daily_basic 按交易日拉全市场，按流通股本加权平均换手率
+ * - M5：margin 接口沪深两融余额合计（T+1 发布，当日内不变）
+ *
+ * 进程内缓存降低积分消耗：换手率 10 分钟，融资余额当日内有效。
+ */
+
+interface MarketBreadthCache {
+  turnover: number | null;
+  turnoverFetchedAt: number;
+  marginBalance: number | null;
+  marginFetchedDay: string; // YYYY-MM-DD，跨天失效
+}
+
+const breadthCache: MarketBreadthCache = {
+  turnover: null,
+  turnoverFetchedAt: 0,
+  marginBalance: null,
+  marginFetchedDay: "",
+};
+
+const TURNOVER_CACHE_MS = 10 * 60 * 1000;
+
+/** 获取最近交易日（YYYYMMDD），以上证指数最新日线为准 */
+async function getLatestTradeDate(): Promise<string | null> {
+  const rows = await callTushare(
+    "daily",
+    { ts_code: "000001.SH", limit: "1" },
+    "trade_date"
+  );
+  return rows.length > 0 ? String(rows[0].trade_date || "") || null : null;
+}
+
+/**
+ * 全市场加权平均换手率（%）
+ * = Σ(个股换手率 × 流通股本) / Σ(流通股本)，等价于 总成交量/总流通股本
+ */
+export async function getMarketTurnoverRate(): Promise<number | null> {
+  if (
+    breadthCache.turnover !== null &&
+    Date.now() - breadthCache.turnoverFetchedAt < TURNOVER_CACHE_MS
+  ) {
+    return breadthCache.turnover;
+  }
+
+  const tradeDate = await getLatestTradeDate();
+  if (!tradeDate) return breadthCache.turnover;
+
+  const rows = await callTushare(
+    "daily_basic",
+    { trade_date: tradeDate },
+    "ts_code,turnover_rate,float_share",
+    30000
+  );
+
+  let weightedSum = 0;
+  let shareSum = 0;
+  for (const row of rows) {
+    const tr = Number(row.turnover_rate);
+    const fs = Number(row.float_share);
+    if (Number.isFinite(tr) && tr > 0 && Number.isFinite(fs) && fs > 0) {
+      weightedSum += tr * fs;
+      shareSum += fs;
+    }
+  }
+
+  if (shareSum === 0) return breadthCache.turnover;
+
+  breadthCache.turnover = Math.round((weightedSum / shareSum) * 100) / 100;
+  breadthCache.turnoverFetchedAt = Date.now();
+  return breadthCache.turnover;
+}
+
+/**
+ * 沪深两融余额合计（亿元）
+ * margin 接口 rzye 单位为元，T+1 发布，当日内缓存有效
+ */
+export async function getMarginBalance(): Promise<number | null> {
+  const today = new Date().toISOString().slice(0, 10);
+  if (breadthCache.marginBalance !== null && breadthCache.marginFetchedDay === today) {
+    return breadthCache.marginBalance;
+  }
+
+  const [sse, szse] = await Promise.all([
+    callTushare("margin", { exchange_id: "SSE", limit: "1" }, "trade_date,rzye"),
+    callTushare("margin", { exchange_id: "SZSE", limit: "1" }, "trade_date,rzye"),
+  ]);
+
+  const sseRzye = sse.length > 0 ? Number(sse[0].rzye) : NaN;
+  const szseRzye = szse.length > 0 ? Number(szse[0].rzye) : NaN;
+  if (!Number.isFinite(sseRzye) && !Number.isFinite(szseRzye)) {
+    return breadthCache.marginBalance;
+  }
+
+  const totalYi = ((Number.isFinite(sseRzye) ? sseRzye : 0) +
+    (Number.isFinite(szseRzye) ? szseRzye : 0)) / 1e8;
+
+  breadthCache.marginBalance = Math.round(totalYi * 100) / 100;
+  breadthCache.marginFetchedDay = today;
+  return breadthCache.marginBalance;
+}
+
 // ============ 可用性检查 ============
 
 export function isTushareConfigured(): boolean {

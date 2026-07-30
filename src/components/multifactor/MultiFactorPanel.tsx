@@ -14,6 +14,8 @@ import type {
   StockFactorKey,
 } from "@/lib/multifactor/types";
 import { FACTOR_LIBRARY, SENTIMENT_MODE_INFO, SCORE_LABELS } from "@/lib/multifactor/types";
+import { getAllStrategies, type StrategyDefinition } from "@/lib/strategy-library";
+import PositionHistoryChart from "./PositionHistoryChart";
 
 interface MultiFactorPanelProps {
   code: string;
@@ -23,6 +25,7 @@ interface ApiResponse {
   success: boolean;
   data?: {
     code: string;
+    strategyId?: string | null;
     stockFactors: StockFactorResult;
     sentimentScore: number;
     sentimentMode: string;
@@ -37,6 +40,8 @@ export default function MultiFactorPanel({ code }: MultiFactorPanelProps) {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ApiResponse["data"] | null>(null);
   const [mode, setMode] = useState<SentimentMode>("neutral");
+  const [selectedStrategyId, setSelectedStrategyId] = useState<string>("none");
+  const [strategies, setStrategies] = useState<StrategyDefinition[]>([]);
   const [weights, setWeights] = useState<Record<string, number>>(() => {
     const defaults: Record<string, number> = {};
     for (const f of FACTOR_LIBRARY) {
@@ -47,26 +52,43 @@ export default function MultiFactorPanel({ code }: MultiFactorPanelProps) {
     return defaults;
   });
 
+  // 加载策略库（内置 + 自定义，localStorage，挂载后读取）
+  useEffect(() => {
+    try {
+      setStrategies(getAllStrategies());
+    } catch {
+      // localStorage 不可用时保持空列表
+    }
+  }, []);
+
+  const hasStrategy = selectedStrategyId !== "none";
+
   const fetchAnalysis = useCallback(async () => {
     if (!code) return;
     setLoading(true);
     setError(null);
 
     try {
-      const params = new URLSearchParams({ code, mode });
-      // 只传非零权重
-      const customWeights: Record<string, number> = {};
-      let hasCustom = false;
-      for (const [key, w] of Object.entries(weights)) {
-        if (w > 0) {
-          customWeights[key] = w;
-          if (w !== FACTOR_LIBRARY.find((f) => f.key === key)?.defaultWeight) {
-            hasCustom = true;
+      const params = new URLSearchParams({ code });
+      if (hasStrategy) {
+        // 策略绑定模式：情绪模式与因子权重由服务端策略配置决定
+        params.set("strategy_id", selectedStrategyId);
+      } else {
+        params.set("mode", mode);
+        // 只传非零权重
+        const customWeights: Record<string, number> = {};
+        let hasCustom = false;
+        for (const [key, w] of Object.entries(weights)) {
+          if (w > 0) {
+            customWeights[key] = w;
+            if (w !== FACTOR_LIBRARY.find((f) => f.key === key)?.defaultWeight) {
+              hasCustom = true;
+            }
           }
         }
-      }
-      if (hasCustom) {
-        params.set("weights", JSON.stringify(customWeights));
+        if (hasCustom) {
+          params.set("weights", JSON.stringify(customWeights));
+        }
       }
 
       const res = await fetch(`/api/multifactor?${params.toString()}`);
@@ -84,7 +106,7 @@ export default function MultiFactorPanel({ code }: MultiFactorPanelProps) {
     } finally {
       setLoading(false);
     }
-  }, [code, mode, weights]);
+  }, [code, mode, weights, hasStrategy, selectedStrategyId]);
 
   useEffect(() => {
     fetchAnalysis();
@@ -112,8 +134,21 @@ export default function MultiFactorPanel({ code }: MultiFactorPanelProps) {
     <div className="space-y-3">
       {/* 控制栏 */}
       <div className="flex items-center gap-2 flex-wrap">
-        <Select value={mode} onValueChange={(v) => setMode(v as SentimentMode)}>
-          <SelectTrigger className="w-[100px] h-7 text-xs bg-[#1a2035] border-[#2a3550]">
+        <Select value={selectedStrategyId} onValueChange={setSelectedStrategyId}>
+          <SelectTrigger className="w-[130px] h-7 text-xs bg-[#1a2035] border-[#2a3550]">
+            <SelectValue placeholder="手动模式" />
+          </SelectTrigger>
+          <SelectContent className="bg-[#1a2035] border-[#2a3550]">
+            <SelectItem value="none" className="text-xs">手动模式</SelectItem>
+            {strategies.map((s) => (
+              <SelectItem key={s.id} value={s.id} className="text-xs">
+                {s.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={mode} onValueChange={(v) => setMode(v as SentimentMode)} disabled={hasStrategy}>
+          <SelectTrigger className="w-[100px] h-7 text-xs bg-[#1a2035] border-[#2a3550] disabled:opacity-50">
             <SelectValue />
           </SelectTrigger>
           <SelectContent className="bg-[#1a2035] border-[#2a3550]">
@@ -136,14 +171,16 @@ export default function MultiFactorPanel({ code }: MultiFactorPanelProps) {
           <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
         </Button>
         <span className="text-[10px] text-gray-500 ml-auto">
-          {SENTIMENT_MODE_INFO[mode].desc}
+          {hasStrategy ? "情绪模式与权重由策略配置决定" : SENTIMENT_MODE_INFO[mode].desc}
         </span>
       </div>
 
-      {/* 权重配置 */}
+      {/* 权重配置（策略模式下由策略配置决定，滑杆禁用） */}
       <Card className="bg-[#111827] border-[#1e2a40]">
         <CardHeader className="py-2 px-3">
-          <CardTitle className="text-xs text-gray-400">因子权重（总计{totalWeight}%）</CardTitle>
+          <CardTitle className="text-xs text-gray-400">
+            因子权重（总计{totalWeight}%）{hasStrategy && <span className="text-[9px] text-amber-500 ml-1">策略模式下不生效</span>}
+          </CardTitle>
         </CardHeader>
         <CardContent className="px-3 pb-3 space-y-2">
           {FACTOR_LIBRARY.map((factor) => {
@@ -156,6 +193,7 @@ export default function MultiFactorPanel({ code }: MultiFactorPanelProps) {
                   max={100}
                   step={5}
                   className="flex-1"
+                  disabled={hasStrategy}
                   onValueChange={([v]) =>
                     setWeights((prev) => ({ ...prev, [factor.key]: v }))
                   }
@@ -282,6 +320,9 @@ export default function MultiFactorPanel({ code }: MultiFactorPanelProps) {
               </div>
             </CardContent>
           </Card>
+
+          {/* 仓位历史曲线（每次分析完成后服务端会落一条 position_log） */}
+          <PositionHistoryChart code={code} refreshKey={result.code + result.sentimentScore + result.position.finalPosition} />
         </>
       )}
     </div>

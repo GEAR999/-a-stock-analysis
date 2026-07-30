@@ -74,7 +74,7 @@ main() {
     
     for i in $(seq 1 $retries); do
         local status
-        status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 http://localhost:5000/ 2>/dev/null || echo "000")
+        status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 http://localhost:5000/api/ping 2>/dev/null || echo "000")
         
         if [ "$status" = "200" ]; then
             log "✅ 服务启动成功 (HTTP $status)"

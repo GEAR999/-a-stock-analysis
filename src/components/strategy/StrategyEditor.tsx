@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { X, Save, Signal, Shield, Wallet, Settings2, Info } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { X, Save, Signal, Shield, Wallet, Settings2, Info, Flame } from 'lucide-react';
 import type { StrategyType, SignalConfig, PositionControl, RiskControl, CostConfig } from '@/lib/backtest-engine';
 import {
   DEFAULT_POSITION_CONTROL, DEFAULT_RISK_CONTROL, DEFAULT_COST_CONFIG,
@@ -10,6 +10,7 @@ import {
   generateStrategyId, saveCustomStrategy,
   type StrategyDefinition, type StrategyCategory,
 } from '@/lib/strategy-library';
+import { SENTIMENT_MODE_INFO, type SentimentMode } from '@/lib/multifactor';
 
 // ============ 信号选项 ============
 
@@ -42,7 +43,7 @@ const SIGNAL_OPTIONS: SignalOption[] = [
 // ============ 类型 ============
 
 type EditorMode = 'create' | 'edit' | 'view';
-type EditorTab = 'basic' | 'signal' | 'position' | 'risk' | 'cost';
+type EditorTab = 'basic' | 'signal' | 'position' | 'risk' | 'cost' | 'sentiment';
 
 interface StrategyEditorProps {
   strategy?: StrategyDefinition;
@@ -139,6 +140,30 @@ export function StrategyEditor({ strategy, mode, onSave, onCancel }: StrategyEdi
   // Cost config
   const [cost, setCost] = useState<CostConfig>(strategy?.cost ?? { ...DEFAULT_COST_CONFIG });
 
+  // 情绪应对模式（多因子配置，存 strategy_sentiment_config 表，跟随策略保存）
+  const [sentimentMode, setSentimentMode] = useState<SentimentMode>('neutral');
+  const [sentimentLoaded, setSentimentLoaded] = useState(false);
+
+  // 编辑/查看已有策略时，拉取已绑定的情绪模式
+  useEffect(() => {
+    if (!strategy?.id) {
+      setSentimentLoaded(true);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/multifactor/strategy-config?strategy_id=${encodeURIComponent(strategy.id)}`)
+      .then(res => res.json())
+      .then(json => {
+        if (cancelled) return;
+        if (json.success && json.data && !json.data.isDefault) {
+          setSentimentMode(json.data.sentimentMode as SentimentMode);
+        }
+      })
+      .catch(() => { /* 拉取失败保持默认 neutral */ })
+      .finally(() => { if (!cancelled) setSentimentLoaded(true); });
+    return () => { cancelled = true; };
+  }, [strategy?.id]);
+
   // ============ 信号操作 ============
 
   const toggleSignal = (sig: StrategyType) => {
@@ -192,6 +217,14 @@ export function StrategyEditor({ strategy, mode, onSave, onCancel }: StrategyEdi
     };
 
     saveCustomStrategy(def);
+
+    // 保存情绪模式绑定（独立存储于 strategy_sentiment_config，失败不阻塞主保存）
+    fetch('/api/multifactor/strategy-config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ strategyId: def.id, sentimentMode }),
+    }).catch(() => { /* 情绪配置保存失败不影响策略本身 */ });
+
     onSave();
   };
 
@@ -203,6 +236,7 @@ export function StrategyEditor({ strategy, mode, onSave, onCancel }: StrategyEdi
     { key: 'position', label: '仓位', icon: Wallet },
     { key: 'risk', label: '风控', icon: Shield },
     { key: 'cost', label: '成本', icon: Settings2 },
+    { key: 'sentiment', label: '情绪', icon: Flame },
   ];
 
   // ============ 渲染 ============
@@ -610,6 +644,53 @@ export function StrategyEditor({ strategy, mode, onSave, onCancel }: StrategyEdi
                 <div className="text-[10px] text-text-secondary border-t border-border-subtle pt-1 mt-1">
                   单次交易总成本: <span className="text-text-primary font-mono">¥{(100000 * (cost.commission + cost.slippage)).toFixed(2)}</span>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* 情绪 Tab */}
+          {activeTab === 'sentiment' && (
+            <div className="space-y-4">
+              <div className="text-[10px] text-text-muted">
+                多因子仓位修正：根据大盘情绪评分自动调整该策略的建议仓位
+              </div>
+              {!sentimentLoaded ? (
+                <div className="text-[11px] text-text-muted py-4 text-center">加载情绪配置中...</div>
+              ) : (
+                <div className="space-y-2">
+                  {(Object.keys(SENTIMENT_MODE_INFO) as SentimentMode[]).map(modeKey => {
+                    const info = SENTIMENT_MODE_INFO[modeKey];
+                    const isActive = sentimentMode === modeKey;
+                    return (
+                      <button
+                        key={modeKey}
+                        onClick={() => !isReadonly && setSentimentMode(modeKey)}
+                        disabled={isReadonly}
+                        className={`w-full text-left p-3 rounded border transition-colors ${
+                          isActive
+                            ? 'border-accent-blue bg-accent-blue/10'
+                            : 'border-border-subtle bg-surface-raised hover:border-border-strong'
+                        } ${isReadonly ? 'cursor-default' : 'cursor-pointer'}`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className={`text-xs font-medium ${isActive ? 'text-accent-blue' : 'text-text-primary'}`}>
+                            {info.label}
+                          </span>
+                          {isActive && <span className="text-[9px] text-accent-blue">当前模式</span>}
+                        </div>
+                        <div className="text-[10px] text-text-secondary mt-1">{info.desc}</div>
+                        <div className="flex gap-4 mt-1.5 text-[9px] text-text-muted">
+                          <span>大盘过热: {info.overheat}</span>
+                          <span>大盘冷淡: {info.cold}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              <div className="bg-surface-raised rounded p-3 text-[9px] text-text-muted leading-relaxed">
+                情绪模式绑定后，多因子分析（/api/multifactor）使用该策略时将自动应用此模式计算仓位修正。
+                策略本体（信号/仓位/风控/成本）不受影响。
               </div>
             </div>
           )}

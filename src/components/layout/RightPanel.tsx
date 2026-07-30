@@ -22,6 +22,44 @@ import { StockComparison } from '@/components/analysis/StockComparison';
 import { HistoricalSignalsPanel } from '@/components/analysis/HistoricalSignalsPanel';
 import MultiFactorPanel from '@/components/multifactor/MultiFactorPanel';
 
+// 市场参考 Tab（宏观/实时行情/产业链/海外，聚合成一个手风琴，默认收起）
+type MarketRefTab = 'macro' | 'realtime' | 'industry' | 'overseas';
+
+function MarketReferenceTabs({ stockCode, stockName }: { stockCode?: string; stockName?: string }) {
+  const [tab, setTab] = useState<MarketRefTab>('macro');
+  const tabs: { key: MarketRefTab; label: string }[] = [
+    { key: 'macro', label: '宏观' },
+    { key: 'realtime', label: '实时' },
+    { key: 'industry', label: '产业链' },
+    { key: 'overseas', label: '海外' },
+  ];
+  return (
+    <div>
+      <div className="flex gap-1 px-2 pt-2 pb-1">
+        {tabs.map(t => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
+              tab === t.key
+                ? 'bg-blue-500/20 text-[var(--accent-blue)] border border-[var(--accent-blue)]/30'
+                : 'bg-[var(--bg-card)] text-[var(--text-secondary)]'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      <div className="p-1">
+        {tab === 'macro' && <MacroEconomyPanel enabled={true} />}
+        {tab === 'realtime' && <RealtimeMarketPanel />}
+        {tab === 'industry' && <IndustryMappingPanel stockCode={stockCode} />}
+        {tab === 'overseas' && <OverseasMapping stockCode={stockCode || ''} stockName={stockName || ''} />}
+      </div>
+    </div>
+  );
+}
+
 // 手风琴面板组件
 function AccordionSection({ 
   title, 
@@ -239,40 +277,13 @@ export function RightPanel() {
         <AIInterpretation klineData={klineData} />
         )}
 
-        {/* 2. 宏观经济 - 手风琴模式 */}
-        <AccordionSection 
-          title="宏观经济" 
-          icon="🌍"
-          summary="中性"
-        >
-          <MacroEconomyPanel enabled={true} />
-        </AccordionSection>
-
-        {/* 2.5 实时行情 - 手风琴模式 */}
+        {/* 2. 市场参考（宏观/实时行情/产业链/海外 聚合，默认收起） */}
         <AccordionSection
-          title="实时行情"
-          icon="⚡"
-          summary="李富贵推送"
-        >
-          <RealtimeMarketPanel />
-        </AccordionSection>
-
-        {/* 3. 产业链映射 - 手风琴模式 */}
-        <AccordionSection 
-          title="产业链映射" 
-          icon="🔗"
-          summary={selectedStock ? '查看关联标的' : ''}
-        >
-          <IndustryMappingPanel stockCode={selectedStock?.code} />
-        </AccordionSection>
-
-        {/* 3.5 海外映射 - 手风琴模式 */}
-        <AccordionSection 
-          title="海外映射" 
+          title="市场参考"
           icon="🌐"
-          summary={selectedStock ? '联动分析' : ''}
+          summary="宏观/行情/产业链/海外"
         >
-          <OverseasMapping stockCode={selectedStock?.code || ''} stockName={selectedStock?.name || ''} />
+          <MarketReferenceTabs stockCode={selectedStock?.code} stockName={selectedStock?.name} />
         </AccordionSection>
 
         {/* 4. 情绪分析 - 摘要模式 */}

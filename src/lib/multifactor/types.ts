@@ -43,6 +43,8 @@ export interface SentimentFactorScore {
   rawValue?: number;
   /** 变化率 */
   changePct?: number;
+  /** 字段缺失，因子不参与总分平均 */
+  unavailable?: boolean;
 }
 
 /** 大盘情绪评分结果 */
