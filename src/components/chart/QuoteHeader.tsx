@@ -1,20 +1,15 @@
 'use client';
 
 import { useAppState } from '@/hooks/useAppState';
-import { Switch } from '@/components/ui/switch';
 
 export function QuoteHeader() {
-  const { currentQuote, selectedStock, isMonitoring, setIsMonitoring } = useAppState();
+  const { currentQuote, selectedStock } = useAppState();
 
   if (!selectedStock) {
     return (
       <div className="flex items-center justify-between px-4 py-2 border-b border-[var(--border-default)] bg-[var(--bg-primary)]">
         <div className="flex items-center gap-3">
           <span className="text-sm text-[var(--text-secondary)]">未选择股票</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-[var(--text-secondary)]">实时监控</span>
-          <Switch checked={isMonitoring} onCheckedChange={setIsMonitoring} />
         </div>
       </div>
     );
@@ -28,10 +23,6 @@ export function QuoteHeader() {
           <span className="text-sm font-medium text-[var(--text-primary)]">{selectedStock.name}</span>
           <span className="text-xs text-[var(--text-secondary)]">{selectedStock.code}</span>
           <span className="text-xs text-[var(--text-secondary)] animate-pulse">行情加载中...</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-[var(--text-secondary)]">实时监控</span>
-          <Switch checked={isMonitoring} onCheckedChange={setIsMonitoring} />
         </div>
       </div>
     );
@@ -66,10 +57,6 @@ export function QuoteHeader() {
           <span className="text-[var(--text-secondary)]">高 <span className="text-[var(--accent-red)] font-mono-num">{currentQuote.high.toFixed(2)}</span></span>
           <span className="text-[var(--text-secondary)]">低 <span className="text-[var(--accent-green)] font-mono-num">{currentQuote.low.toFixed(2)}</span></span>
           <span className="text-[var(--text-secondary)]">量 <span className="text-[var(--text-primary)] font-mono-num">{(currentQuote.volume / 10000).toFixed(0)}万</span></span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-[var(--text-secondary)]">实时监控</span>
-          <Switch checked={isMonitoring} onCheckedChange={setIsMonitoring} />
         </div>
       </div>
     </div>

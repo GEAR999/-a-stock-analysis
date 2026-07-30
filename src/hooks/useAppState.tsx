@@ -11,7 +11,6 @@ interface AppState {
   currentQuote: StockQuote | null;
   watchlist: WatchlistItem[];
   searchResults: StockInfo[];
-  isMonitoring: boolean;
 
   // K-line
   klinePeriod: KLinePeriod;
@@ -31,7 +30,6 @@ interface AppState {
   removeFromWatchlist: (code: string) => void;
   reorderWatchlist: (fromIndex: number, toIndex: number) => void;
   setSearchResults: (results: StockInfo[]) => void;
-  setIsMonitoring: (v: boolean) => void;
   setKlinePeriod: (p: KLinePeriod) => void;
   setKlineData: (data: KLineData[]) => void;
   setAnalysisSettings: (s: Partial<AnalysisSettings>) => void;
@@ -62,7 +60,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [currentQuote, setCurrentQuote] = useState<StockQuote | null>(null);
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
   const [searchResults, setSearchResults] = useState<StockInfo[]>([]);
-  const [isMonitoring, setIsMonitoring] = useState(true);
   const [klinePeriod, setKlinePeriod] = useState<KLinePeriod>('daily');
   const [klineData, setKlineData] = useState<KLineData[]>([]);
   const [analysisSettings, setAnalysisSettingsState] = useState<AnalysisSettings>(defaultAnalysisSettings);
@@ -248,15 +245,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [selectedStock]);
 
-  // Auto refresh quote
-  useEffect(() => {
-    if (!isMonitoring || !selectedStock) return;
-    const interval = setInterval(() => {
-      refreshQuote();
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [isMonitoring, selectedStock, refreshQuote]);
-
   // Fetch initial quote when stock changes
   useEffect(() => {
     if (!selectedStock) {
@@ -299,10 +287,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   return (
     <AppContext.Provider value={{
-      selectedStock, currentQuote, watchlist, searchResults, isMonitoring,
+      selectedStock, currentQuote, watchlist, searchResults,
       klinePeriod, klineData, analysisSettings, chatMessages, isChatOpen, chatMode,
       setSelectedStock, addToWatchlist, removeFromWatchlist, reorderWatchlist,
-      setSearchResults, setIsMonitoring, setKlinePeriod, setKlineData,
+      setSearchResults, setKlinePeriod, setKlineData,
       setAnalysisSettings, addChatMessage, setIsChatOpen, setChatMode,
       searchStocks: searchStocksAction, refreshQuote,
     }}>

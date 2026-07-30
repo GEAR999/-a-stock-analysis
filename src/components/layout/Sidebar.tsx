@@ -19,7 +19,7 @@ const STOCK_GROUPS: Record<string, { label: string; color: string; codes: string
 };
 
 export function Sidebar() {
-  const { isMonitoring, setIsMonitoring, watchlist, selectedStock, currentQuote } = useAppState();
+  const { watchlist, selectedStock, currentQuote } = useAppState();
   const [view, setView] = useState<SidebarView>('stocks');
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['ai']));
   const [collapsed, setCollapsed] = useState(false);
@@ -148,25 +148,12 @@ export function Sidebar() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.668 18.477 18.082 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
             </svg>
           </button>
-          <div className="w-8 h-px bg-[var(--bg-card)] my-2" />
-          <div className={`w-10 h-10 rounded flex items-center justify-center ${isMonitoring ? 'text-[var(--accent-green)]' : 'text-[var(--text-secondary)]'}`} title={isMonitoring ? '监控中' : '监控关闭'}>
-            <div className={`w-2 h-2 rounded-full ${isMonitoring ? 'bg-[var(--accent-green)] animate-pulse' : 'bg-[var(--text-secondary)]'}`} />
-          </div>
         </div>
       ) : (
         <>
           {/* Search - always on top */}
           <div className="px-3 py-2 border-b border-[var(--border-default)]">
             <StockSearch />
-          </div>
-
-          {/* Monitor switch */}
-          <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--border-default)]">
-            <span className="text-xs text-[var(--text-secondary)]">实时监控</span>
-            <div className="flex items-center gap-2">
-              <div className={`w-1.5 h-1.5 rounded-full ${isMonitoring ? 'bg-[var(--accent-green)] animate-pulse' : 'bg-[var(--text-secondary)]'}`} />
-              <Switch checked={isMonitoring} onCheckedChange={setIsMonitoring} />
-            </div>
           </div>
 
           {/* Content */}

@@ -8,8 +8,6 @@ import { fetchWithRetry, onOnlineStatusChange } from '@/lib/api-client';
 import type { KLineData } from '@/lib/types';
 import type { DataSourceError } from '@/lib/data-source';
 import { AlertCircle, RefreshCw } from 'lucide-react';
-import { DataSourceToggle } from './DataSourceToggle';
-import type { DataSourceConfig } from './DataSourceToggle';
 
 const PERIODS: Array<{ key: string; label: string }> = [
   { key: 'daily', label: '日 K' },
@@ -24,12 +22,6 @@ export function KLineChart() {
   const chartInstance = useRef<echarts.ECharts | null>(null);
   const [error, setError] = useState<{ type: DataSourceError; message: string; suggestion: string } | null>(null);
   const [showError, setShowError] = useState(false);
-  const [currentDataSource, setCurrentDataSource] = useState<string>('');
-  const [dataSourceConfig, setDataSourceConfig] = useState<DataSourceConfig>(() => {
-    if (typeof window === 'undefined') return { tushare: true, eastmoney: true };
-    const saved = localStorage.getItem('dataSourceConfig');
-    return saved ? JSON.parse(saved) : { tushare: true, eastmoney: true };
-  });
 
   // Fetch kline data (backend handles caching)
   useEffect(() => {
@@ -50,11 +42,6 @@ export function KLineChart() {
         const json = await res.json();
         if (json.success && !cancelled) {
           setKlineData(json.data);
-          // 记录当前使用的数据源
-          if (json.source) {
-            setCurrentDataSource(json.source);
-            console.log(`[KLine] Data source: ${json.source}`);
-          }
         } else if (!cancelled && json.error) {
           // 数据加载失败，显示错误提示
           setError({
@@ -90,60 +77,6 @@ export function KLineChart() {
     window.addEventListener('auto-refresh', handleAutoRefresh);
     return () => window.removeEventListener('auto-refresh', handleAutoRefresh);
   }, [selectedStock, klinePeriod]);
-
-  // 处理数据源配置变更
-  const handleDataSourceConfigChange = useCallback((newConfig: DataSourceConfig) => {
-    setDataSourceConfig(newConfig);
-    // 重新加载数据
-    if (selectedStock) {
-      setError(null);
-      setShowError(false);
-      const fetchKline = async () => {
-        try {
-          const action = klinePeriod === "minute" ? "minute" : "kline";
-          const params = klinePeriod === "minute" ? `code=${selectedStock.code}` : `code=${selectedStock.code}&period=${klinePeriod}&limit=250`;
-          const res = await fetchWithRetry(`/api/stock?action=${action}&${params}`);
-          const json = await res.json();
-          if (json.success) {
-            // 分时图数据格式转换
-            const data = json.data;
-            if (klinePeriod === "minute" && Array.isArray(data)) {
-              const convertedData = data.map((d: any) => ({
-                date: d.date,
-                open: d.price,
-                high: d.price,
-                low: d.price,
-                close: d.price,
-                volume: d.volume,
-                amount: d.price * d.volume,
-              }));
-              setKlineData(convertedData);
-            } else {
-              setKlineData(data);
-            }
-            if (json.source) {
-              setCurrentDataSource(json.source);
-            }
-          } else if (json.error) {
-            setError({
-              type: json.error,
-              message: json.errorMessage || '数据加载失败',
-              suggestion: json.suggestion || '请稍后重试',
-            });
-            setShowError(true);
-          }
-        } catch {
-          setError({
-            type: 'NETWORK_ERROR' as DataSourceError,
-            message: '网络连接异常',
-            suggestion: '请检查网络设置或刷新页面',
-          });
-          setShowError(true);
-        }
-      };
-      fetchKline();
-    }
-  }, [selectedStock, klinePeriod, setKlineData]);
 
   // Build chart
   const [showLegend, setShowLegend] = useState(false);
@@ -867,14 +800,6 @@ export function KLineChart() {
               重置
             </button>
           )}
-        </div>
-
-        {/* 数据源开关（底部状态栏） */}
-        <div className="absolute bottom-2 left-3 z-10">
-          <DataSourceToggle
-            currentSource={currentDataSource}
-            onConfigChange={handleDataSourceConfigChange}
-          />
         </div>
       </div>
     </div>
