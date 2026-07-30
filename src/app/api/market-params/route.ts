@@ -225,33 +225,34 @@ export async function GET(request: NextRequest) {
       LIMIT ${limit}
     `;
 
-    const formatted = rows.map((row) => ({
-      id: row.id,
-      timestamp: row.timestamp,
-      shanghai_index: {
-        price: row.sh_price,
-        change_pct: row.sh_change_pct,
-      },
-      shenzhen_index: {
-        price: row.sz_price,
-        change_pct: row.sz_change_pct,
-      },
-      chinext_index: {
-        price: row.cyb_price,
-        change_pct: row.cyb_change_pct,
-      },
-      market_stats: {
+    const formatted = rows.map((row) => {
+      const parsed = parseWatchlistData(row.watchlist_data);
+      return {
+        id: row.id,
+        timestamp: row.timestamp,
+        sh_price: row.sh_price,
+        sh_change_pct: row.sh_change_pct,
+        sz_price: row.sz_price,
+        sz_change_pct: row.sz_change_pct,
+        cyb_price: row.cyb_price,
+        cyb_change_pct: row.cyb_change_pct,
         advance_count: row.advance_count,
         decline_count: row.decline_count,
         limit_up: row.limit_up,
         limit_down: row.limit_down,
         total_volume: row.total_volume,
-      },
-      watchlist_data: parseWatchlistData(row.watchlist_data),
-      created_at: row.created_at,
-    }));
+        watchlist_data: parsed,
+        created_at: row.created_at,
+      };
+    });
 
-    return NextResponse.json({ success: true, data: formatted });
+    return NextResponse.json({
+      success: true,
+      data: {
+        latest: formatted[0] || null,
+        history: formatted,
+      },
+    });
   } catch (error: unknown) {
     console.error("[market-params] GET error:", error);
     return NextResponse.json(
