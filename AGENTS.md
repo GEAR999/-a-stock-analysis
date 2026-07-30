@@ -19,10 +19,6 @@ src/
 │   ├── page.tsx               # 主页面 (三栏布局)
 │   └── globals.css            # 全局样式 + 交易终端主题
 ── components/
-│   ├── quant-live/
-│   │   ├── types.ts                 # 量化实时账户类型定义
-│   │   ├── useQuantLiveMonitor.ts   # WebSocket 监控 Hook
-│   │   └── QuantLivePanel.tsx       # 量化实时账户主面板
 │   ├── SentimentTooltip.tsx   # 情绪指标Tooltip组件 (hover显示计算过程)
 │   ├── SyncStatusIndicator.tsx # 云端同步状态指示器 (顶部工具栏)
 │   ├── ai/
@@ -61,7 +57,6 @@ src/
 │   │   ├── BacktestPanel.tsx  # 模拟交易主面板 (Tab切换+子组件编排, 纯账户管理)
 │   │   ├── AccountOverview.tsx # 账户概览子组件 (总资产/盈亏/持仓/资金曲线+锁定状态)
 │   │   ├── ManualTradePanel.tsx # 手动买卖子组件 (买入/卖出对话框)
-│   │   ├── QuantAutoTradePanel.tsx # 量化自动交易子组件 (策略配置/信号检测/自动买卖/止损止盈/运行日志)
 │   │   ├── TradeHistoryPanel.tsx # 交易记录子组件 (筛选/排序/CSV导出)
 │   │   ├── HistoryBacktestPanel.tsx # 历史量化回测（独立功能，一级入口，含配置/记录/持仓/K线/买卖依据/保存）
 │   │   ├── IndependentBacktest.tsx # 独立回测面板（旧版，已被HistoryBacktestPanel替代）
@@ -192,18 +187,6 @@ quant-live-service/
 - **支持周期**：daily（日 K）、weekly（周 K）、monthly（月 K）、60min（60 分钟）、30min（30 分钟）、15min（15 分钟）、5min（5 分钟）
 - **已移除**：yearly（年 K，mootdx 不支持）、minute（分时图，前端已移除入口但 API 保留）
 - **周期映射**：mootdx 服务器（47.122.115.203:8888）使用 `PERIOD_TO_FREQUENCY` 映射表将字符串周期转换为 mootdx 的 frequency 整数参数
-
-### 量化实时账户 API（阿里云服务器 8889 端口）
-- `GET /api/accounts` - 账户列表
-- `POST /api/accounts` - 创建账户
-- `GET /api/accounts/:id` - 账户详情
-- `PUT /api/accounts/:id` - 更新账户（名称/状态）
-- `DELETE /api/accounts/:id` - 删除账户
-- `GET /api/accounts/:id/trades` - 交易记录
-- `GET /api/accounts/:id/positions` - 当前持仓
-- `POST /api/accounts/:id/run` - 手动触发一次检查
-- `GET /api/accounts/:id/snapshots` - 策略快照历史
-- `GET /api/accounts/:id/daily` - 每日账户快照（资金曲线）
 
 ## 情绪分析系统
 - 大盘情绪：8个指标加权（涨跌家数比/涨停跌停比/成交额偏离度/连板高度/封板成功率/北向资金/两融变化/新高新低差）
@@ -699,17 +682,13 @@ pm2 restart a-stock-analysis
 - ✅ **登录功能正常**：已验证
 
 ### 待办事项
-- [ ] **集成 AKShare 替代 mootdx**（最高优先级）
-  - 安装：`pip install akshare`
-  - 创建 FastAPI 服务（端口 8888，类似 mootdx 服务）
-  - 修改 `src/lib/data-source.ts`，添加 AKShare 数据源
 - [ ] 验证 K 线图所有周期显示效果
 - [ ] 考虑将财务数据切换到 Tushare（减少东方财富依赖）
 - [ ] 配置飞书 webhook 告警（health-check.sh）
-- [ ] 量化实时账户创建功能验证（待用户部署后测试）
 - [ ] DNS 恢复解析后，配置 Nginx 反向代理（`a-stock.xyz` → `localhost:5000`）
 - [ ] 配置 HTTPS（Let's Encrypt 证书）
 - [ ] 设置 `COOKIE_SECURE=true`（HTTPS 启用后）
+- [ ] deploy.sh 验证逻辑优化（接受 307 为成功，或改用 /api/ping）
 
 ### 数据源状态
 | 数据源 | 状态 | 用途 |
@@ -717,6 +696,52 @@ pm2 restart a-stock-analysis
 | Tushare | ✅ 正常 | K 线/估值/M2 换手率/M5 融资余额补齐 |
 | 东方财富 | ⚠️ 限流中 | 情绪分析/资金流向（用缓存缓解） |
 | AKShare |  未测试 | 备选方案（K 线/实时行情） |
+| mootdx | ❌ 已废弃 | 返回空数据，已确认废弃 |
+
+## 最新进展（2026-07-30）
+
+### 已完成功能
+
+#### 多因子系统阶段二（全部完成）
+- ✅ **M2/M5 缺失字段兼容**：李富贵推送缺换手率/融资余额时，服务端从 Tushare 自动补齐（10 分钟缓存）
+- ✅ **策略绑定情绪模式**：`strategy_sentiment_config` 表，策略编辑器新增"情绪"Tab（三模式卡片）
+- ✅ **仓位日志可视化**：`PositionHistoryChart.tsx`（SVG 折线，20/50/80% 参考线，区间配色）
+- ✅ **底部栏整合**：`MarketReferenceTabs` 组件（宏观/实时/产业链/海外四 Tab 聚合）
+- ✅ **登录验证**：`middleware.ts` + JWT cookie + 白名单 + Bearer Token 放行
+
+#### 登录问题修复
+- ✅ **HttpOnly cookie 问题**：移除 `checkAuth` 中的 cookie 读取，直接调用 `/api/auth/me`（HttpOnly cookie 无法被 JS 读取）
+- ✅ **cookie secure 修复**：`secure: process.env.COOKIE_SECURE === 'true'`（HTTP 下不设置 Secure 标志）
+- ✅ **服务绑定修复**：`HOSTNAME=0.0.0.0`，服务可从外部访问
+- ✅ **安全组开放**：阿里云安全组已开放 5000 端口
+
+#### 量化功能清理
+- ✅ **删除 QuantLivePanel**：量化实时账户监控组件（依赖 mootdx，已废弃）
+- ✅ **删除 QuantAutoTradePanel**：量化自动交易组件（未被引用）
+- ✅ **删除 /api/quant-live 路由**：API 代理已移除
+- ✅ **停止 8889 端口服务**：PM2 进程已停止，端口已释放
+- ✅ **清理代码**：共删除约 1700 行孤立代码
+
+#### 服务部署
+- ✅ **账号创建**：`1119220189@qq.com` / `123456`
+- ✅ **服务正常运行**：`http://47.122.115.203:5000`
+- ✅ **登录功能正常**：已验证
+- ⚠️ **deploy.sh 验证逻辑**：返回 307（重定向到登录页）被误判为失败，实际服务正常
+
+### 待办事项
+- [ ] 验证 K 线图所有周期显示效果
+- [ ] 考虑将财务数据切换到 Tushare（减少东方财富依赖）
+- [ ] 配置飞书 webhook 告警（health-check.sh）
+- [ ] DNS 恢复解析后，配置 Nginx 反向代理（`a-stock.xyz` → `localhost:5000`）
+- [ ] 配置 HTTPS（Let's Encrypt 证书）
+- [ ] 设置 `COOKIE_SECURE=true`（HTTPS 启用后）
+- [ ] deploy.sh 验证逻辑优化（接受 307 为成功，或改用 /api/ping）
+
+### 数据源状态
+| 数据源 | 状态 | 用途 |
+|--------|------|------|
+| Tushare | ✅ 正常 | K 线/估值/M2 换手率/M5 融资余额补齐 |
+| 东方财富 | ⚠️ 限流中 | 情绪分析/资金流向（用缓存缓解） |
 | mootdx | ❌ 已废弃 | 返回空数据，已确认废弃 |
 
 ## 最新进展（2026-07-27）
