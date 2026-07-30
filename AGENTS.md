@@ -7,7 +7,8 @@ A股智能分析系统 - 专业的股票分析Web应用，支持缠论、波浪�
 - Next.js 16 (App Router) + React 19 + TypeScript 5
 - Tailwind CSS 4 + shadcn/ui
 - ECharts (K线图渲染)
-- 数据源：mootdx（K 线/实时行情）+ 东方财富（情绪分析/资金流向）
+- 数据源：Tushare（K 线/估值/M2/M5 补齐）+ 东方财富（情绪分析/资金流向，限流中）+ AKShare（备选，未测试）
+- ⚠️ mootdx 已废弃（返回空数据）
 
 ## 目录结构
 ```
@@ -126,6 +127,14 @@ git pull origin main
 pnpm install --frozen-lockfile
 pnpm build
 sudo systemctl restart a-stock-analysis
+```
+
+**重要**：systemd 服务配置必须包含 `Environment=HOSTNAME=0.0.0.0`，否则服务只绑定 localhost，外部无法访问。
+
+```ini
+[Service]
+Environment=HOSTNAME=0.0.0.0
+Environment=PORT=5000
 ```
 
 ### mootdx 服务配置
@@ -667,6 +676,49 @@ pm2 restart a-stock-analysis
 
 ---
 
+## 最新进展（2026-07-30）
+
+### 已完成功能
+
+#### 多因子系统阶段二（全部完成）
+- ✅ **M2/M5 缺失字段兼容**：李富贵推送缺换手率/融资余额时，服务端从 Tushare 自动补齐（10 分钟缓存）
+- ✅ **策略绑定情绪模式**：`strategy_sentiment_config` 表，策略编辑器新增"情绪"Tab（三模式卡片）
+- ✅ **仓位日志可视化**：`PositionHistoryChart.tsx`（SVG 折线，20/50/80% 参考线，区间配色）
+- ✅ **底部栏整合**：`MarketReferenceTabs` 组件（宏观/实时/产业链/海外四 Tab 聚合）
+- ✅ **登录验证**：`middleware.ts` + JWT cookie + 白名单 + Bearer Token 放行
+
+#### 登录问题修复
+- ✅ **HttpOnly cookie 问题**：移除 `checkAuth` 中的 cookie 读取，直接调用 `/api/auth/me`（HttpOnly cookie 无法被 JS 读取）
+- ✅ **cookie secure 修复**：`secure: process.env.COOKIE_SECURE === 'true'`（HTTP 下不设置 Secure 标志）
+- ✅ **服务绑定修复**：`HOSTNAME=0.0.0.0`，服务可从外部访问
+- ✅ **安全组开放**：阿里云安全组已开放 5000 端口
+
+#### 服务部署
+- ✅ **账号创建**：`1119220189@qq.com` / `123456`
+- ✅ **服务正常运行**：`http://47.122.115.203:5000`
+- ✅ **登录功能正常**：已验证
+
+### 待办事项
+- [ ] **集成 AKShare 替代 mootdx**（最高优先级）
+  - 安装：`pip install akshare`
+  - 创建 FastAPI 服务（端口 8888，类似 mootdx 服务）
+  - 修改 `src/lib/data-source.ts`，添加 AKShare 数据源
+- [ ] 验证 K 线图所有周期显示效果
+- [ ] 考虑将财务数据切换到 Tushare（减少东方财富依赖）
+- [ ] 配置飞书 webhook 告警（health-check.sh）
+- [ ] 量化实时账户创建功能验证（待用户部署后测试）
+- [ ] DNS 恢复解析后，配置 Nginx 反向代理（`a-stock.xyz` → `localhost:5000`）
+- [ ] 配置 HTTPS（Let's Encrypt 证书）
+- [ ] 设置 `COOKIE_SECURE=true`（HTTPS 启用后）
+
+### 数据源状态
+| 数据源 | 状态 | 用途 |
+|--------|------|------|
+| Tushare | ✅ 正常 | K 线/估值/M2 换手率/M5 融资余额补齐 |
+| 东方财富 | ⚠️ 限流中 | 情绪分析/资金流向（用缓存缓解） |
+| AKShare |  未测试 | 备选方案（K 线/实时行情） |
+| mootdx | ❌ 已废弃 | 返回空数据，已确认废弃 |
+
 ## 最新进展（2026-07-27）
 
 ### 已完成
@@ -734,14 +786,17 @@ sudo systemctl restart a-stock-analysis
 - 60 分、30 分、15 分、5 分
 
 ### 待办事项
-- [ ] **解决 mootdx 返回空数据问题**（最高优先级）
-  - 方案 1：更新 mootdx 库
-  - 方案 2：更换 TDX 服务器
-  - 方案 3：集成 AKShare 替代
+- [ ] **集成 AKShare 替代 mootdx**（最高优先级）
+  - 安装：`pip install akshare`
+  - 创建 FastAPI 服务（端口 8888，类似 mootdx 服务）
+  - 修改 `src/lib/data-source.ts`，添加 AKShare 数据源
 - [ ] 验证 K 线图所有周期显示效果
 - [ ] 考虑将财务数据切换到 Tushare（减少东方财富依赖）
 - [ ] 配置飞书 webhook 告警（health-check.sh）
 - [ ] 量化实时账户创建功能验证（待用户部署后测试）
+- [ ] DNS 恢复解析后，配置 Nginx 反向代理（`a-stock.xyz` → `localhost:5000`）
+- [ ] 配置 HTTPS（Let's Encrypt 证书）
+- [ ] 设置 `COOKIE_SECURE=true`（HTTPS 启用后）
 
 ### 已完成（2026-07 更新）
 - ✅ **mootdx 服务 systemd 持久化**：配置开机自启、崩溃自动重启
@@ -778,14 +833,16 @@ sudo systemctl restart a-stock-analysis
   - 回退到东方财富 API（但有限流问题）
 
 #### 数据源状态
-| 数据源 | 状态 | 问题 |
+| 数据源 | 状态 | 用途 |
 |--------|------|------|
-| mootdx | ️ 连接成功但返回空数据 | TDX 服务器可能不支持查询 |
-| 东方财富 | ❌ 不可用 | API 限流，从未成功 |
-| AKShare | ⏳ 未测试 | 备选方案 |
+| Tushare | ✅ 正常 | K 线/估值/M2 换手率/M5 融资余额补齐 |
+| 东方财富 | ⚠️ 限流中 | 情绪分析/资金流向（用缓存缓解） |
+| AKShare |  未测试 | 备选方案（K 线/实时行情） |
+| mootdx | ❌ 已废弃 | 返回空数据，已确认废弃 |
 
 ### 技术栈更新
-- 数据源：mootdx（K 线/实时行情，待修复）+ 东方财富（情绪分析/资金流向，限流中）+ AKShare（备选）
+- 数据源：Tushare（K 线/估值/M2/M5 补齐）+ 东方财富（情绪分析/资金流向，限流中）+ AKShare（备选，未测试）
+- ⚠️ mootdx 已废弃（返回空数据）
 
 ## 工作流程（2026-07 更新）
 
