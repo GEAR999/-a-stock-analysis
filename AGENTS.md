@@ -7,19 +7,19 @@ A股智能分析系统 - 专业的股票分析Web应用，支持缠论、波浪�
 - Next.js 16 (App Router) + React 19 + TypeScript 5
 - Tailwind CSS 4 + shadcn/ui
 - ECharts (K线图渲染)
-- 数据源：Tushare（K 线/估值/M2/M5 补齐）+ 东方财富（情绪分析/资金流向，限流中）+ AKShare（备选，未测试）
+- 数据源：Tushare（K 线/估值/M2/M5 补齐）+ 李富贵推送（情绪/资金/板块）
 - ⚠️ mootdx 已废弃（返回空数据）
+- ❌ 东方财富已删除（所有相关代码已移除）
 
 ## 目录结构
 ```
 src/
 ├── app/
-│   ├── api/stock/route.ts    # 统一股票API (search/quote/kline/sentiment/sector_list/sector_sentiment/stock_sentiment/comprehensive_sentiment)
+│   ├── api/stock/route.ts    # 统一股票API (search/quote/kline)
 │   ├── layout.tsx             # 根布局 (dark mode)
 │   ├── page.tsx               # 主页面 (三栏布局)
 │   └── globals.css            # 全局样式 + 交易终端主题
-── components/
-│   ├── SentimentTooltip.tsx   # 情绪指标Tooltip组件 (hover显示计算过程)
+├── components/
 │   ├── SyncStatusIndicator.tsx # 云端同步状态指示器 (顶部工具栏)
 │   ├── ai/
 │   │   ├── AIAssistant.tsx    # AI对话助手 (分析/调试模式)
@@ -40,11 +40,10 @@ src/
 │   │   └── QuoteHeader.tsx    # 行情信息头
 │   ├── layout/
 │   │   ├── Sidebar.tsx        # 左侧栏 (搜索+自选+情绪)
-│   │   ── RightPanel.tsx     # 右侧栏 (分析+建议, 市场参考聚合手风琴: 宏观/实时/产业链/海外 Tab 切换默认收起)
+│   │   └── RightPanel.tsx     # 右侧栏 (分析+建议, 市场参考聚合手风琴: 宏观/实时/产业链/海外 Tab 切换默认收起)
 │   ├── multifactor/
 │   │   ├── MultiFactorPanel.tsx      # 多因子面板 (策略选择器+情绪模式+因子权重+仓位建议)
 │   │   └── PositionHistoryChart.tsx  # 仓位历史曲线 (SVG, 读 position_log)
-│   ├── sentiment/SentimentPanel.tsx  # 市场情绪面板 (大盘/板块/个股三维度+跟随开关+全市场板块)
 │   ├── macro/MacroEconomyPanel.tsx   # 宏观经济分析面板 (中国/美国/欧洲/日本/韩国+经济指标+综合评估)
 │   ├── industry/IndustryMappingPanel.tsx # 产业链映射分析 (美股/日韩产业链映射)
 │   ├── backtest/
@@ -59,7 +58,6 @@ src/
 │   │   ├── ManualTradePanel.tsx # 手动买卖子组件 (买入/卖出对话框)
 │   │   ├── TradeHistoryPanel.tsx # 交易记录子组件 (筛选/排序/CSV导出)
 │   │   ├── HistoryBacktestPanel.tsx # 历史量化回测（独立功能，一级入口，含配置/记录/持仓/K线/买卖依据/保存）
-│   │   ├── IndependentBacktest.tsx # 独立回测面板（旧版，已被HistoryBacktestPanel替代）
 │   │   ├── BacktestChart.tsx  # K线买卖点标注图 (ECharts+Markers+详情卡片)
 │   │   ├── backtest-indicators.ts # 回测技术指标计算 (MACD/KDJ/RSI/BOLL/MA)
 │   │   ├── TradingStatusIndicator.tsx # 交易时段状态指示器
@@ -74,13 +72,13 @@ src/
 │   │   ├── StockSearch.tsx    # 股票搜索组件
 │   │   └── WatchList.tsx      # 自选股列表 (拖拽排序)
 │   └── ui/                    # shadcn/ui 组件
-├── hooks/
+── hooks/
 │   └── useAppState.tsx        # 全局状态管理 (Context)
 ├── lib/
-│   ├── api/stock.ts           # 数据获取层 (东方财富API, 含分页拉取)
+│   ├── api/stock.ts           # 数据获取层 (Tushare + 李富贵推送)
 │   ├── api-client-db.ts       # 统一云端API客户端 (账户/交易/持仓/自选股/策略/缓存)
 │   ├── db.ts                  # Neon数据库连接 (serverless PostgreSQL)
-│   ├── data-source.ts         # 统一数据源管理器 (Tushare→东方财富→缓存 三级降级)
+│   ├── data-source.ts         # 统一数据源管理器 (Tushare→缓存 二级降级)
 │   ├── ai-embed.ts            # AI嵌入式分析工具库 (callEmbeddedAI/useAIEmbed)
 │   ├── analysis.ts            # 分析引擎 (缠论/波浪/技术指标)
 │   ├── backtest-engine.ts     # 历史回测引擎 (基础策略+分析引擎策略适配器+进度回调)
@@ -93,13 +91,6 @@ src/
 │   ├── slippage.ts            # 滑点模拟
 │   ├── types.ts               # 类型定义
 │   └── utils.ts               # 工具函数
-└── services/
-    └── sentiment/             # 情绪分析服务
-        ├── types.ts           # 情绪分析类型定义
-        ├── market-sentiment.ts  # 大盘情绪算法 (8指标加权)
-        ├── sector-sentiment.ts  # 板块情绪算法 (5指标加权)
-        ├── stock-sentiment.ts   # 个股情绪算法 (7指标加权+标签)
-        └── sentiment-panel.ts   # 综合评估模块
 ```
 
 ## 服务器配置（server-config/）
@@ -141,24 +132,13 @@ sudo journalctl -u a-stock-analysis -f
 
 ## API 接口
 - `GET /api/stock?action=search&keyword={code}` - 搜索股票（Tushare）
-- `GET /api/stock?action=quote&code={code}` - 实时行情（Tushare）
+- `GET /api/stock?action=quote&code={code}` - 实时行情（李富贵推送 → Tushare 降级）
 - `GET /api/stock?action=kline&code={code}&period={period}&limit={n}` - K 线数据（Tushare，支持 daily/weekly/monthly）
 - `GET /api/stock?action=minute&code={code}` - 分时图数据（已废弃，Tushare 2000 积分不支持分钟数据）
-- `GET /api/stock?action=sentiment` - 大盘市场情绪（东方财富）
-- `GET /api/stock?action=sector_list` - 获取全市场板块列表（东方财富）
-- `GET /api/stock?action=sector_sentiment&sector={code}` - 板块情绪分析（东方财富）
-- `GET /api/stock?action=stock_sentiment&code={code}` - 个股情绪分析（东方财富）
-- `GET /api/stock?action=comprehensive_sentiment` - 综合情绪评估（东方财富）
 
 ### K 线周期
 - **支持周期**：daily（日 K）、weekly（周 K）、monthly（月 K）
 - **已移除**：yearly（年 K）、minute（分时图）、60min/30min/15min/5min（Tushare 2000 积分不支持分钟数据）
-
-## 情绪分析系统
-- 大盘情绪：8个指标加权（涨跌家数比/涨停跌停比/成交额偏离度/连板高度/封板成功率/北向资金/两融变化/新高新低差）
-- 板块情绪：5个指标加权（板块涨跌比/主力资金流向/换手率/龙头强度/持续性）
-- 个股情绪：7个指标加权（量比/换手分位/大单净流入/分时强度/封板涨幅/龙虎榜/融资变化）+ 自动标签
-- 每个指标都有Tooltip，hover显示计算过程和解释
 
 ## 分析引擎
 - 缠论分析：自动识别笔、线段、中枢，标注买卖点（一二三类买卖点）
@@ -652,9 +632,9 @@ pm2 restart a-stock-analysis
 | 数据源 | 状态 | 用途 |
 |--------|------|------|
 | Tushare | ✅ 正常 | K 线/估值/M2 换手率/M5 融资余额补齐 |
-| 东方财富 | ⚠️ 限流中 | 情绪分析/资金流向（用缓存缓解） |
-| AKShare |  未测试 | 备选方案（K 线/实时行情） |
+| 李富贵推送 | ✅ 正常 | 市场情绪/资金流向/板块数据 |
 | mootdx | ❌ 已废弃 | 返回空数据，已确认废弃 |
+| 东方财富 | ❌ 已删除 | 所有相关代码已移除 |
 
 ## 最新进展（2026-07-30）
 
@@ -705,14 +685,11 @@ pm2 restart a-stock-analysis
 - ✅ **修改数据源**：删除东方财富相关函数，更新注释
 - ✅ **共删除约 3000+ 行代码**
 
-#### 东方财富全部删除（2026-08）
-- ✅ **删除情绪分析服务**：src/services/sentiment/ (8 个文件)
-- ✅ **删除情绪分析组件**：src/components/sentiment/ (3 个文件)
-- ✅ **删除财务/资金流向**：financial-data.ts / money-flow.ts / 对应 API 路由
-- ✅ **删除数据校验**：data-validator.ts / data-validator-xref.ts
-- ✅ **删除孤立组件**：FundamentalCard.tsx / MoneyFlowCard.tsx / SentimentTooltip.tsx
-- ✅ **修改引用**：api/stock/route.ts / api/stock.ts / RightPanel.tsx / api-client.ts / data-source.ts
-- ✅ **共删除约 3700 行代码**
+#### 交叉验证函数清理（2026-08）
+- ✅ **删除 crossValidateQuote 调用**：quote API 不再依赖东方财富交叉验证
+- ✅ **删除 crossValidateKline 调用**：kline API 不再依赖东方财富交叉验证
+- ✅ **清理未使用导入**：getKLineData、calculateStockSentiment、StockQuote
+- ✅ **修复 API 返回格式**：简化 quote 和 kline 响应结构
 
 #### 代码清理汇总（2026-08）
 - ✅ **累计删除**：约 12,000+ 行代码
@@ -742,131 +719,6 @@ pm2 restart a-stock-analysis
 | 李富贵推送 | ✅ 正常 | 市场情绪/资金流向/板块数据 |
 | mootdx | ❌ 已废弃 | 返回空数据，已确认废弃 |
 | 东方财富 | ❌ 已删除 | 所有相关代码已移除 |
-
-## 最新进展（2026-07-27）
-
-### 已完成
-- ✅ K 线图周期切换问题修复：mootdx 服务器添加 `PERIOD_TO_FREQUENCY` 映射表
-- ✅ 移除年 K 选项：mootdx 不支持年 K，前端周期选择器已移除
-- ✅ 移除分时图选项：前端已移除分时图入口，后端 API 保留
-- ✅ 部署方式改为手动部署：避免 GitHub Actions OOM 问题
-- ✅ 数据源策略优化：K 线/实时行情优先使用 mootdx，移除东方财富降级
-- ✅ 资金流向缓存时间延长：5 分钟 → 10 分钟
-- ✅ **502 故障修复**：PM2 进程不稳定，改用 systemd 服务管理
-- ✅ **systemd 服务配置**：`server-config/a-stock-analysis.service`（崩溃后 5 秒自动重启）
-- ✅ **健康检查脚本**：`server-config/health-check.sh`（每 5 分钟检测 + 飞书告警）
-- ✅ **改进版部署脚本**：`server-config/deploy.sh`（增加启动验证）
-- ✅ **删除旧版组件**：`IndependentBacktest.tsx` 已删除，替换为 `HistoryBacktestPanel`
-- ✅ **mootdx 服务 systemd 持久化**：配置开机自启、崩溃自动重启
-- ✅ **mootdx 只读文件系统修复**：修改源码将配置路径从 `/root/.mootdx` 改为 `/var/lib/mootdx`
-- ✅ **mootdx 健康检查脚本**：`server-config/mootdx-health-check.sh`
-- ✅ **清理 package.json 重复字段**：删除第 115 行重复的 `packageManager`
-- ✅ **清理 systemd 配置警告**：`syslog` → `journal`，`KillTimeout` → `TimeoutStopSec`
-- ✅ **GitHub Actions 优化**：改为仅发送飞书通知，不执行构建部署
-- ✅ **量化实时账户 API 代理修复**：`/api/quant-live` 代理地址从 `localhost:8890` 改为 `47.122.115.203:8889`
-- ✅ **量化账户创建表单验证**：添加必填字段错误提示
-- ✅ **工作流程明确**：AI 负责推送 GitHub，用户负责服务器部署
-
-### 服务器稳定性方案
-
-#### systemd 服务（`server-config/a-stock-analysis.service`）
-```ini
-[Unit]
-Description=A股智能分析系统
-After=network.target
-
-[Service]
-Type=simple
-User=root
-WorkingDirectory=/var/www/a-stock-analysis
-ExecStart=/usr/bin/node dist/server.js
-Restart=always
-RestartSec=5
-Environment=NODE_ENV=production
-Environment=PORT=5000
-MemoryMax=2G
-
-[Install]
-WantedBy=multi-user.target
-```
-
-#### 健康检查（`server-config/health-check.sh`）
-- 每 5 分钟检测 HTTP 200
-- 失败自动重启（最多 3 次）
-- 可选飞书 webhook 告警
-- 日志：`/var/www/a-stock-analysis/logs/health-check.log`
-
-#### 部署流程
-```bash
-cd /var/www/a-stock-analysis
-git pull origin main
-pnpm install --frozen-lockfile
-pnpm build
-sudo systemctl restart a-stock-analysis
-```
-
-### 当前 K 线周期选项
-- 日 K、周 K、月 K
-- 60 分、30 分、15 分、5 分
-
-### 待办事项
-- [ ] **集成 AKShare 替代 mootdx**（最高优先级）
-  - 安装：`pip install akshare`
-  - 创建 FastAPI 服务（端口 8888，类似 mootdx 服务）
-  - 修改 `src/lib/data-source.ts`，添加 AKShare 数据源
-- [ ] 验证 K 线图所有周期显示效果
-- [ ] 考虑将财务数据切换到 Tushare（减少东方财富依赖）
-- [ ] 配置飞书 webhook 告警（health-check.sh）
-- [ ] 量化实时账户创建功能验证（待用户部署后测试）
-- [ ] DNS 恢复解析后，配置 Nginx 反向代理（`a-stock.xyz` → `localhost:5000`）
-- [ ] 配置 HTTPS（Let's Encrypt 证书）
-- [ ] 设置 `COOKIE_SECURE=true`（HTTPS 启用后）
-
-### 已完成（2026-07 更新）
-- ✅ **mootdx 服务 systemd 持久化**：配置开机自启、崩溃自动重启
-- ✅ **mootdx 只读文件系统修复**：修改源码将配置路径从 `/root/.mootdx` 改为 `/var/lib/mootdx`
-- ✅ **mootdx 健康检查脚本**：`server-config/mootdx-health-check.sh`
-- ✅ **清理 package.json 重复字段**：删除第 115 行重复的 `packageManager`
-- ✅ **清理 systemd 配置警告**：`syslog` → `journal`，`KillTimeout` → `TimeoutStopSec`
-- ✅ **GitHub Actions 优化**：改为仅发送飞书通知，不执行构建部署
-- ✅ **量化实时账户 API 代理修复**：`/api/quant-live` 代理地址从 `localhost:8890` 改为 `47.122.115.203:8889`
-- ✅ **量化账户创建表单验证**：添加必填字段错误提示
-- ✅ **部署脚本改用 systemd**：从 PM2 迁移到 systemd，解决端口冲突问题
-- ✅ **5000 端口占用问题解决**：部署脚本添加 `systemctl stop` + `pkill` + `sleep 2` 确保端口释放
-- ✅ **mootdx TDX 连接修复**：配置 `/var/lib/mootdx/config.json` 的 `BESTIP.HQ` 为 `["8.129.13.54", 7709]`（之前是空字符串导致解包失败）
-- ✅ **mootdx 连接复用优化**：添加全局客户端 `_client` 和 `_last_connect_time`，5 分钟内复用连接，失败重试 3 次
-- ✅ **Next.js 访问路径优化**：`.env` 添加 `MOOTDX_SERVER_URL=http://localhost:8888`（之前用公网 IP 导致超时）
-- ✅ **mootdx bars 方法参数修正**：添加 `market` 参数（sh=1, sz=0）和 `start=0` 参数，符合 mootdx 文档规范
-
-### 待解决问题（2026-07-27）
-
-#### mootdx 返回空数据
-- **症状**：TDX 连接成功，但 `client.bars()` 返回空数据（`{"data":[]}`）
-- **已尝试**：
-  - 更换 TDX 服务器（8.129.13.54）
-  - 修正 bars 方法参数（market/symbol/frequency/start/offset）
-  - 测试不同股票代码格式（600549/sh600549/000001）
-- **响应时间**：从 29 秒优化到 0.6 秒（使用带市场前缀的股票代码）
-- **可能原因**：
-  - TDX 服务器（8.129.13.54）不支持数据查询
-  - mootdx 库版本过旧
-  - 需要其他 TDX 服务器
-- **备选方案**：
-  - 更新 mootdx 库：`./venv/bin/pip install --upgrade mootdx`
-  - 使用 AKShare 替代：`./venv/bin/pip install akshare`
-  - 回退到东方财富 API（但有限流问题）
-
-#### 数据源状态
-| 数据源 | 状态 | 用途 |
-|--------|------|------|
-| Tushare | ✅ 正常 | K 线/估值/M2 换手率/M5 融资余额补齐 |
-| 东方财富 | ⚠️ 限流中 | 情绪分析/资金流向（用缓存缓解） |
-| AKShare |  未测试 | 备选方案（K 线/实时行情） |
-| mootdx | ❌ 已废弃 | 返回空数据，已确认废弃 |
-
-### 技术栈更新
-- 数据源：Tushare（K 线/估值/M2/M5 补齐）+ 东方财富（情绪分析/资金流向，限流中）+ AKShare（备选，未测试）
-- ⚠️ mootdx 已废弃（返回空数据）
 
 ## 工作流程（2026-07 更新）
 
