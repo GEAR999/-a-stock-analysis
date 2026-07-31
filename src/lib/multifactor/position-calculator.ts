@@ -48,8 +48,14 @@ const CORRECTION_MATRIX: Record<SentimentMode, number[]> = {
  * 获取修正系数
  */
 export function getCorrectionFactor(sentimentScore: number, mode: SentimentMode): number {
+  // 防御：sentimentScore 无效时返回中性修正
+  if (typeof sentimentScore !== 'number' || isNaN(sentimentScore)) {
+    return 1.0;
+  }
+  // 防御：mode 无效时使用 neutral
+  const validMode: SentimentMode = CORRECTION_MATRIX[mode] ? mode : 'neutral';
   const index = sentimentToIndex(sentimentScore);
-  return CORRECTION_MATRIX[mode][index];
+  return CORRECTION_MATRIX[validMode][index];
 }
 
 // ============ 主函数 ============
