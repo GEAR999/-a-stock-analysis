@@ -13,7 +13,7 @@ import type {
   SentimentMode,
   StockFactorKey,
 } from "@/lib/multifactor/types";
-import { FACTOR_LIBRARY, SENTIMENT_MODE_INFO, SCORE_LABELS } from "@/lib/multifactor/types";
+import { FACTOR_LIBRARY, SENTIMENT_MODE_INFO, SCORE_LABELS, HEAT_LABELS } from "@/lib/multifactor/types";
 import { getAllStrategies, type StrategyDefinition } from "@/lib/strategy-library";
 import PositionHistoryChart from "./PositionHistoryChart";
 
@@ -276,6 +276,57 @@ export default function MultiFactorPanel({ code }: MultiFactorPanelProps) {
             </CardContent>
           </Card>
 
+          {/* 大盘情绪评分 */}
+          <Card className="bg-[#111827] border-[#1e2a40] border-l-2 border-l-cyan-500">
+            <CardHeader className="py-2 px-3">
+              <CardTitle className="text-xs text-cyan-400">大盘情绪评分</CardTitle>
+            </CardHeader>
+            <CardContent className="px-3 pb-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-2xl font-mono font-bold text-cyan-300">
+                    {result.sentimentScore > 0 ? "+" : ""}{Number(result.sentimentScore).toFixed(1)}
+                  </span>
+                  <span className="text-[10px] text-gray-500 ml-2">
+                    {HEAT_LABELS[Math.round(Number(result.sentimentScore))] || '中性'}
+                  </span>
+                </div>
+                <div className="text-right">
+                  <div className="text-[10px] text-gray-500">修正系数</div>
+                  <div className="text-sm font-mono font-bold text-purple-400">
+                    x{Number(result.correctionFactor).toFixed(2)}
+                  </div>
+                </div>
+              </div>
+              {/* 情绪刻度条 */}
+              <div className="relative w-full h-1.5 bg-[#1e2a40] rounded-full overflow-hidden">
+                <div
+                  className="absolute top-0 h-full rounded-full transition-all duration-500"
+                  style={{
+                    left: '50%',
+                    width: `${Math.abs(Number(result.sentimentScore)) / 5 * 50}%`,
+                    transform: result.sentimentScore < 0 ? 'translateX(-100%)' : 'none',
+                    background: result.sentimentScore > 0
+                      ? 'linear-gradient(to right, #3b82f6, #ef4444)'
+                      : 'linear-gradient(to left, #3b82f6, #22d3ee)',
+                  }}
+                />
+                <div className="absolute top-0 left-1/2 w-px h-full bg-gray-600" />
+              </div>
+              <div className="flex items-center justify-between text-[9px] text-gray-600">
+                <span>-5 冰点</span>
+                <span>0 中性</span>
+                <span>+5 狂热</span>
+              </div>
+              <div className="text-[10px] text-gray-500 pt-1 border-t border-[#1e2a40]">
+                模式: {SENTIMENT_MODE_INFO[result.position.sentimentMode as SentimentMode]?.label || result.position.sentimentMode}
+                <span className="text-gray-600 ml-2">
+                  ({SENTIMENT_MODE_INFO[result.position.sentimentMode as SentimentMode]?.desc || ''})
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* 仓位计算 */}
           <Card className="bg-[#111827] border-[#1e2a40] border-l-2 border-l-amber-500">
             <CardHeader className="py-2 px-3">
@@ -303,13 +354,8 @@ export default function MultiFactorPanel({ code }: MultiFactorPanelProps) {
                 </div>
               </div>
               <div className="flex items-center justify-between text-[10px] text-gray-500 pt-1 border-t border-[#1e2a40]">
-                <span>
-                  情绪评分: {result.sentimentScore && result.sentimentScore > 0 ? "+" : ""}
-                  {result.sentimentScore?.toFixed(1) || '0.0'}
-                </span>
-                <span>
-                  模式: {SENTIMENT_MODE_INFO[result.position.sentimentMode as SentimentMode]?.label || result.position.sentimentMode}
-                </span>
+                <span>评分: {Number(result.stockFactors.totalScore).toFixed(1)} ({SCORE_LABELS[Math.round(Number(result.stockFactors.totalScore))] || '中性'})</span>
+                <span>情绪: {Number(result.sentimentScore).toFixed(1)}</span>
               </div>
               {/* 仓位条 */}
               <div className="w-full bg-[#1e2a40] rounded-full h-2">

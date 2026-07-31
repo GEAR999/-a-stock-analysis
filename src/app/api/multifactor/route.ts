@@ -127,11 +127,11 @@ export async function GET(request: NextRequest) {
     // 获取当前股票的情绪评分（用于修正系数）
     let sentimentScore = 0;
     try {
-      const { rows: sentimentRows } = await queryRaw<{ total_score: number }>(
-        `SELECT total_score FROM sentiment_snapshot ORDER BY created_at DESC LIMIT 1`
+      const { rows: sentimentRows } = await queryRaw<{ sentiment_score: number }>(
+        `SELECT sentiment_score FROM sentiment_snapshot ORDER BY created_at DESC LIMIT 1`
       );
       if (sentimentRows.length > 0) {
-        sentimentScore = sentimentRows[0].total_score || 0;
+        sentimentScore = Number(sentimentRows[0].sentiment_score) || 0;
       }
     } catch {
       // 情绪数据缺失时使用默认值 0
@@ -160,20 +160,30 @@ export async function GET(request: NextRequest) {
 
     // 保存仓位日志（带 strategy_id）
     try {
+      const posLabel = position.finalPosition >= 80 ? '重仓'
+        : position.finalPosition >= 50 ? '中等仓位'
+        : position.finalPosition >= 20 ? '轻仓'
+        : '极低仓位';
       await queryRaw(
-        `INSERT INTO position_log (code, timestamp, total_score, position, factor_scores, sentiment_mode, strategy_id)
-         VALUES ($1, NOW(), $2, $3, $4, $5, $6)`,
+        `INSERT INTO position_log
+         (code, timestamp, factor_scores, total_score, base_position, sentiment_score,
+          correction_factor, final_position, position_label, sentiment_mode, strategy_id)
+         VALUES ($1, NOW(), $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
         [
           code,
-          stockFactors.totalScore,
-          position.finalPosition,
           JSON.stringify(stockFactors.factors),
+          stockFactors.totalScore,
+          position.basePosition,
+          sentimentScore,
+          position.correctionFactor,
+          position.finalPosition,
+          posLabel,
           sentimentMode,
           strategyId || null,
         ]
       );
-    } catch {
-      // 日志写入失败不影响主流程
+    } catch (e) {
+      console.error('[MultiFactor] position_log write failed:', e instanceof Error ? e.message : String(e));
     }
 
     return NextResponse.json({
