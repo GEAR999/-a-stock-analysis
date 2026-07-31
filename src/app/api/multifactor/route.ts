@@ -340,40 +340,145 @@ async function handleSentiment(body: any, status: string, message: string) {
 
 // 处理海外股价推送
 async function handleOverseas(body: any, status: string, message: string) {
-  // TODO: 实现海外股价数据存储
+  const overseas = body.overseas;
+  if (!overseas) {
+    return NextResponse.json({ success: false, error: "缺少 overseas 字段" }, { status: 400 });
+  }
+
+  const {
+    trade_date,
+    sp500,
+    nasdaq,
+    nvda,
+    aapl,
+    tsla,
+    amd,
+    avgo,
+    tsm,
+    qcom,
+    googl,
+    msft,
+    intc,
+    nikkei,
+    tel,
+    samsung,
+  } = overseas;
+
+  if (!trade_date) {
+    return NextResponse.json({ success: false, error: "缺少 trade_date" }, { status: 400 });
+  }
+
+  await queryRaw(
+    `INSERT INTO overseas_prices
+     (trade_date, sp500, nasdaq, nvda, aapl, tsla, amd, avgo, tsm, qcom, googl, msft, intc,
+      nikkei, tel, samsung, status, message)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+     ON CONFLICT (trade_date) DO UPDATE SET
+       sp500 = EXCLUDED.sp500, nasdaq = EXCLUDED.nasdaq, nvda = EXCLUDED.nvda,
+       aapl = EXCLUDED.aapl, tsla = EXCLUDED.tsla, amd = EXCLUDED.amd,
+       avgo = EXCLUDED.avgo, tsm = EXCLUDED.tsm, qcom = EXCLUDED.qcom,
+       googl = EXCLUDED.googl, msft = EXCLUDED.msft, intc = EXCLUDED.intc,
+       nikkei = EXCLUDED.nikkei, tel = EXCLUDED.tel, samsung = EXCLUDED.samsung,
+       status = EXCLUDED.status, message = EXCLUDED.message`,
+    [
+      trade_date, sp500, nasdaq, nvda, aapl, tsla, amd, avgo, tsm, qcom, googl, msft, intc,
+      nikkei, tel, samsung, status, message,
+    ]
+  );
+
   return NextResponse.json({
     success: true,
-    message: "海外股价数据已接收（待实现存储逻辑）",
-    data: { status, message },
+    message: "海外股价数据已保存",
+    data: { trade_date, status, message },
   });
 }
 
 // 处理中国宏观数据推送
 async function handleMacroChina(body: any, status: string, message: string) {
-  // TODO: 实现中国宏观数据存储
+  const macro = body.macro_china;
+  if (!macro) {
+    return NextResponse.json({ success: false, error: "缺少 macro_china 字段" }, { status: 400 });
+  }
+
+  const { period, pmi, cpi, ppi, social_financing, m2_growth, gdp_yoy } = macro;
+
+  if (!period) {
+    return NextResponse.json({ success: false, error: "缺少 period" }, { status: 400 });
+  }
+
+  await queryRaw(
+    `INSERT INTO macro_china
+     (period, pmi, cpi, ppi, social_financing, m2_growth, gdp_yoy, status, message)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+     ON CONFLICT (period) DO UPDATE SET
+       pmi = EXCLUDED.pmi, cpi = EXCLUDED.cpi, ppi = EXCLUDED.ppi,
+       social_financing = EXCLUDED.social_financing, m2_growth = EXCLUDED.m2_growth,
+       gdp_yoy = EXCLUDED.gdp_yoy, status = EXCLUDED.status, message = EXCLUDED.message`,
+    [period, pmi, cpi, ppi, social_financing, m2_growth, gdp_yoy, status, message]
+  );
+
   return NextResponse.json({
     success: true,
-    message: "中国宏观数据已接收（待实现存储逻辑）",
-    data: { status, message },
+    message: "中国宏观数据已保存",
+    data: { period, status, message },
   });
 }
 
 // 处理美国宏观数据推送
 async function handleMacroUs(body: any, status: string, message: string) {
-  // TODO: 实现美国宏观数据存储
+  const macro = body.macro_us;
+  if (!macro) {
+    return NextResponse.json({ success: false, error: "缺少 macro_us 字段" }, { status: 400 });
+  }
+
+  const { period, cpi, core_pce, nonfarm_payroll, unemployment_rate, fed_rate } = macro;
+
+  if (!period) {
+    return NextResponse.json({ success: false, error: "缺少 period" }, { status: 400 });
+  }
+
+  await queryRaw(
+    `INSERT INTO macro_us
+     (period, cpi, core_pce, nonfarm_payroll, unemployment_rate, fed_rate, status, message)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+     ON CONFLICT (period) DO UPDATE SET
+       cpi = EXCLUDED.cpi, core_pce = EXCLUDED.core_pce,
+       nonfarm_payroll = EXCLUDED.nonfarm_payroll,
+       unemployment_rate = EXCLUDED.unemployment_rate,
+       fed_rate = EXCLUDED.fed_rate, status = EXCLUDED.status, message = EXCLUDED.message`,
+    [period, cpi, core_pce, nonfarm_payroll, unemployment_rate, fed_rate, status, message]
+  );
+
   return NextResponse.json({
     success: true,
-    message: "美国宏观数据已接收（待实现存储逻辑）",
-    data: { status, message },
+    message: "美国宏观数据已保存",
+    data: { period, status, message },
   });
 }
 
 // 处理央行利率推送
 async function handleRate(body: any, status: string, message: string) {
-  // TODO: 实现央行利率数据存储
+  const rate = body.rate;
+  if (!rate) {
+    return NextResponse.json({ success: false, error: "缺少 rate 字段" }, { status: 400 });
+  }
+
+  const { bank, rate: rateValue } = rate;
+
+  if (!bank || rateValue === undefined) {
+    return NextResponse.json({ success: false, error: "缺少 bank 或 rate" }, { status: 400 });
+  }
+
+  await queryRaw(
+    `INSERT INTO central_bank_rates (bank, rate)
+     VALUES ($1, $2)
+     ON CONFLICT (bank) DO UPDATE SET rate = EXCLUDED.rate, updated_at = NOW()`,
+    [bank, rateValue]
+  );
+
   return NextResponse.json({
     success: true,
-    message: "央行利率数据已接收（待实现存储逻辑）",
-    data: { status, message },
+    message: "央行利率数据已保存",
+    data: { bank, rate: rateValue },
   });
 }
