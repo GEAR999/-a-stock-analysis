@@ -366,27 +366,10 @@ async function handleOverseas(body: any, status: string, message: string) {
     return NextResponse.json({ success: false, error: "缺少 overseas 数据" }, { status: 400 });
   }
 
-  const {
-    trade_date,
-    sp500,
-    nasdaq,
-    nvda,
-    aapl,
-    tsla,
-    amd,
-    avgo,
-    tsm,
-    qcom,
-    googl,
-    msft,
-    intc,
-    nikkei,
-    tel,
-    samsung,
-  } = body;
+  console.log('[Overseas] received keys:', Object.keys(body), 'values:', JSON.stringify(body).substring(0, 500));
 
   // trade_date 缺失时自动用当天日期（YYYY-MM-DD）
-  const finalTradeDate = trade_date || new Date().toISOString().slice(0, 10);
+  const trade_date = body.trade_date || body.date || new Date().toISOString().slice(0, 10);
 
   await queryRaw(
     `INSERT INTO overseas_prices
@@ -394,22 +377,48 @@ async function handleOverseas(body: any, status: string, message: string) {
       nikkei, tel, samsung, status, message)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
      ON CONFLICT (trade_date) DO UPDATE SET
-       sp500 = EXCLUDED.sp500, nasdaq = EXCLUDED.nasdaq, nvda = EXCLUDED.nvda,
-       aapl = EXCLUDED.aapl, tsla = EXCLUDED.tsla, amd = EXCLUDED.amd,
-       avgo = EXCLUDED.avgo, tsm = EXCLUDED.tsm, qcom = EXCLUDED.qcom,
-       googl = EXCLUDED.googl, msft = EXCLUDED.msft, intc = EXCLUDED.intc,
-       nikkei = EXCLUDED.nikkei, tel = EXCLUDED.tel, samsung = EXCLUDED.samsung,
+       sp500 = COALESCE(EXCLUDED.sp500, overseas_prices.sp500),
+       nasdaq = COALESCE(EXCLUDED.nasdaq, overseas_prices.nasdaq),
+       nvda = COALESCE(EXCLUDED.nvda, overseas_prices.nvda),
+       aapl = COALESCE(EXCLUDED.aapl, overseas_prices.aapl),
+       tsla = COALESCE(EXCLUDED.tsla, overseas_prices.tsla),
+       amd = COALESCE(EXCLUDED.amd, overseas_prices.amd),
+       avgo = COALESCE(EXCLUDED.avgo, overseas_prices.avgo),
+       tsm = COALESCE(EXCLUDED.tsm, overseas_prices.tsm),
+       qcom = COALESCE(EXCLUDED.qcom, overseas_prices.qcom),
+       googl = COALESCE(EXCLUDED.googl, overseas_prices.googl),
+       msft = COALESCE(EXCLUDED.msft, overseas_prices.msft),
+       intc = COALESCE(EXCLUDED.intc, overseas_prices.intc),
+       nikkei = COALESCE(EXCLUDED.nikkei, overseas_prices.nikkei),
+       tel = COALESCE(EXCLUDED.tel, overseas_prices.tel),
+       samsung = COALESCE(EXCLUDED.samsung, overseas_prices.samsung),
        status = EXCLUDED.status, message = EXCLUDED.message`,
     [
-      finalTradeDate, sp500, nasdaq, nvda, aapl, tsla, amd, avgo, tsm, qcom, googl, msft, intc,
-      nikkei, tel, samsung, status, message,
+      trade_date,
+      body.sp500 ?? null,
+      body.nasdaq ?? null,
+      body.nvda ?? null,
+      body.aapl ?? null,
+      body.tsla ?? null,
+      body.amd ?? null,
+      body.avgo ?? null,
+      body.tsm ?? null,
+      body.qcom ?? null,
+      body.googl ?? null,
+      body.msft ?? null,
+      body.intc ?? null,
+      body.nikkei ?? null,
+      body.tel ?? null,
+      body.samsung ?? null,
+      status,
+      message,
     ]
   );
 
   return NextResponse.json({
     success: true,
     message: "海外股价数据已保存",
-    data: { trade_date, status, message },
+    data: { trade_date, status, message, received_keys: Object.keys(body) },
   });
 }
 
@@ -419,27 +428,36 @@ async function handleMacroChina(body: any, status: string, message: string) {
     return NextResponse.json({ success: false, error: "缺少 macro_china 数据" }, { status: 400 });
   }
 
-  const { period, pmi, cpi, ppi, social_financing, m2_growth, gdp_yoy } = body;
+  console.log('[MacroChina] received keys:', Object.keys(body), 'values:', JSON.stringify(body).substring(0, 500));
 
-  if (!period) {
-    return NextResponse.json({ success: false, error: "缺少 period" }, { status: 400 });
-  }
+  // 兼容多种字段命名：pmi/PMI, cpi/CPI, ppi/PPI, social_financing/社融/sf, m2_growth/M2, gdp_yoy/GDP
+  const period = body.period || body.date || body.month || new Date().toISOString().slice(0, 7);
+  const pmi = body.pmi ?? body.PMI ?? null;
+  const cpi = body.cpi ?? body.CPI ?? null;
+  const ppi = body.ppi ?? body.PPI ?? null;
+  const social_financing = body.social_financing ?? body.sf ?? body.sheng_rong ?? null;
+  const m2_growth = body.m2_growth ?? body.m2 ?? body.M2 ?? null;
+  const gdp_yoy = body.gdp_yoy ?? body.gdp ?? body.GDP ?? null;
 
   await queryRaw(
     `INSERT INTO macro_china
      (period, pmi, cpi, ppi, social_financing, m2_growth, gdp_yoy, status, message)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
      ON CONFLICT (period) DO UPDATE SET
-       pmi = EXCLUDED.pmi, cpi = EXCLUDED.cpi, ppi = EXCLUDED.ppi,
-       social_financing = EXCLUDED.social_financing, m2_growth = EXCLUDED.m2_growth,
-       gdp_yoy = EXCLUDED.gdp_yoy, status = EXCLUDED.status, message = EXCLUDED.message`,
+       pmi = COALESCE(EXCLUDED.pmi, macro_china.pmi),
+       cpi = COALESCE(EXCLUDED.cpi, macro_china.cpi),
+       ppi = COALESCE(EXCLUDED.ppi, macro_china.ppi),
+       social_financing = COALESCE(EXCLUDED.social_financing, macro_china.social_financing),
+       m2_growth = COALESCE(EXCLUDED.m2_growth, macro_china.m2_growth),
+       gdp_yoy = COALESCE(EXCLUDED.gdp_yoy, macro_china.gdp_yoy),
+       status = EXCLUDED.status, message = EXCLUDED.message`,
     [period, pmi, cpi, ppi, social_financing, m2_growth, gdp_yoy, status, message]
   );
 
   return NextResponse.json({
     success: true,
     message: "中国宏观数据已保存",
-    data: { period, status, message },
+    data: { period, pmi, cpi, ppi, social_financing, m2_growth, gdp_yoy, status, message },
   });
 }
 
@@ -449,28 +467,34 @@ async function handleMacroUs(body: any, status: string, message: string) {
     return NextResponse.json({ success: false, error: "缺少 macro_us 数据" }, { status: 400 });
   }
 
-  const { period, cpi, core_pce, nonfarm_payroll, unemployment_rate, fed_rate } = body;
+  console.log('[MacroUs] received keys:', Object.keys(body), 'values:', JSON.stringify(body).substring(0, 500));
 
-  if (!period) {
-    return NextResponse.json({ success: false, error: "缺少 period" }, { status: 400 });
-  }
+  // 兼容多种字段命名
+  const period = body.period || body.date || body.month || new Date().toISOString().slice(0, 7);
+  const cpi = body.cpi ?? body.CPI ?? null;
+  const core_pce = body.core_pce ?? body.pce ?? body.corePCE ?? null;
+  const nonfarm_payroll = body.nonfarm_payroll ?? body.nonfarm ?? body.nfp ?? null;
+  const unemployment_rate = body.unemployment_rate ?? body.unemployment ?? body.unemploy ?? null;
+  const fed_rate = body.fed_rate ?? body.fedRate ?? body.fed_funds_rate ?? null;
 
   await queryRaw(
     `INSERT INTO macro_us
      (period, cpi, core_pce, nonfarm_payroll, unemployment_rate, fed_rate, status, message)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      ON CONFLICT (period) DO UPDATE SET
-       cpi = EXCLUDED.cpi, core_pce = EXCLUDED.core_pce,
-       nonfarm_payroll = EXCLUDED.nonfarm_payroll,
-       unemployment_rate = EXCLUDED.unemployment_rate,
-       fed_rate = EXCLUDED.fed_rate, status = EXCLUDED.status, message = EXCLUDED.message`,
+       cpi = COALESCE(EXCLUDED.cpi, macro_us.cpi),
+       core_pce = COALESCE(EXCLUDED.core_pce, macro_us.core_pce),
+       nonfarm_payroll = COALESCE(EXCLUDED.nonfarm_payroll, macro_us.nonfarm_payroll),
+       unemployment_rate = COALESCE(EXCLUDED.unemployment_rate, macro_us.unemployment_rate),
+       fed_rate = COALESCE(EXCLUDED.fed_rate, macro_us.fed_rate),
+       status = EXCLUDED.status, message = EXCLUDED.message`,
     [period, cpi, core_pce, nonfarm_payroll, unemployment_rate, fed_rate, status, message]
   );
 
   return NextResponse.json({
     success: true,
     message: "美国宏观数据已保存",
-    data: { period, status, message },
+    data: { period, cpi, core_pce, nonfarm_payroll, unemployment_rate, fed_rate, status, message },
   });
 }
 
@@ -480,10 +504,14 @@ async function handleRate(body: any, status: string, message: string) {
     return NextResponse.json({ success: false, error: "缺少 rate 数据" }, { status: 400 });
   }
 
-  const { bank, rate: rateValue } = body;
+  console.log('[Rate] received keys:', Object.keys(body), 'values:', JSON.stringify(body).substring(0, 500));
 
-  if (!bank || rateValue === undefined) {
-    return NextResponse.json({ success: false, error: "缺少 bank 或 rate" }, { status: 400 });
+  // 兼容多种字段命名
+  const bank = body.bank || body.central_bank || body.name || null;
+  const rateValue = body.rate ?? body.interest_rate ?? body.rate_value ?? null;
+
+  if (!bank || rateValue === undefined || rateValue === null) {
+    return NextResponse.json({ success: false, error: "缺少 bank 或 rate", received_keys: Object.keys(body) }, { status: 400 });
   }
 
   await queryRaw(
