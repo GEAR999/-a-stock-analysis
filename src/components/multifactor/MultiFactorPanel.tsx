@@ -219,7 +219,7 @@ export default function MultiFactorPanel({ code }: MultiFactorPanelProps) {
       )}
 
       {/* 分析结果 */}
-      {result && !loading && (
+      {result && !loading && result.stockFactors && (
         <>
           {/* 综合评分 */}
           <Card className="bg-[#111827] border-[#1e2a40]">
@@ -292,7 +292,7 @@ export default function MultiFactorPanel({ code }: MultiFactorPanelProps) {
                 <div>
                   <div className="text-[10px] text-gray-500">修正系数</div>
                   <div className="text-lg font-mono font-bold text-purple-400">
-                    x{result.correctionFactor.toFixed(1)}
+                    x{result.correctionFactor?.toFixed(1) || '1.0'}
                   </div>
                 </div>
                 <div>
@@ -304,8 +304,8 @@ export default function MultiFactorPanel({ code }: MultiFactorPanelProps) {
               </div>
               <div className="flex items-center justify-between text-[10px] text-gray-500 pt-1 border-t border-[#1e2a40]">
                 <span>
-                  情绪评分: {result.sentimentScore > 0 ? "+" : ""}
-                  {result.sentimentScore.toFixed(1)}
+                  情绪评分: {result.sentimentScore && result.sentimentScore > 0 ? "+" : ""}
+                  {result.sentimentScore?.toFixed(1) || '0.0'}
                 </span>
                 <span>
                   模式: {SENTIMENT_MODE_INFO[result.position.sentimentMode as SentimentMode]?.label || result.position.sentimentMode}
@@ -322,7 +322,7 @@ export default function MultiFactorPanel({ code }: MultiFactorPanelProps) {
           </Card>
 
           {/* 仓位历史曲线（每次分析完成后服务端会落一条 position_log） */}
-          <PositionHistoryChart code={code} refreshKey={result.code + result.sentimentScore + result.position.finalPosition} />
+          <PositionHistoryChart code={code} refreshKey={result.code + (result.sentimentScore || 0) + result.position.finalPosition} />
         </>
       )}
     </div>
