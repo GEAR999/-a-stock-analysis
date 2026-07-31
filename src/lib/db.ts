@@ -1,4 +1,15 @@
-import { neon, Pool } from '@neondatabase/serverless';
+import { neon, Pool, types } from '@neondatabase/serverless';
+
+// 修复 pg 驱动默认将 numeric/decimal 返回为字符串的问题，统一转为 number
+const typeParsers = {
+  getTypeParser: (oid: number) => {
+    // 1700 = numeric, 700 = float4, 701 = float8, 790 = money
+    if (oid === 1700 || oid === 700 || oid === 701 || oid === 790) {
+      return (val: string) => (val === null ? null : parseFloat(val));
+    }
+    return types.getTypeParser(oid);
+  },
+};
 
 // Neon serverless driver - lazy initialization
 let _sql: ReturnType<typeof neon> | null = null;
@@ -21,7 +32,10 @@ function getPool() {
     if (!url) {
       throw new Error('DATABASE_URL environment variable is not set');
     }
-    _pool = new Pool({ connectionString: url });
+    _pool = new Pool({
+      connectionString: url,
+      types: typeParsers as any,
+    });
   }
   return _pool;
 }

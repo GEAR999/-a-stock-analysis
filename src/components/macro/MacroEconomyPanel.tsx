@@ -79,23 +79,29 @@ const ECONOMIES = [
 ];
 
 // 指标格式化
-function fmtVal(v: number | null | undefined, suffix: string = ""): string {
-  if (v === null || v === undefined || isNaN(v)) return "--";
-  return v.toFixed(2) + suffix;
+function fmtVal(v: number | string | null | undefined, suffix: string = ""): string {
+  if (v === null || v === undefined || v === "") return "--";
+  const n = Number(v);
+  if (isNaN(n)) return "--";
+  return n.toFixed(2) + suffix;
 }
 
 // 趋势箭头
-function trendArrow(cur: number | null, prev: number | null): string {
-  if (cur === null || prev === null) return "--";
-  if (cur > prev) return "↑";
-  if (cur < prev) return "↓";
+function trendArrow(cur: number | string | null, prev: number | string | null): string {
+  const c = cur !== null ? Number(cur) : null;
+  const p = prev !== null ? Number(prev) : null;
+  if (c === null || p === null || isNaN(c) || isNaN(p)) return "--";
+  if (c > p) return "↑";
+  if (c < p) return "↓";
   return "→";
 }
 
-function trendColor(cur: number | null, prev: number | null): string {
-  if (cur === null || prev === null) return "text-gray-500";
-  if (cur > prev) return "text-red-400";
-  if (cur < prev) return "text-green-400";
+function trendColor(cur: number | string | null, prev: number | string | null): string {
+  const c = cur !== null ? Number(cur) : null;
+  const p = prev !== null ? Number(prev) : null;
+  if (c === null || p === null || isNaN(c) || isNaN(p)) return "text-gray-500";
+  if (c > p) return "text-red-400";
+  if (c < p) return "text-green-400";
   return "text-gray-400";
 }
 
@@ -278,7 +284,7 @@ export function MacroEconomyPanel({ enabled }: MacroEconomyPanelProps) {
             <tbody>
               <tr className="border-b border-[var(--border-default)]/50">
                 <td className="py-1 pr-2 text-gray-400">{bankCode}基准利率</td>
-                <td className="py-1 px-1 text-right text-gray-200 font-mono">{rate.rate.toFixed(2)}%</td>
+                <td className="py-1 px-1 text-right text-gray-200 font-mono">{fmtVal(rate.rate, "%")}</td>
               </tr>
             </tbody>
           </table>
@@ -306,24 +312,30 @@ export function MacroEconomyPanel({ enabled }: MacroEconomyPanelProps) {
     let riskLevel = "低";
 
     if (chinaLatest) {
-      if (chinaLatest.cpi !== null && chinaLatest.cpi < 1) parts.push("中国CPI低位运行");
-      if (chinaLatest.pmi !== null && chinaLatest.pmi < 50) {
+      const cpi = chinaLatest.cpi !== null ? Number(chinaLatest.cpi) : null;
+      const pmi = chinaLatest.pmi !== null ? Number(chinaLatest.pmi) : null;
+      const m2 = chinaLatest.m2_growth !== null ? Number(chinaLatest.m2_growth) : null;
+      if (cpi !== null && !isNaN(cpi) && cpi < 1) parts.push("中国CPI低位运行");
+      if (pmi !== null && !isNaN(pmi) && pmi < 50) {
         parts.push("中国PMI低于荣枯线");
         riskLevel = "中";
       }
-      if (chinaLatest.m2_growth !== null && chinaLatest.m2_growth > 10) parts.push("中国M2增速较高");
+      if (m2 !== null && !isNaN(m2) && m2 > 10) parts.push("中国M2增速较高");
     }
 
     if (usLatest) {
-      if (usLatest.cpi !== null && usLatest.cpi > 3) {
+      const cpi = usLatest.cpi !== null ? Number(usLatest.cpi) : null;
+      const fedRate = usLatest.fed_rate !== null ? Number(usLatest.fed_rate) : null;
+      const unemploy = usLatest.unemployment_rate !== null ? Number(usLatest.unemployment_rate) : null;
+      if (cpi !== null && !isNaN(cpi) && cpi > 3) {
         parts.push("美国CPI偏高");
         riskLevel = "中";
       }
-      if (usLatest.fed_rate !== null && usLatest.fed_rate > 4) {
+      if (fedRate !== null && !isNaN(fedRate) && fedRate > 4) {
         parts.push("美联储维持高利率");
         riskLevel = "中";
       }
-      if (usLatest.unemployment_rate !== null && usLatest.unemployment_rate > 5) {
+      if (unemploy !== null && !isNaN(unemploy) && unemploy > 5) {
         parts.push("美国失业率上升");
         riskLevel = "高";
       }

@@ -92,21 +92,27 @@ function extractTicker(name: string): string {
   return match ? match[1].toLowerCase() : '';
 }
 
-function fmtPrice(v: number | null | undefined): string {
-  if (v === null || v === undefined || isNaN(v)) return '--';
-  return v.toFixed(2);
+function fmtPrice(v: number | string | null | undefined): string {
+  if (v === null || v === undefined || v === "") return '--';
+  const n = Number(v);
+  if (isNaN(n)) return '--';
+  return n.toFixed(2);
 }
 
-function fmtChangePct(cur: number | null, prev: number | null): string {
-  if (cur === null || prev === null || prev === 0) return '--';
-  const pct = ((cur - prev) / prev) * 100;
+function fmtChangePct(cur: number | string | null, prev: number | string | null): string {
+  const c = cur !== null ? Number(cur) : null;
+  const p = prev !== null ? Number(prev) : null;
+  if (c === null || p === null || isNaN(c) || isNaN(p) || p === 0) return '--';
+  const pct = ((c - p) / p) * 100;
   return (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%';
 }
 
-function changeColor(cur: number | null, prev: number | null): string {
-  if (cur === null || prev === null) return 'text-gray-500';
-  if (cur > prev) return 'text-red-400';
-  if (cur < prev) return 'text-green-400';
+function changeColor(cur: number | string | null, prev: number | string | null): string {
+  const c = cur !== null ? Number(cur) : null;
+  const p = prev !== null ? Number(prev) : null;
+  if (c === null || p === null || isNaN(c) || isNaN(p)) return 'text-gray-500';
+  if (c > p) return 'text-red-400';
+  if (c < p) return 'text-green-400';
   return 'text-gray-400';
 }
 
