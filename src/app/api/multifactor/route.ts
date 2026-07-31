@@ -109,7 +109,9 @@ export async function GET(request: NextRequest) {
         );
         if (rows.length > 0) {
           const cfg = rows[0];
-          if (cfg.sentiment_mode) sentimentMode = cfg.sentiment_mode as SentimentMode;
+          if (cfg.sentiment_mode && ['contrarian', 'trend_follow', 'neutral'].includes(cfg.sentiment_mode)) {
+            sentimentMode = cfg.sentiment_mode as SentimentMode;
+          }
           if (cfg.custom_weights) {
             selectedFactors = Object.entries(cfg.custom_weights).map(([key, weight]) => ({
               key,
