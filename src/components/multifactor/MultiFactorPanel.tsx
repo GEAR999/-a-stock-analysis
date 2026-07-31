@@ -227,19 +227,19 @@ export default function MultiFactorPanel({ code }: MultiFactorPanelProps) {
               <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-400">综合评分</span>
                 <div className="flex items-center gap-2">
-                  <span className={`text-2xl font-bold font-mono ${getScoreColor(result.stockFactors.totalScore)}`}>
-                    {result.stockFactors.totalScore > 0 ? "+" : ""}
-                    {result.stockFactors.totalScore.toFixed(2)}
+                  <span className={`text-2xl font-bold font-mono ${getScoreColor(result?.stockFactors?.totalScore ?? 0)}`}>
+                    {(result?.stockFactors?.totalScore ?? 0) > 0 ? "+" : ""}
+                    {(result?.stockFactors?.totalScore ?? 0).toFixed(2)}
                   </span>
                   <Badge
                     variant="outline"
                     className={`text-[10px] ${
-                      result.stockFactors.totalScore >= 0
+                      (result?.stockFactors?.totalScore ?? 0) >= 0
                         ? "border-red-500/30 text-red-400"
                         : "border-green-500/30 text-green-400"
                     }`}
                   >
-                    {result.stockFactors.signalStrength}
+                    {result?.stockFactors?.signalStrength ?? '--'}
                   </Badge>
                 </div>
               </div>
