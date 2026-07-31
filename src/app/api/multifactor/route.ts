@@ -189,6 +189,8 @@ export async function GET(request: NextRequest) {
     });
   } catch (error: unknown) {
     const errorMsg = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : '';
+    console.error('[MultiFactor] GET error:', errorMsg, errorStack);
     return NextResponse.json(
       { success: false, error: "多因子分析失败: " + errorMsg },
       { status: 500 }
