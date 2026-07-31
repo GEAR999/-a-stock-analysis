@@ -14,6 +14,7 @@ const PUBLIC_PATHS = [
   '/api/auth/register', // 是否开放注册由 route 内 DISABLE_REGISTRATION 控制
   '/api/auth/me',       // 登录态探测，未登录时 route 自行返回未授权
   '/api/auth/logout',
+  '/api/multifactor',   // 多因子分析（临时加入白名单测试）
 ];
 
 const STATIC_EXT = /\.(svg|png|jpg|jpeg|gif|webp|ico|css|js|map|woff2?|ttf)$/;
