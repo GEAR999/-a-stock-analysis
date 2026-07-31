@@ -217,6 +217,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
+    console.log('[Multifactor POST] received type:', body.type, 'keys:', Object.keys(body));
 
     // 兼容旧格式：如果没有 type 字段，默认为 sentiment
     const type = body.type || 'sentiment';
@@ -224,17 +225,20 @@ export async function POST(request: NextRequest) {
     const message = body.message || '';
 
     // 根据 type 分发到不同的处理逻辑
+    // 统一兼容两种推送格式：
+    //   嵌套格式: {"type":"overseas", "overseas": {...}}
+    //   扁平格式: {"type":"overseas", "trade_date": "...", "sp500": ...}
     switch (type) {
       case 'sentiment':
         return await handleSentiment(body.sentiment || body, status, message);
       case 'overseas':
-        return await handleOverseas(body.overseas, status, message);
+        return await handleOverseas(body.overseas || body, status, message);
       case 'macro_china':
-        return await handleMacroChina(body.macro_china, status, message);
+        return await handleMacroChina(body.macro_china || body, status, message);
       case 'macro_us':
-        return await handleMacroUs(body.macro_us, status, message);
+        return await handleMacroUs(body.macro_us || body, status, message);
       case 'rate':
-        return await handleRate(body.rate, status, message);
+        return await handleRate(body.rate || body, status, message);
       default:
         return NextResponse.json(
           { success: false, error: `未知的 type: ${type}` },
