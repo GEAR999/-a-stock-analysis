@@ -338,6 +338,16 @@ const MIGRATION_STATEMENTS = [
     updated_at TIMESTAMP DEFAULT NOW(),
     UNIQUE(bank)
   )`,
+
+  // 22. sentiment_snapshot 表新增字段（李富贵统一推送结构）
+  `ALTER TABLE sentiment_snapshot ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'available'`,
+  `ALTER TABLE sentiment_snapshot ADD COLUMN IF NOT EXISTS message TEXT`,
+  `ALTER TABLE sentiment_snapshot ADD COLUMN IF NOT EXISTS type VARCHAR(20) DEFAULT 'sentiment'`,
+  `ALTER TABLE sentiment_snapshot ADD COLUMN IF NOT EXISTS sentiment JSONB`,
+  `ALTER TABLE sentiment_snapshot ADD COLUMN IF NOT EXISTS overseas JSONB`,
+  `ALTER TABLE sentiment_snapshot ADD COLUMN IF NOT EXISTS macro_china JSONB`,
+  `ALTER TABLE sentiment_snapshot ADD COLUMN IF NOT EXISTS macro_us JSONB`,
+  `ALTER TABLE sentiment_snapshot ADD COLUMN IF NOT EXISTS rate JSONB`,
 ];
 
 const EXPECTED_TABLES = [
