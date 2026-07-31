@@ -356,11 +356,10 @@ async function handleSentiment(body: any, status: string, message: string) {
   });
 }
 
-// 处理海外股价推送
+// 处理海外股价推送（body 已经是 overseas 对象，由 POST handler 分发时提取）
 async function handleOverseas(body: any, status: string, message: string) {
-  const overseas = body.overseas;
-  if (!overseas) {
-    return NextResponse.json({ success: false, error: "缺少 overseas 字段" }, { status: 400 });
+  if (!body) {
+    return NextResponse.json({ success: false, error: "缺少 overseas 数据" }, { status: 400 });
   }
 
   const {
@@ -380,7 +379,7 @@ async function handleOverseas(body: any, status: string, message: string) {
     nikkei,
     tel,
     samsung,
-  } = overseas;
+  } = body;
 
   if (!trade_date) {
     return NextResponse.json({ success: false, error: "缺少 trade_date" }, { status: 400 });
@@ -411,14 +410,13 @@ async function handleOverseas(body: any, status: string, message: string) {
   });
 }
 
-// 处理中国宏观数据推送
+// 处理中国宏观数据推送（body 已经是 macro_china 对象）
 async function handleMacroChina(body: any, status: string, message: string) {
-  const macro = body.macro_china;
-  if (!macro) {
-    return NextResponse.json({ success: false, error: "缺少 macro_china 字段" }, { status: 400 });
+  if (!body) {
+    return NextResponse.json({ success: false, error: "缺少 macro_china 数据" }, { status: 400 });
   }
 
-  const { period, pmi, cpi, ppi, social_financing, m2_growth, gdp_yoy } = macro;
+  const { period, pmi, cpi, ppi, social_financing, m2_growth, gdp_yoy } = body;
 
   if (!period) {
     return NextResponse.json({ success: false, error: "缺少 period" }, { status: 400 });
@@ -442,14 +440,13 @@ async function handleMacroChina(body: any, status: string, message: string) {
   });
 }
 
-// 处理美国宏观数据推送
+// 处理美国宏观数据推送（body 已经是 macro_us 对象）
 async function handleMacroUs(body: any, status: string, message: string) {
-  const macro = body.macro_us;
-  if (!macro) {
-    return NextResponse.json({ success: false, error: "缺少 macro_us 字段" }, { status: 400 });
+  if (!body) {
+    return NextResponse.json({ success: false, error: "缺少 macro_us 数据" }, { status: 400 });
   }
 
-  const { period, cpi, core_pce, nonfarm_payroll, unemployment_rate, fed_rate } = macro;
+  const { period, cpi, core_pce, nonfarm_payroll, unemployment_rate, fed_rate } = body;
 
   if (!period) {
     return NextResponse.json({ success: false, error: "缺少 period" }, { status: 400 });
@@ -474,14 +471,13 @@ async function handleMacroUs(body: any, status: string, message: string) {
   });
 }
 
-// 处理央行利率推送
+// 处理央行利率推送（body 已经是 rate 对象）
 async function handleRate(body: any, status: string, message: string) {
-  const rate = body.rate;
-  if (!rate) {
-    return NextResponse.json({ success: false, error: "缺少 rate 字段" }, { status: 400 });
+  if (!body) {
+    return NextResponse.json({ success: false, error: "缺少 rate 数据" }, { status: 400 });
   }
 
-  const { bank, rate: rateValue } = rate;
+  const { bank, rate: rateValue } = body;
 
   if (!bank || rateValue === undefined) {
     return NextResponse.json({ success: false, error: "缺少 bank 或 rate" }, { status: 400 });
