@@ -277,6 +277,8 @@ const MIGRATION_STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS overseas_prices (
     id SERIAL PRIMARY KEY,
     trade_date DATE NOT NULL,
+    sp500 DECIMAL(10,2),
+    nasdaq DECIMAL(10,2),
     nvda DECIMAL(10,2),
     aapl DECIMAL(10,2),
     tsla DECIMAL(10,2),
@@ -296,6 +298,15 @@ const MIGRATION_STATEMENTS = [
     UNIQUE(trade_date)
   )`,
   `CREATE INDEX IF NOT EXISTS idx_overseas_prices_trade_date ON overseas_prices(trade_date DESC)`,
+  // 补列：已有表缺少 sp500/nasdaq 列（ALTER TABLE IF NOT EXISTS 不支持，用 DO 块兼容）
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'overseas_prices' AND column_name = 'sp500') THEN
+      ALTER TABLE overseas_prices ADD COLUMN sp500 DECIMAL(10,2);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'overseas_prices' AND column_name = 'nasdaq') THEN
+      ALTER TABLE overseas_prices ADD COLUMN nasdaq DECIMAL(10,2);
+    END IF;
+  END $$`,
 
   // 19. 中国宏观数据表（李富贵推送）
   `CREATE TABLE IF NOT EXISTS macro_china (

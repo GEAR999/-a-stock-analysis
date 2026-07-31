@@ -385,9 +385,8 @@ async function handleOverseas(body: any, status: string, message: string) {
     samsung,
   } = body;
 
-  if (!trade_date) {
-    return NextResponse.json({ success: false, error: "缺少 trade_date" }, { status: 400 });
-  }
+  // trade_date 缺失时自动用当天日期（YYYY-MM-DD）
+  const finalTradeDate = trade_date || new Date().toISOString().slice(0, 10);
 
   await queryRaw(
     `INSERT INTO overseas_prices
@@ -402,7 +401,7 @@ async function handleOverseas(body: any, status: string, message: string) {
        nikkei = EXCLUDED.nikkei, tel = EXCLUDED.tel, samsung = EXCLUDED.samsung,
        status = EXCLUDED.status, message = EXCLUDED.message`,
     [
-      trade_date, sp500, nasdaq, nvda, aapl, tsla, amd, avgo, tsm, qcom, googl, msft, intc,
+      finalTradeDate, sp500, nasdaq, nvda, aapl, tsla, amd, avgo, tsm, qcom, googl, msft, intc,
       nikkei, tel, samsung, status, message,
     ]
   );
