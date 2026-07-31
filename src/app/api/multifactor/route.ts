@@ -4,7 +4,7 @@ import { getDailyBasic, calcPercentile, getMarketTurnoverRate, getMarginBalance 
 import { analyzeChanlun } from "@/lib/analysis";
 import { analyzeWaves } from "@/lib/analysis";
 import { calculateStockFactors, calculatePosition, calculateSentiment } from "@/lib/multifactor";
-import type { SentimentMode, SentimentRawData } from "@/lib/multifactor";
+import type { SentimentMode, SentimentRawData, StockFactorKey } from "@/lib/multifactor";
 import { queryRaw } from "@/lib/db";
 
 // GET: 计算个股多因子评分
@@ -80,19 +80,19 @@ export async function GET(request: NextRequest) {
     }
 
     // 解析自定义权重（默认为内置因子等权）
-    const DEFAULT_FACTORS = [
+    const DEFAULT_FACTORS: { key: StockFactorKey; weight: number }[] = [
       { key: 'S1', weight: 25 },
       { key: 'S2', weight: 25 },
       { key: 'S3', weight: 20 },
       { key: 'S4', weight: 15 },
       { key: 'S5', weight: 15 },
     ];
-    let selectedFactors = DEFAULT_FACTORS;
+    let selectedFactors: { key: StockFactorKey; weight: number }[] = DEFAULT_FACTORS;
     if (customWeightsParam) {
       try {
         const weights = JSON.parse(customWeightsParam);
         selectedFactors = Object.entries(weights).map(([key, weight]) => ({
-          key,
+          key: key as StockFactorKey,
           weight: weight as number,
         }));
       } catch {
@@ -114,7 +114,7 @@ export async function GET(request: NextRequest) {
           }
           if (cfg.custom_weights) {
             selectedFactors = Object.entries(cfg.custom_weights).map(([key, weight]) => ({
-              key,
+              key: key as StockFactorKey,
               weight: weight as number,
             }));
           }

@@ -509,7 +509,8 @@ export async function fetchKLineData(
           result = await fetchFromTushare(code, period, startDate, endDate, config.tushareTimeout, limit);
           break;
         case "backup":
-          result = await fetchFromBackup(code, period, limit, config.backupTimeout);
+          // backup 通道已废弃（原东方财富），降级为 Tushare
+          result = await fetchFromTushare(code, period, startDate, endDate, config.tushareTimeout, limit);
           break;
         case "cache":
           result = await fetchFromCache(code, period, isRealtime, config);
