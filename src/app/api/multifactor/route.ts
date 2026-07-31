@@ -122,8 +122,21 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // 获取当前股票的情绪评分（用于修正系数）
+    let sentimentScore = 0;
+    try {
+      const { rows: sentimentRows } = await queryRaw<{ total_score: number }>(
+        `SELECT total_score FROM sentiment_snapshot ORDER BY created_at DESC LIMIT 1`
+      );
+      if (sentimentRows.length > 0) {
+        sentimentScore = sentimentRows[0].total_score || 0;
+      }
+    } catch {
+      // 情绪数据缺失时使用默认值 0
+    }
+
     // 计算情绪修正系数
-    const correctionFactor = getCorrectionFactor(sentimentMode);
+    const correctionFactor = getCorrectionFactor(sentimentScore, sentimentMode);
 
     // 计算多因子评分
     const stockFactors = calculateStockFactors(
