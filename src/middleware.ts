@@ -9,6 +9,7 @@ const JWT_SECRET = new TextEncoder().encode(
 const PUBLIC_PATHS = [
   '/login',
   '/api/ping',          // 健康检查（systemd health-check.sh）
+  '/api/migrate',       // 数据库迁移（仅开发/部署时使用）
   '/api/auth/login',
   '/api/auth/register', // 是否开放注册由 route 内 DISABLE_REGISTRATION 控制
   '/api/auth/me',       // 登录态探测，未登录时 route 自行返回未授权
