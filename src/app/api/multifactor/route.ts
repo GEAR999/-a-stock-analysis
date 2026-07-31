@@ -3,7 +3,7 @@ import { getKLineData, getQuote } from "@/lib/api/stock";
 import { getDailyBasic, calcPercentile, getMarketTurnoverRate, getMarginBalance } from "@/lib/tushare-client";
 import { analyzeChanlun } from "@/lib/analysis";
 import { analyzeWaves } from "@/lib/analysis";
-import { calculateStockFactors, calculatePosition, calculateSentiment, getCorrectionFactor } from "@/lib/multifactor";
+import { calculateStockFactors, calculatePosition, calculateSentiment } from "@/lib/multifactor";
 import type { SentimentMode, SentimentRawData } from "@/lib/multifactor";
 import { queryRaw } from "@/lib/db";
 
@@ -137,26 +137,26 @@ export async function GET(request: NextRequest) {
       // 情绪数据缺失时使用默认值 0
     }
 
-    // 计算情绪修正系数
-    const correctionFactor = getCorrectionFactor(sentimentScore, sentimentMode);
-
-    // 计算多因子评分
-    const stockFactors = calculateStockFactors(
+    // 计算多因子评分（必须传 StockFactorInput 对象）
+    const stockFactors = calculateStockFactors({
       klineData,
       currentPrice,
-      { pe: pePercentile, pb: pbPercentile },
-      chanlunResult,
-      waveResult,
-      chanlunStage,
-      waveStage
+      pePercentile,
+      pbPercentile,
+      chanlunSignal: chanlunStage,
+      wavePosition: waveStage,
+      selectedFactors,
+    });
+
+    // 计算仓位建议（参数：综合评分, 情绪评分, 情绪模式）
+    const position = calculatePosition(
+      stockFactors.totalScore,
+      sentimentScore,
+      sentimentMode
     );
 
-    // 计算仓位建议
-    const position = calculatePosition(
-      stockFactors,
-      selectedFactors,
-      correctionFactor
-    );
+    // 修正系数从 position 结果中取
+    const correctionFactor = position.correctionFactor;
 
     // 保存仓位日志（带 strategy_id）
     try {
@@ -165,9 +165,9 @@ export async function GET(request: NextRequest) {
          VALUES ($1, NOW(), $2, $3, $4, $5, $6)`,
         [
           code,
-          position.totalScore,
-          position.position,
-          JSON.stringify(position.factorScores),
+          stockFactors.totalScore,
+          position.finalPosition,
+          JSON.stringify(stockFactors.factors),
           sentimentMode,
           strategyId || null,
         ]
@@ -181,6 +181,7 @@ export async function GET(request: NextRequest) {
       data: {
         code,
         price: currentPrice,
+        sentimentScore,
         sentimentMode,
         correctionFactor,
         stockFactors,
