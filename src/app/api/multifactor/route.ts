@@ -499,6 +499,10 @@ async function handleMacroUs(body: any, status: string, message: string) {
 }
 
 // 处理央行利率推送（body 已经是 rate 对象）
+// 兼容三种推送格式：
+//   1. 单条: {"bank": "BOJ", "rate": -0.1}
+//   2. 批量字典: {"BOJ": -0.1, "ECB": 3.5, "BOK": 3.0}
+//   3. 批量数组: {"rates": [{"bank": "BOJ", "rate": -0.1}, ...]}
 async function handleRate(body: any, status: string, message: string) {
   if (!body) {
     return NextResponse.json({ success: false, error: "缺少 rate 数据" }, { status: 400 });
@@ -506,24 +510,78 @@ async function handleRate(body: any, status: string, message: string) {
 
   console.log('[Rate] received keys:', Object.keys(body), 'values:', JSON.stringify(body).substring(0, 500));
 
-  // 兼容多种字段命名
-  const bank = body.bank || body.central_bank || body.name || null;
-  const rateValue = body.rate ?? body.interest_rate ?? body.rate_value ?? null;
+  const savedBanks: string[] = [];
+
+  // 格式3: 批量数组 {"rates": [...]} 或 {"data": [...]}
+  const listData = body.rates || body.data || body.list;
+  if (Array.isArray(listData)) {
+    for (const item of listData) {
+      const bank = item.bank || item.central_bank || item.name || item.bank_code;
+      const rateValue = item.rate ?? item.interest_rate ?? item.rate_value;
+      if (bank && rateValue !== undefined && rateValue !== null) {
+        await queryRaw(
+          `INSERT INTO central_bank_rates (bank, rate)
+           VALUES ($1, $2)
+           ON CONFLICT (bank) DO UPDATE SET rate = EXCLUDED.rate, updated_at = NOW()`,
+          [String(bank).toUpperCase(), rateValue]
+        );
+        savedBanks.push(String(bank).toUpperCase());
+      }
+    }
+    if (savedBanks.length > 0) {
+      return NextResponse.json({
+        success: true,
+        message: `央行利率数据已保存 (${savedBanks.length}条)`,
+        data: { saved_banks: savedBanks },
+      });
+    }
+  }
+
+  // 格式2: 批量字典 {"BOJ": -0.1, "ECB": 3.5, ...}
+  // 排除已知非利率字段后，剩余的 key 视为 bank name
+  const knownFields = new Set(['type', 'status', 'message', 'rates', 'data', 'list', 'rate', 'bank', 'central_bank', 'name', 'interest_rate', 'rate_value', 'bank_code']);
+  const bankEntries = Object.entries(body).filter(
+    ([k, v]) => !knownFields.has(k) && (typeof v === 'number' || (typeof v === 'string' && !isNaN(Number(v))))
+  );
+  if (bankEntries.length > 0) {
+    for (const [bank, rateValue] of bankEntries) {
+      await queryRaw(
+        `INSERT INTO central_bank_rates (bank, rate)
+         VALUES ($1, $2)
+         ON CONFLICT (bank) DO UPDATE SET rate = EXCLUDED.rate, updated_at = NOW()`,
+        [bank.toUpperCase(), Number(rateValue)]
+      );
+      savedBanks.push(bank.toUpperCase());
+    }
+    return NextResponse.json({
+      success: true,
+      message: `央行利率数据已保存 (${savedBanks.length}条)`,
+      data: { saved_banks: savedBanks },
+    });
+  }
+
+  // 格式1: 单条 {"bank": "BOJ", "rate": -0.1}
+  const bank = body.bank || body.central_bank || body.name || body.bank_code;
+  const rateValue = body.rate ?? body.interest_rate ?? body.rate_value;
 
   if (!bank || rateValue === undefined || rateValue === null) {
-    return NextResponse.json({ success: false, error: "缺少 bank 或 rate", received_keys: Object.keys(body) }, { status: 400 });
+    return NextResponse.json({
+      success: false,
+      error: "缺少 bank 或 rate。支持格式: {bank, rate} 或 {BOJ: -0.1, ECB: 3.5} 或 {rates: [{bank, rate}]}",
+      received_keys: Object.keys(body),
+    }, { status: 400 });
   }
 
   await queryRaw(
     `INSERT INTO central_bank_rates (bank, rate)
      VALUES ($1, $2)
      ON CONFLICT (bank) DO UPDATE SET rate = EXCLUDED.rate, updated_at = NOW()`,
-    [bank, rateValue]
+    [String(bank).toUpperCase(), rateValue]
   );
 
   return NextResponse.json({
     success: true,
     message: "央行利率数据已保存",
-    data: { bank, rate: rateValue },
+    data: { bank: String(bank).toUpperCase(), rate: rateValue },
   });
 }
