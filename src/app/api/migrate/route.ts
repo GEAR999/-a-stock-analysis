@@ -213,6 +213,8 @@ const MIGRATION_STATEMENTS = [
     heat_level VARCHAR(20),
     factor_scores JSONB,
     raw_data JSONB,
+    status VARCHAR(20) DEFAULT 'available',
+    message TEXT,
     created_at TIMESTAMP DEFAULT NOW()
   )`,
   `CREATE INDEX IF NOT EXISTS idx_sentiment_snapshot_timestamp ON sentiment_snapshot(timestamp DESC)`,
@@ -256,7 +258,7 @@ const MIGRATION_STATEMENTS = [
   `CREATE INDEX IF NOT EXISTS idx_stock_list_name ON stock_list(name)`,
   `CREATE INDEX IF NOT EXISTS idx_stock_list_industry ON stock_list(industry)`,
 
-  // 17. K线缓存表（Tushare 数据落地缓存，减少重复请求）
+  // 17. K 线缓存表（Tushare 数据落地缓存，减少重复请求）
   `CREATE TABLE IF NOT EXISTS kline_cache (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     stock_code VARCHAR(10) NOT NULL,
@@ -270,6 +272,72 @@ const MIGRATION_STATEMENTS = [
     UNIQUE(stock_code, period, is_realtime)
   )`,
   `CREATE INDEX IF NOT EXISTS idx_kline_cache_lookup ON kline_cache(stock_code, period, is_realtime)`,
+
+  // 18. 海外股价表（李富贵推送）
+  `CREATE TABLE IF NOT EXISTS overseas_prices (
+    id SERIAL PRIMARY KEY,
+    trade_date DATE NOT NULL,
+    nvda DECIMAL(10,2),
+    aapl DECIMAL(10,2),
+    tsla DECIMAL(10,2),
+    amd DECIMAL(10,2),
+    avgo DECIMAL(10,2),
+    tsm DECIMAL(10,2),
+    qcom DECIMAL(10,2),
+    googl DECIMAL(10,2),
+    msft DECIMAL(10,2),
+    intc DECIMAL(10,2),
+    nikkei DECIMAL(10,2),
+    tel DECIMAL(10,2),
+    samsung DECIMAL(10,2),
+    status VARCHAR(20) NOT NULL DEFAULT 'available',
+    message TEXT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(trade_date)
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_overseas_prices_trade_date ON overseas_prices(trade_date DESC)`,
+
+  // 19. 中国宏观数据表（李富贵推送）
+  `CREATE TABLE IF NOT EXISTS macro_china (
+    id SERIAL PRIMARY KEY,
+    period VARCHAR(10) NOT NULL,
+    pmi DECIMAL(5,2),
+    cpi DECIMAL(5,2),
+    ppi DECIMAL(5,2),
+    social_financing DECIMAL(10,4),
+    m2_growth DECIMAL(5,2),
+    gdp_yoy DECIMAL(5,2),
+    status VARCHAR(20) NOT NULL DEFAULT 'available',
+    message TEXT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(period)
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_macro_china_period ON macro_china(period DESC)`,
+
+  // 20. 美国宏观数据表（李富贵推送）
+  `CREATE TABLE IF NOT EXISTS macro_us (
+    id SERIAL PRIMARY KEY,
+    period VARCHAR(10) NOT NULL,
+    cpi DECIMAL(5,2),
+    core_pce DECIMAL(5,2),
+    nonfarm_payroll INTEGER,
+    unemployment_rate DECIMAL(5,2),
+    fed_rate DECIMAL(5,2),
+    status VARCHAR(20) NOT NULL DEFAULT 'available',
+    message TEXT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(period)
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_macro_us_period ON macro_us(period DESC)`,
+
+  // 21. 央行利率表（李富贵推送）
+  `CREATE TABLE IF NOT EXISTS central_bank_rates (
+    id SERIAL PRIMARY KEY,
+    bank VARCHAR(10) NOT NULL,
+    rate DECIMAL(5,2) NOT NULL,
+    updated_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(bank)
+  )`,
 ];
 
 const EXPECTED_TABLES = [
@@ -290,6 +358,10 @@ const EXPECTED_TABLES = [
   "position_log",
   "stock_list",
   "kline_cache",
+  "overseas_prices",
+  "macro_china",
+  "macro_us",
+  "central_bank_rates",
 ];
 
 // POST: Execute migration
@@ -298,72 +370,48 @@ export async function POST() {
   let successCount = 0;
   let failCount = 0;
 
-  try {
-    for (const stmt of MIGRATION_STATEMENTS) {
-      try {
-        await execRaw(stmt);
-        results.push({ statement: stmt.substring(0, 60) + "...", success: true });
-        successCount++;
-      } catch (err: unknown) {
-        const errorMsg = err instanceof Error ? err.message : String(err);
-        results.push({ statement: stmt.substring(0, 60) + "...", success: false, error: errorMsg });
-        failCount++;
-      }
+  for (const stmt of MIGRATION_STATEMENTS) {
+    try {
+      await execRaw(stmt);
+      results.push({ statement: stmt.substring(0, 50) + "...", success: true });
+      successCount++;
+    } catch (error: unknown) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      results.push({ statement: stmt.substring(0, 50) + "...", success: false, error: errorMsg });
+      failCount++;
     }
-
-    // Verify tables exist
-    const { rows } = await queryRaw<{ table_name: string }>(
-      `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name`
-    );
-
-    const existingTables = rows.map((r) => r.table_name);
-    const missingTables = EXPECTED_TABLES.filter((t) => !existingTables.includes(t));
-
-    return NextResponse.json({
-      success: failCount === 0 && missingTables.length === 0,
-      data: {
-        executed: results.length,
-        successCount,
-        failCount,
-        results,
-        existingTables: existingTables.filter((t) => EXPECTED_TABLES.includes(t)),
-        missingTables,
-        allTablesPresent: missingTables.length === 0,
-      },
-    });
-  } catch (error: unknown) {
-    const errorMsg = error instanceof Error ? error.message : String(error);
-    return NextResponse.json(
-      { success: false, error: "Migration failed: " + errorMsg, results },
-      { status: 500 }
-    );
   }
+
+  return NextResponse.json({
+    success: failCount === 0,
+    total: MIGRATION_STATEMENTS.length,
+    successCount,
+    failCount,
+    results,
+  });
 }
 
 // GET: Check migration status
 export async function GET() {
   try {
-    const { rows } = await queryRaw<{ table_name: string }>(
-      `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name`
+    const { rows } = await queryRaw<{ tablename: string }>(
+      `SELECT tablename FROM pg_tables WHERE schemaname = 'public'`
     );
 
-    const existingTables = rows.map((r) => r.table_name);
+    const existingTables = rows.map((r) => r.tablename);
     const missingTables = EXPECTED_TABLES.filter((t) => !existingTables.includes(t));
 
     return NextResponse.json({
       success: true,
-      data: {
-        allTablesPresent: missingTables.length === 0,
-        existingTables: existingTables.filter((t) => EXPECTED_TABLES.includes(t)),
-        missingTables,
-        totalExpected: EXPECTED_TABLES.length,
-        totalFound: existingTables.filter((t) => EXPECTED_TABLES.includes(t)).length,
-      },
+      totalTables: EXPECTED_TABLES.length,
+      existingTables: existingTables.filter((t) => EXPECTED_TABLES.includes(t)),
+      missingTables,
+      isComplete: missingTables.length === 0,
     });
   } catch (error: unknown) {
     const errorMsg = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
-      { success: false, error: "Failed to check migration status: " + errorMsg },
+      { success: false, error: "检查迁移状态失败: " + errorMsg },
       { status: 500 }
     );
   }

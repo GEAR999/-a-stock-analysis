@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 获取K线数据、实时行情、估值数据（S1 因子）
+    // 获取 K 线数据、实时行情、估值数据（S1 因子）
     const [klineData, quoteData, dailyBasic] = await Promise.all([
       getKLineData(code, "daily", 120),
       getQuote(code),
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
 
     if (!klineData || klineData.length === 0) {
       return NextResponse.json(
-        { success: false, error: "无法获取K线数据" },
+        { success: false, error: "无法获取 K 线数据" },
         { status: 404 }
       );
     }
@@ -100,79 +100,61 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 策略绑定：strategy_id 命中 strategy_sentiment_config 时，
-    // 用策略配置的情绪模式与因子权重覆盖查询参数
+    // 情绪模式覆盖：strategy_id 命中配置时覆盖 mode/weights
     if (strategyId) {
       try {
-        const { rows: cfgRows } = await queryRaw<{
-          sentiment_mode: string;
-          custom_weights: Record<string, number> | null;
-        }>(
+        const { rows } = await queryRaw<{ sentiment_mode: string; custom_weights: any }>(
           `SELECT sentiment_mode, custom_weights FROM strategy_sentiment_config WHERE strategy_id = $1`,
           [strategyId]
         );
-        if (cfgRows.length > 0) {
-          sentimentMode = cfgRows[0].sentiment_mode as SentimentMode;
-          if (cfgRows[0].custom_weights) {
-            selectedFactors = Object.entries(cfgRows[0].custom_weights).map(
-              ([key, weight]) => ({ key, weight: weight as number })
-            );
+        if (rows.length > 0) {
+          const cfg = rows[0];
+          if (cfg.sentiment_mode) sentimentMode = cfg.sentiment_mode as SentimentMode;
+          if (cfg.custom_weights) {
+            selectedFactors = Object.entries(cfg.custom_weights).map(([key, weight]) => ({
+              key,
+              weight: weight as number,
+            }));
           }
         }
       } catch {
-        // 配置查询失败时保持查询参数
+        // 配置不存在时保持默认
       }
     }
 
-    // 计算个股因子评分
-    const stockResult = calculateStockFactors({
+    // 计算情绪修正系数
+    const correctionFactor = getCorrectionFactor(sentimentMode);
+
+    // 计算多因子评分
+    const stockFactors = calculateStockFactors(
       klineData,
       currentPrice,
-      pePercentile,
-      pbPercentile,
-      chanlunSignal: chanlunStage,
-      wavePosition: waveStage,
-      selectedFactors: selectedFactors as { key: import("@/lib/multifactor/types").StockFactorKey; weight: number }[],
-    });
-
-    // 获取最新情绪数据（从数据库）
-    let sentimentScore = 0;
-    let correctionFactor = 1.0;
-    try {
-      const { rows } = await queryRaw<{ sentiment_score: number }>(
-        `SELECT sentiment_score FROM sentiment_snapshot ORDER BY timestamp DESC LIMIT 1`
-      );
-      if (rows.length > 0 && rows[0].sentiment_score !== null) {
-        sentimentScore = Number(rows[0].sentiment_score);
-        correctionFactor = getCorrectionFactor(sentimentScore, sentimentMode);
-      }
-    } catch {
-      // 数据库查询失败时使用默认值
-    }
-
-    // 计算仓位
-    const positionResult = calculatePosition(
-      stockResult.totalScore,
-      sentimentScore,
-      sentimentMode
+      { pe: pePercentile, pb: pbPercentile },
+      chanlunResult,
+      waveResult,
+      chanlunStage,
+      waveStage
     );
 
-    // 保存仓位计算日志
-    const positionLabel = positionResult.finalPosition >= 80 ? '重仓' : positionResult.finalPosition >= 50 ? '中等仓位' : positionResult.finalPosition >= 20 ? '轻仓' : positionResult.finalPosition > 0 ? '极轻仓' : '空仓';
+    // 计算仓位建议
+    const position = calculatePosition(
+      stockFactors,
+      selectedFactors,
+      correctionFactor
+    );
+
+    // 保存仓位日志（带 strategy_id）
     try {
       await queryRaw(
-        `INSERT INTO position_log (code, strategy_id, factor_scores, total_score, base_position, sentiment_score, correction_factor, final_position, position_label)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        `INSERT INTO position_log (code, timestamp, total_score, position, factor_scores, sentiment_mode, strategy_id)
+         VALUES ($1, NOW(), $2, $3, $4, $5, $6)`,
         [
           code,
-          strategyId,
-          JSON.stringify(stockResult.factors),
-          stockResult.totalScore,
-          positionResult.basePosition,
-          sentimentScore,
-          correctionFactor,
-          positionResult.finalPosition,
-          positionLabel,
+          position.totalScore,
+          position.position,
+          JSON.stringify(position.factorScores),
+          sentimentMode,
+          strategyId || null,
         ]
       );
     } catch {
@@ -183,19 +165,13 @@ export async function GET(request: NextRequest) {
       success: true,
       data: {
         code,
-        strategyId: strategyId ?? null,
-        stockFactors: stockResult,
-        valuation: dailyBasic.length > 0 ? {
-          pe: dailyBasic[dailyBasic.length - 1].pe,
-          pb: dailyBasic[dailyBasic.length - 1].pb,
-          pePercentile: pePercentile ?? null,
-          pbPercentile: pbPercentile ?? null,
-          turnoverRate: dailyBasic[dailyBasic.length - 1].turnoverRate,
-        } : null,
-        sentimentScore,
+        price: currentPrice,
         sentimentMode,
         correctionFactor,
-        position: positionResult,
+        stockFactors,
+        position,
+        chanlunStage,
+        waveStage,
       },
     });
   } catch (error: unknown) {
@@ -207,10 +183,11 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST: 接收情绪数据推送并计算情绪评分
+// POST: 接收数据推送（统一结构：type/status/message）
+// 兼容旧格式（直接推送 sentiment 数据，无 type 字段）
 export async function POST(request: NextRequest) {
   try {
-    // 验证推送Token
+    // 验证推送 Token
     const authHeader = request.headers.get("authorization");
     const expectedToken = process.env.PUSH_TOKEN;
 
@@ -223,110 +200,180 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
-    // 构建情绪原始数据（字段名与 SentimentRawData 类型一致，使用 snake_case）
-    const rawData: SentimentRawData = {
-      total_volume: body.total_volume,
-      volume_change_pct: body.volume_change_pct,
-      turnover_rate: body.turnover_rate,
-      turnover_change_pct: body.turnover_change_pct,
-      limit_up_count: body.limit_up_count,
-      limit_up_change_pct: body.limit_up_change_pct,
-      limit_down_count: body.limit_down_count,
-      limit_down_change_pct: body.limit_down_change_pct,
-      margin_balance: body.margin_balance,
-      margin_change_pct: body.margin_change_pct,
-    };
+    // 兼容旧格式：如果没有 type 字段，默认为 sentiment
+    const type = body.type || 'sentiment';
+    const status = body.status || 'available';
+    const message = body.message || '';
 
-    // M2/M5 字段补齐：李富贵推送只含 M1/M3/M4，
-    // 换手率与融资余额由服务端从 Tushare 自动补齐（带缓存，补齐失败则因子不参与评分）
-    const needTurnover = rawData.turnover_rate === undefined || rawData.turnover_rate === null;
-    const needMargin = rawData.margin_balance === undefined || rawData.margin_balance === null;
-    if (needTurnover || needMargin) {
-      const [tushareTurnover, tushareMargin] = await Promise.all([
-        needTurnover ? getMarketTurnoverRate() : Promise.resolve(null),
-        needMargin ? getMarginBalance() : Promise.resolve(null),
-      ]);
-      if (needTurnover && tushareTurnover !== null) {
-        rawData.turnover_rate = tushareTurnover;
-      }
-      if (needMargin && tushareMargin !== null) {
-        rawData.margin_balance = tushareMargin;
-      }
-    }
-
-    // 变化率补齐：推送未携带 change_pct 时，与上一条情绪快照对比计算
-    const needChangePct =
-      rawData.volume_change_pct === undefined ||
-      (rawData.turnover_rate !== undefined && rawData.turnover_change_pct === undefined) ||
-      rawData.limit_up_change_pct === undefined ||
-      rawData.limit_down_change_pct === undefined ||
-      (rawData.margin_balance !== undefined && rawData.margin_change_pct === undefined);
-    if (needChangePct) {
-      try {
-        const { rows } = await queryRaw<{
-          total_volume: number | null;
-          turnover_rate: number | null;
-          limit_up_count: number | null;
-          limit_down_count: number | null;
-          margin_balance: number | null;
-        }>(
-          `SELECT total_volume, turnover_rate, limit_up_count, limit_down_count, margin_balance
-           FROM sentiment_snapshot ORDER BY timestamp DESC LIMIT 1`
+    // 根据 type 分发到不同的处理逻辑
+    switch (type) {
+      case 'sentiment':
+        return await handleSentiment(body.sentiment || body, status, message);
+      case 'overseas':
+        return await handleOverseas(body.overseas, status, message);
+      case 'macro_china':
+        return await handleMacroChina(body.macro_china, status, message);
+      case 'macro_us':
+        return await handleMacroUs(body.macro_us, status, message);
+      case 'rate':
+        return await handleRate(body.rate, status, message);
+      default:
+        return NextResponse.json(
+          { success: false, error: `未知的 type: ${type}` },
+          { status: 400 }
         );
-        const prev = rows[0];
-        if (prev) {
-          const pct = (cur: number | undefined, old: number | null): number | undefined => {
-            if (cur === undefined || old === null || Number(old) === 0) return undefined;
-            return Math.round(((cur - Number(old)) / Math.abs(Number(old))) * 10000) / 100;
-          };
-          rawData.volume_change_pct ??= pct(rawData.total_volume, prev.total_volume);
-          rawData.turnover_change_pct ??= pct(rawData.turnover_rate, prev.turnover_rate);
-          rawData.limit_up_change_pct ??= pct(rawData.limit_up_count, prev.limit_up_count);
-          rawData.limit_down_change_pct ??= pct(rawData.limit_down_count, prev.limit_down_count);
-          rawData.margin_change_pct ??= pct(rawData.margin_balance, prev.margin_balance);
-        }
-      } catch {
-        // 快照查询失败时保持 change_pct 缺失，引擎退化为纯水位分
-      }
     }
-
-    // 计算情绪评分
-    const sentimentResult = calculateSentiment(rawData);
-
-    // 保存情绪快照到数据库
-    await queryRaw(
-      `INSERT INTO sentiment_snapshot
-       (timestamp, total_volume, volume_change_pct, turnover_rate, turnover_change_pct,
-        limit_up_count, limit_up_change_pct, limit_down_count, limit_down_change_pct,
-        margin_balance, margin_change_pct, sentiment_score, heat_level, factor_scores, raw_data)
-       VALUES (NOW(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
-      [
-        rawData.total_volume,
-        rawData.volume_change_pct,
-        rawData.turnover_rate,
-        rawData.turnover_change_pct,
-        rawData.limit_up_count,
-        rawData.limit_up_change_pct,
-        rawData.limit_down_count,
-        rawData.limit_down_change_pct,
-        rawData.margin_balance,
-        rawData.margin_change_pct,
-        sentimentResult.totalScore,
-        sentimentResult.heatLevel,
-        JSON.stringify(sentimentResult.factors),
-        JSON.stringify(rawData),
-      ]
-    );
-
-    return NextResponse.json({
-      success: true,
-      data: sentimentResult,
-    });
   } catch (error: unknown) {
     const errorMsg = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
-      { success: false, error: "情绪数据保存失败: " + errorMsg },
+      { success: false, error: "推送处理失败: " + errorMsg },
       { status: 500 }
     );
   }
+}
+
+// 处理情绪数据推送
+async function handleSentiment(body: any, status: string, message: string) {
+  // 构建情绪原始数据（字段名与 SentimentRawData 类型一致，使用 snake_case）
+  const rawData: SentimentRawData = {
+    total_volume: body.total_volume,
+    volume_change_pct: body.volume_change_pct,
+    turnover_rate: body.turnover_rate,
+    turnover_change_pct: body.turnover_change_pct,
+    limit_up_count: body.limit_up_count,
+    limit_up_change_pct: body.limit_up_change_pct,
+    limit_down_count: body.limit_down_count,
+    limit_down_change_pct: body.limit_down_change_pct,
+    margin_balance: body.margin_balance,
+    margin_change_pct: body.margin_change_pct,
+  };
+
+  // M2/M5 字段补齐：李富贵推送只含 M1/M3/M4，
+  // 换手率与融资余额由服务端从 Tushare 自动补齐（带缓存，补齐失败则因子不参与评分）
+  const needTurnover = rawData.turnover_rate === undefined || rawData.turnover_rate === null;
+  const needMargin = rawData.margin_balance === undefined || rawData.margin_balance === null;
+  if (needTurnover || needMargin) {
+    const [tushareTurnover, tushareMargin] = await Promise.all([
+      needTurnover ? getMarketTurnoverRate() : Promise.resolve(null),
+      needMargin ? getMarginBalance() : Promise.resolve(null),
+    ]);
+    if (needTurnover && tushareTurnover !== null) {
+      rawData.turnover_rate = tushareTurnover;
+    }
+    if (needMargin && tushareMargin !== null) {
+      rawData.margin_balance = tushareMargin;
+    }
+  }
+
+  // 变化率补齐：推送未携带 change_pct 时，与上一条情绪快照对比计算
+  const needChangePct =
+    rawData.volume_change_pct === undefined ||
+    (rawData.turnover_rate !== undefined && rawData.turnover_change_pct === undefined) ||
+    rawData.limit_up_change_pct === undefined ||
+    rawData.limit_down_change_pct === undefined ||
+    (rawData.margin_balance !== undefined && rawData.margin_change_pct === undefined);
+  if (needChangePct) {
+    try {
+      const { rows } = await queryRaw<{
+        total_volume: number | null;
+        turnover_rate: number | null;
+        limit_up_count: number | null;
+        limit_down_count: number | null;
+        margin_balance: number | null;
+      }>(
+        `SELECT total_volume, turnover_rate, limit_up_count, limit_down_count, margin_balance
+         FROM sentiment_snapshot ORDER BY timestamp DESC LIMIT 1`
+      );
+      const prev = rows[0];
+      if (prev) {
+        const pct = (cur: number | undefined, old: number | null): number | undefined => {
+          if (cur === undefined || old === null || Number(old) === 0) return undefined;
+          return Math.round(((cur - Number(old)) / Math.abs(Number(old))) * 10000) / 100;
+        };
+        rawData.volume_change_pct ??= pct(rawData.total_volume, prev.total_volume);
+        rawData.turnover_change_pct ??= pct(rawData.turnover_rate, prev.turnover_rate);
+        rawData.limit_up_change_pct ??= pct(rawData.limit_up_count, prev.limit_up_count);
+        rawData.limit_down_change_pct ??= pct(rawData.limit_down_count, prev.limit_down_count);
+        rawData.margin_change_pct ??= pct(rawData.margin_balance, prev.margin_balance);
+      }
+    } catch {
+      // 快照查询失败时保持 change_pct 缺失，引擎退化为纯水位分
+    }
+  }
+
+  // 计算情绪评分
+  const sentimentResult = calculateSentiment(rawData);
+
+  // 保存情绪快照到数据库（包含 status 和 message）
+  await queryRaw(
+    `INSERT INTO sentiment_snapshot
+     (timestamp, total_volume, volume_change_pct, turnover_rate, turnover_change_pct,
+      limit_up_count, limit_up_change_pct, limit_down_count, limit_down_change_pct,
+      margin_balance, margin_change_pct, sentiment_score, heat_level, factor_scores, raw_data,
+      status, message)
+     VALUES (NOW(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
+    [
+      rawData.total_volume,
+      rawData.volume_change_pct,
+      rawData.turnover_rate,
+      rawData.turnover_change_pct,
+      rawData.limit_up_count,
+      rawData.limit_up_change_pct,
+      rawData.limit_down_count,
+      rawData.limit_down_change_pct,
+      rawData.margin_balance,
+      rawData.margin_change_pct,
+      sentimentResult.totalScore,
+      sentimentResult.heatLevel,
+      JSON.stringify(sentimentResult.factors),
+      JSON.stringify(rawData),
+      status,
+      message,
+    ]
+  );
+
+  return NextResponse.json({
+    success: true,
+    data: sentimentResult,
+  });
+}
+
+// 处理海外股价推送
+async function handleOverseas(body: any, status: string, message: string) {
+  // TODO: 实现海外股价数据存储
+  return NextResponse.json({
+    success: true,
+    message: "海外股价数据已接收（待实现存储逻辑）",
+    data: { status, message },
+  });
+}
+
+// 处理中国宏观数据推送
+async function handleMacroChina(body: any, status: string, message: string) {
+  // TODO: 实现中国宏观数据存储
+  return NextResponse.json({
+    success: true,
+    message: "中国宏观数据已接收（待实现存储逻辑）",
+    data: { status, message },
+  });
+}
+
+// 处理美国宏观数据推送
+async function handleMacroUs(body: any, status: string, message: string) {
+  // TODO: 实现美国宏观数据存储
+  return NextResponse.json({
+    success: true,
+    message: "美国宏观数据已接收（待实现存储逻辑）",
+    data: { status, message },
+  });
+}
+
+// 处理央行利率推送
+async function handleRate(body: any, status: string, message: string) {
+  // TODO: 实现央行利率数据存储
+  return NextResponse.json({
+    success: true,
+    message: "央行利率数据已接收（待实现存储逻辑）",
+    data: { status, message },
+  });
 }
