@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { searchStocks, getQuote, getKLineData } from '@/lib/api/stock';
-import { calculateStockSentiment } from '@/lib/analysis';
-import type { KLinePeriod, StockQuote } from '@/lib/types';
+import { searchStocks, getQuote } from '@/lib/api/stock';
+import type { KLinePeriod } from '@/lib/types';
 
 // 缓存：板块数据5分钟，个股数据1分钟
 const cache = new Map<string, { data: unknown; timestamp: number }>();
@@ -132,16 +131,9 @@ export async function GET(request: NextRequest) {
         const quote = await getQuote(code);
         if (!quote) return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
         
-        // 交叉验证（非阻塞）
-        const { data: verifiedData, validation } = await crossValidateQuote(quote);
-        const responseData = verifiedData || quote;
-        
         return NextResponse.json({
           success: true,
-          data: responseData,
-          verified: validation.verified,
-          validationSource: validation.source,
-          validationDiff: validation.diffPercent,
+          data: quote,
         });
       }
       case 'minute': {
@@ -177,22 +169,12 @@ export async function GET(request: NextRequest) {
           });
         }
         
-        // 交叉验证 K 线数据
+        // 返回结果
         if (result.success && result.data.length > 0) {
-          const { data: validatedKline, validation: klineValidation } = await crossValidateKline(
-            code,
-            result.data,
-            period
-          );
-          
           return NextResponse.json({
             success: true,
-            data: validatedKline,
+            data: result.data,
             source: result.source,
-            verified: klineValidation.verified,
-            validationSource: klineValidation.source,
-            overridden: klineValidation.overridden,
-            fullSwitch: klineValidation.fullSwitch,
           });
         }
         
