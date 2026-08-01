@@ -250,11 +250,24 @@ function generateTechnicalAnalysis(klineData: KLineData[]): TechnicalAnalysis {
 interface TechnicalCardProps {
   visible: boolean;
   klineData?: KLineData[];
+  onConclusion?: (conclusion: { name: string; direction: '上升' | '下降' | '震荡'; confidence: '高' | '中' | '低'; advice: string } | null) => void;
 }
 
-export function TechnicalCard({ visible, klineData = [] }: TechnicalCardProps) {
+export function TechnicalCard({ visible, klineData = [], onConclusion }: TechnicalCardProps) {
   const [expanded, setExpanded] = useState(true);
   const analysis = useMemo(() => generateTechnicalAnalysis(klineData), [klineData]);
+
+  // 将真实结论传递给父组件
+  useMemo(() => {
+    if (onConclusion) {
+      onConclusion({
+        name: '技术指标',
+        direction: analysis.trendAssessment.direction,
+        confidence: analysis.trendAssessment.confidence,
+        advice: analysis.advice,
+      });
+    }
+  }, [analysis.trendAssessment.direction, analysis.trendAssessment.confidence, analysis.advice, onConclusion]);
 
   if (!visible) return null;
 

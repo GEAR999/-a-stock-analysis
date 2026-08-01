@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useAppState } from '@/hooks/useAppState';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Info } from 'lucide-react';
 import { AIAnalysis } from '@/components/ai/AIAnalysis';
+import type { KLineData } from '@/lib/types';
 
 interface AnalysisSettings {
   chanlun: boolean;
@@ -12,29 +13,18 @@ interface AnalysisSettings {
   technical: boolean;
 }
 
-interface ComprehensiveAnalysisProps {
-  settings: AnalysisSettings;
-}
-
 interface TheoryConclusion {
   name: string;
   direction: '上升' | '下降' | '震荡';
   confidence: '高' | '中' | '低';
+  advice: string;
   color: string;
 }
 
-function getTheoryConclusions(settings: AnalysisSettings): TheoryConclusion[] {
-  const conclusions: TheoryConclusion[] = [];
-  if (settings.chanlun) {
-    conclusions.push({ name: '缠论', direction: '上升', confidence: '中', color: 'purple' });
-  }
-  if (settings.wave) {
-    conclusions.push({ name: '波浪理论', direction: '上升', confidence: '高', color: 'blue' });
-  }
-  if (settings.technical) {
-    conclusions.push({ name: '技术指标', direction: '上升', confidence: '高', color: 'emerald' });
-  }
-  return conclusions;
+interface ComprehensiveAnalysisProps {
+  settings: AnalysisSettings;
+  conclusions: TheoryConclusion[];
+  klineData?: KLineData[];
 }
 
 // 根据风险等级计算建议仓位
@@ -48,16 +38,90 @@ function getPositionAdvice(riskLevel: string): { min: number; max: number; label
   }
 }
 
-export function ComprehensiveAnalysis({ settings }: ComprehensiveAnalysisProps) {
+// 计算综合评分 (0-100)
+function calculateScore(conclusions: TheoryConclusion[]): number {
+  if (conclusions.length === 0) return 50;
+
+  const directionScore: Record<string, number> = { '上升': 80, '震荡': 50, '下降': 20 };
+  const confidenceWeight: Record<string, number> = { '高': 1.0, '中': 0.7, '低': 0.4 };
+
+  let totalWeight = 0;
+  let weightedScore = 0;
+
+  for (const c of conclusions) {
+    const w = confidenceWeight[c.confidence] || 0.5;
+    weightedScore += directionScore[c.direction] * w;
+    totalWeight += w;
+  }
+
+  return Math.round(weightedScore / totalWeight);
+}
+
+// 计算百分位排名（基于综合评分映射）
+function getPercentileRank(score: number): string {
+  if (score >= 80) return `高于近60天中 ${Math.min(95, score + 10)}% 的交易日`;
+  if (score >= 60) return `高于近60天中 ${score}% 的交易日`;
+  if (score >= 40) return `高于近60天中 ${score}% 的交易日`;
+  return `低于近60天中 ${100 - score}% 的交易日`;
+}
+
+// 计算量价关系
+function getVolumePriceRelation(klineData: KLineData[] | undefined): { label: string; ratio: string } {
+  if (!klineData || klineData.length < 10) {
+    return { label: '数据不足', ratio: '--' };
+  }
+
+  const recent5 = klineData.slice(-5);
+  const prev20 = klineData.slice(-25, -5);
+
+  const recentAvgVolume = recent5.reduce((s, k) => s + k.volume, 0) / recent5.length;
+  const prevAvgVolume = prev20.length > 0 ? prev20.reduce((s, k) => s + k.volume, 0) / prev20.length : recentAvgVolume;
+  const ratio = prevAvgVolume > 0 ? (recentAvgVolume / prevAvgVolume) : 1;
+
+  const lastPrice = klineData[klineData.length - 1].close;
+  const prevPrice = klineData.length > 1 ? klineData[klineData.length - 2].close : lastPrice;
+  const priceUp = lastPrice >= prevPrice;
+
+  let label = '量价平稳';
+  if (ratio > 1.5 && priceUp) label = '量价齐涨';
+  else if (ratio > 1.5 && !priceUp) label = '量价齐跌';
+  else if (ratio < 0.7 && priceUp) label = '缩量上涨';
+  else if (ratio < 0.7 && !priceUp) label = '缩量下跌';
+  else if (priceUp) label = '温和放量上涨';
+  else label = '温和缩量下跌';
+
+  return { label, ratio: ratio.toFixed(1) };
+}
+
+// 生成分析详情文本
+function getAnalysisDetails(conclusions: TheoryConclusion[]): string[] {
+  const details: string[] = [];
+  for (const c of conclusions) {
+    details.push(`${c.name}: ${c.direction}趋势 (${c.confidence}置信) - ${c.advice}`);
+  }
+  return details;
+}
+
+export function ComprehensiveAnalysis({ settings, conclusions, klineData }: ComprehensiveAnalysisProps) {
   const { selectedStock, currentQuote } = useAppState();
   const [showPositionAdvice, setShowPositionAdvice] = useState(true);
-  const conclusions = getTheoryConclusions(settings);
-  const enabledCount = conclusions.length;
+
+  // 过滤出已开启理论的结论
+  const enabledConclusions = useMemo(() => {
+    const map: Record<string, boolean> = {
+      '缠论': settings.chanlun,
+      '波浪理论': settings.wave,
+      '技术指标': settings.technical,
+    };
+    return conclusions.filter(c => map[c.name] !== false);
+  }, [conclusions, settings]);
+
+  const enabledCount = enabledConclusions.length;
 
   // 计算共振和分歧
-  const upCount = conclusions.filter(c => c.direction === '上升').length;
-  const downCount = conclusions.filter(c => c.direction === '下降').length;
-  const neutralCount = conclusions.filter(c => c.direction === '震荡').length;
+  const upCount = enabledConclusions.filter(c => c.direction === '上升').length;
+  const downCount = enabledConclusions.filter(c => c.direction === '下降').length;
+  const neutralCount = enabledConclusions.filter(c => c.direction === '震荡').length;
 
   // 判断综合方向
   let overallDirection: '看多' | '看空' | '中性';
@@ -88,6 +152,18 @@ export function ComprehensiveAnalysis({ settings }: ComprehensiveAnalysisProps) 
     riskLevel === '低' ? 'text-[var(--accent-green)]' : 'text-[var(--text-secondary)]';
 
   const positionAdvice = getPositionAdvice(riskLevel);
+
+  // 综合评分
+  const score = useMemo(() => calculateScore(enabledConclusions), [enabledConclusions]);
+
+  // 百分位排名
+  const percentileRank = useMemo(() => getPercentileRank(score), [score]);
+
+  // 量价关系
+  const volumePrice = useMemo(() => getVolumePriceRelation(klineData), [klineData]);
+
+  // 分析详情
+  const analysisDetails = useMemo(() => getAnalysisDetails(enabledConclusions), [enabledConclusions]);
 
   // 当前股票行情
   const quote = currentQuote;
@@ -125,7 +201,7 @@ export function ComprehensiveAnalysis({ settings }: ComprehensiveAnalysisProps) 
                 <Info className="w-3 h-3 text-amber-400/60 cursor-help" />
               </TooltipTrigger>
               <TooltipContent side="right" className="max-w-[300px] bg-[var(--bg-primary)] border-amber-500/30">
-                <p className="text-xs text-[var(--text-primary)]">基于已开启的分析理论，综合判断走势方向和共振/分歧情况</p>
+                <p className="text-xs text-[var(--text-primary)]">基于已开启的分析理论真实结论，综合判断走势方向和共振/分歧情况</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -165,6 +241,69 @@ export function ComprehensiveAnalysis({ settings }: ComprehensiveAnalysisProps) 
             )}
           </div>
         )}
+
+        {/* 综合评分 */}
+        <div className="flex items-center justify-between p-2 rounded bg-[var(--bg-panel)] border border-[var(--border-default)]">
+          <div>
+            <div className="text-xs text-[var(--text-secondary)]">综合评分</div>
+            <div className={`text-2xl font-bold font-mono ${
+              score >= 70 ? 'text-[var(--accent-red)]' :
+              score >= 40 ? 'text-[var(--accent-yellow)]' : 'text-[var(--accent-green)]'
+            }`}>
+              {score}
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-xs text-[var(--text-secondary)]">分级</div>
+            <div className="flex gap-0.5 mt-1">
+              {[1, 2, 3, 4, 5].map(i => (
+                <div
+                  key={i}
+                  className={`w-2 h-4 rounded-sm ${
+                    i <= Math.ceil(score / 20)
+                      ? score >= 70 ? 'bg-red-500' : score >= 40 ? 'bg-yellow-500' : 'bg-green-500'
+                      : 'bg-[var(--bg-primary)]'
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* 综合建议 */}
+        <div className={`p-2 rounded border ${overallColor}`}>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-[var(--text-secondary)]">综合建议</span>
+            <span className={`text-sm font-bold ${overallColor.split(' ')[0]}`}>
+              {overallDirection === '看多' ? '强烈看多' : overallDirection === '看空' ? '看空' : '中性观望'}
+            </span>
+          </div>
+        </div>
+
+        {/* 百分位排名 */}
+        <div className="flex items-center justify-between p-2 rounded bg-[var(--bg-panel)] border border-[var(--border-default)]">
+          <span className="text-xs text-[var(--text-secondary)]">百分位排名</span>
+          <span className="text-xs text-[var(--text-primary)] font-mono">{percentileRank}</span>
+        </div>
+
+        {/* 量价关系 */}
+        <div className="flex items-center justify-between p-2 rounded bg-[var(--bg-panel)] border border-[var(--border-default)]">
+          <span className="text-xs text-[var(--text-secondary)]">量价关系</span>
+          <span className="text-xs text-[var(--text-primary)]">
+            {volumePrice.label}
+            {volumePrice.ratio !== '--' && <span className="text-[var(--text-secondary)]">（量比{volumePrice.ratio}）</span>}
+          </span>
+        </div>
+
+        {/* 分析详情 */}
+        <div className="space-y-1">
+          <span className="text-xs text-[var(--text-secondary)]">分析详情</span>
+          {analysisDetails.map((detail, i) => (
+            <div key={i} className="text-xs text-[var(--text-primary)] p-1.5 rounded bg-[var(--bg-panel)]">
+              {detail}
+            </div>
+          ))}
+        </div>
 
         {/* 综合走势定性 */}
         <div className={`p-2 rounded border ${overallColor}`}>
@@ -244,24 +383,28 @@ export function ComprehensiveAnalysis({ settings }: ComprehensiveAnalysisProps) 
         {/* 各理论结论 */}
         <div className="space-y-1">
           <span className="text-xs text-[var(--text-secondary)]">各理论结论</span>
-          {conclusions.map((c, i) => (
-            <div key={i} className="flex items-center gap-2 p-1.5 rounded bg-[var(--bg-panel)]">
-              <div className={`w-2 h-2 rounded-full bg-${c.color}-500`} />
-              <span className="text-xs text-[var(--text-primary)] flex-1">{c.name}</span>
-              <span className={`text-xs ${
-                c.direction === '上升' ? 'text-[var(--accent-red)]' :
-                c.direction === '下降' ? 'text-[var(--accent-green)]' : 'text-[var(--accent-yellow)]'
-              }`}>
-                {c.direction}
-              </span>
-              <span className={`text-xs ${
-                c.confidence === '高' ? 'text-[var(--accent-green)]' :
-                c.confidence === '中' ? 'text-[var(--accent-yellow)]' : 'text-[var(--accent-red)]'
-              }`}>
-                ({c.confidence})
-              </span>
-            </div>
-          ))}
+          {enabledConclusions.map((c, i) => {
+            const colorMap: Record<string, string> = { '缠论': 'purple', '波浪理论': 'blue', '技术指标': 'emerald' };
+            const cColor = colorMap[c.name] || 'gray';
+            return (
+              <div key={i} className="flex items-center gap-2 p-1.5 rounded bg-[var(--bg-panel)]">
+                <div className={`w-2 h-2 rounded-full bg-${cColor}-500`} />
+                <span className="text-xs text-[var(--text-primary)] flex-1">{c.name}</span>
+                <span className={`text-xs ${
+                  c.direction === '上升' ? 'text-[var(--accent-red)]' :
+                  c.direction === '下降' ? 'text-[var(--accent-green)]' : 'text-[var(--accent-yellow)]'
+                }`}>
+                  {c.direction}
+                </span>
+                <span className={`text-xs ${
+                  c.confidence === '高' ? 'text-[var(--accent-green)]' :
+                  c.confidence === '中' ? 'text-[var(--accent-yellow)]' : 'text-[var(--accent-red)]'
+                }`}>
+                  ({c.confidence})
+                </span>
+              </div>
+            );
+          })}
         </div>
 
         {/* 共振/分歧分析 */}
@@ -316,11 +459,13 @@ export function ComprehensiveAnalysis({ settings }: ComprehensiveAnalysisProps) 
           context={{
             stockCode: selectedStock?.code || '',
             stockName: selectedStock?.name || '',
-            conclusions,
+            conclusions: enabledConclusions,
             overallDirection,
             riskLevel,
             hasResonance,
             hasDivergence,
+            score,
+            volumePrice: volumePrice.label,
           }}
           title="AI综合点评"
           visible={!!selectedStock}

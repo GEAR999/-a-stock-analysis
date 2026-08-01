@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useAppState } from '@/hooks/useAppState';
 import { AnalysisPanel } from '@/components/analysis/AnalysisPanel';
 import { ChanlunCard } from '@/components/analysis/ChanlunCard';
@@ -115,6 +115,19 @@ export function RightPanel() {
   const [isRefreshingAnalysis, setIsRefreshingAnalysis] = useState(false);
   const [isRefreshingPositions, setIsRefreshingPositions] = useState(false);
   const [externalAddStock, setExternalAddStock] = useState<{ code: string; name: string } | null>(null);
+
+  // 收集三个分析卡片的结论
+  const [chanlunConclusion, setChanlunConclusion] = useState<{ name: string; direction: '上升' | '下降' | '震荡'; confidence: '高' | '中' | '低'; advice: string } | null>(null);
+  const [waveConclusion, setWaveConclusion] = useState<{ name: string; direction: '上升' | '下降' | '震荡'; confidence: '高' | '中' | '低'; advice: string } | null>(null);
+  const [technicalConclusion, setTechnicalConclusion] = useState<{ name: string; direction: '上升' | '下降' | '震荡'; confidence: '高' | '中' | '低'; advice: string } | null>(null);
+
+  const conclusions = useMemo(() => {
+    const result: { name: string; direction: '上升' | '下降' | '震荡'; confidence: '高' | '中' | '低'; advice: string; color: string }[] = [];
+    if (chanlunConclusion) result.push({ ...chanlunConclusion, color: 'purple' });
+    if (waveConclusion) result.push({ ...waveConclusion, color: 'blue' });
+    if (technicalConclusion) result.push({ ...technicalConclusion, color: 'emerald' });
+    return result;
+  }, [chanlunConclusion, waveConclusion, technicalConclusion]);
 
   // 一键加入回测跟踪
   const handleAddToBacktest = () => {
@@ -242,24 +255,24 @@ export function RightPanel() {
 
             {/* 根据Tab显示内容 */}
             {activeAnalysisTab === 'summary' && (
-              <ComprehensiveAnalysis settings={analysisSettings} />
+              <ComprehensiveAnalysis settings={analysisSettings} conclusions={conclusions} klineData={klineData} />
             )}
             {activeAnalysisTab === 'chanlun' && (
               <div>
                 <AnalysisPanel />
-                <ChanlunCard visible={true} klineData={klineData} />
+                <ChanlunCard visible={true} klineData={klineData} onConclusion={setChanlunConclusion} />
               </div>
             )}
             {activeAnalysisTab === 'wave' && (
               <div>
                 <AnalysisPanel />
-                <WaveCard visible={true} klineData={klineData} />
+                <WaveCard visible={true} klineData={klineData} onConclusion={setWaveConclusion} />
               </div>
             )}
             {activeAnalysisTab === 'technical' && (
               <div>
                 <AnalysisPanel />
-                <TechnicalCard visible={true} klineData={klineData} />
+                <TechnicalCard visible={true} klineData={klineData} onConclusion={setTechnicalConclusion} />
               </div>
             )}
             {activeAnalysisTab === 'multifactor' && selectedStock && (

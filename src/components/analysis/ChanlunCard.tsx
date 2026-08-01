@@ -242,11 +242,24 @@ function generateChanlunAnalysis(klineData: KLineData[]): ChanlunAnalysis {
 interface ChanlunCardProps {
   visible: boolean;
   klineData?: KLineData[];
+  onConclusion?: (conclusion: { name: string; direction: '上升' | '下降' | '震荡'; confidence: '高' | '中' | '低'; advice: string } | null) => void;
 }
 
-export function ChanlunCard({ visible, klineData = [] }: ChanlunCardProps) {
+export function ChanlunCard({ visible, klineData = [], onConclusion }: ChanlunCardProps) {
   const [expanded, setExpanded] = useState(true);
   const analysis = useMemo(() => generateChanlunAnalysis(klineData), [klineData]);
+
+  // 将真实结论传递给父组件
+  useMemo(() => {
+    if (onConclusion) {
+      onConclusion({
+        name: '缠论',
+        direction: analysis.trendAssessment.direction,
+        confidence: analysis.trendAssessment.confidence,
+        advice: analysis.advice,
+      });
+    }
+  }, [analysis.trendAssessment.direction, analysis.trendAssessment.confidence, analysis.advice, onConclusion]);
 
   if (!visible) return null;
 
