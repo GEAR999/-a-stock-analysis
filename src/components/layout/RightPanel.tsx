@@ -247,19 +247,19 @@ export function RightPanel() {
             {activeAnalysisTab === 'chanlun' && (
               <div>
                 <AnalysisPanel />
-                <ChanlunCard visible={true} />
+                <ChanlunCard visible={true} klineData={klineData} />
               </div>
             )}
             {activeAnalysisTab === 'wave' && (
               <div>
                 <AnalysisPanel />
-                <WaveCard visible={true} />
+                <WaveCard visible={true} klineData={klineData} />
               </div>
             )}
             {activeAnalysisTab === 'technical' && (
               <div>
                 <AnalysisPanel />
-                <TechnicalCard visible={true} />
+                <TechnicalCard visible={true} klineData={klineData} />
               </div>
             )}
             {activeAnalysisTab === 'multifactor' && selectedStock && (

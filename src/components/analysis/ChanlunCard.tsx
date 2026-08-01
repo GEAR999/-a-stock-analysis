@@ -1,8 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Info } from 'lucide-react';
+import { analyzeChanlun } from '@/lib/analysis';
+import type { KLineData } from '@/lib/types';
 
 // 缠论分析数据类型
 interface ChanlunAnalysis {
@@ -31,72 +33,220 @@ interface ChanlunAnalysis {
   }>;
 }
 
-// 模拟数据生成
-function generateChanlunAnalysis(): ChanlunAnalysis {
+// 基于真实 K 线数据生成缠论分析
+function generateChanlunAnalysis(klineData: KLineData[]): ChanlunAnalysis {
+  const chanlunResult = analyzeChanlun(klineData);
+  
+  const { strokes, centers, buySignals, sellSignals } = chanlunResult;
+  
+  let direction: '上升' | '下降' | '震荡' = '震荡';
+  let confidence: '高' | '中' | '低' = '低';
+  let basis = '数据不足';
+  let currentStage = '数据加载中';
+  let stageDescription = '';
+  
+  if (strokes.length > 0) {
+    const lastStroke = strokes[strokes.length - 1];
+    direction = lastStroke.direction === 'up' ? '上升' : '下降';
+    confidence = strokes.length >= 5 ? '高' : strokes.length >= 3 ? '中' : '低';
+    basis = `${direction}笔延续中，共识别${strokes.length}笔`;
+    
+    if (centers.length > 0) {
+      const lastCenter = centers[centers.length - 1];
+      const lastPrice = klineData[klineData.length - 1].close;
+      const aboveCenter = lastPrice > lastCenter.high;
+      
+      if (aboveCenter && lastStroke.direction === 'up') {
+        currentStage = '中枢上方上升笔';
+        stageDescription = `价格在中枢[${lastCenter.low.toFixed(2)}-${lastCenter.high.toFixed(2)}]上方运行，上升笔延续`;
+      } else if (!aboveCenter && lastStroke.direction === 'down') {
+        currentStage = '中枢下方下降笔';
+        stageDescription = `价格在中枢[${lastCenter.low.toFixed(2)}-${lastCenter.high.toFixed(2)}]下方运行，下降笔延续`;
+      } else {
+        currentStage = '中枢震荡';
+        stageDescription = `价格在中枢[${lastCenter.low.toFixed(2)}-${lastCenter.high.toFixed(2)}]内震荡`;
+      }
+    } else {
+      currentStage = `${direction}笔形成中`;
+      stageDescription = `尚未形成中枢，当前为${direction}笔`;
+    }
+  }
+  
+  const lastPrice = klineData.length > 0 ? klineData[klineData.length - 1].close : 0;
+  const paths: ChanlunAnalysis['paths'] = [];
+  
+  if (direction === '上升') {
+    paths.push({
+      name: '乐观路径',
+      probability: 40,
+      condition: '上升笔延续，突破前高',
+      target: `${(lastPrice * 1.08).toFixed(2)}-${(lastPrice * 1.12).toFixed(2)}`,
+      timeframe: '5-10 个交易日',
+      strategy: '持股待涨，突破后加仓',
+    });
+    paths.push({
+      name: '中性路径',
+      probability: 40,
+      condition: '上升笔结束，进入中枢震荡',
+      target: `${(lastPrice * 0.97).toFixed(2)}-${(lastPrice * 1.03).toFixed(2)}`,
+      timeframe: '10-15 个交易日',
+      strategy: '高抛低吸，等待方向选择',
+    });
+    paths.push({
+      name: '悲观路径',
+      probability: 20,
+      condition: '出现顶分型，下降笔开始',
+      target: `${(lastPrice * 0.92).toFixed(2)}-${(lastPrice * 0.95).toFixed(2)}`,
+      timeframe: '5-8 个交易日',
+      strategy: '减仓或离场，等待新的买点',
+    });
+  } else if (direction === '下降') {
+    paths.push({
+      name: '乐观路径',
+      probability: 30,
+      condition: '出现底分型，上升笔开始',
+      target: `${(lastPrice * 1.05).toFixed(2)}-${(lastPrice * 1.08).toFixed(2)}`,
+      timeframe: '5-10 个交易日',
+      strategy: '轻仓试多，止损设在底分型下方',
+    });
+    paths.push({
+      name: '中性路径',
+      probability: 40,
+      condition: '下降笔结束，进入中枢震荡',
+      target: `${(lastPrice * 0.97).toFixed(2)}-${(lastPrice * 1.03).toFixed(2)}`,
+      timeframe: '10-15 个交易日',
+      strategy: '观望为主，等待明确信号',
+    });
+    paths.push({
+      name: '悲观路径',
+      probability: 30,
+      condition: '下降笔延续，跌破前低',
+      target: `${(lastPrice * 0.92).toFixed(2)}-${(lastPrice * 0.95).toFixed(2)}`,
+      timeframe: '5-8 个交易日',
+      strategy: '空仓等待，不抄底',
+    });
+  } else {
+    paths.push({
+      name: '向上突破',
+      probability: 35,
+      condition: '突破中枢上沿',
+      target: `${(lastPrice * 1.08).toFixed(2)}-${(lastPrice * 1.12).toFixed(2)}`,
+      timeframe: '5-10 个交易日',
+      strategy: '突破后跟进',
+    });
+    paths.push({
+      name: '继续震荡',
+      probability: 40,
+      condition: '在中枢内继续震荡',
+      target: `${(lastPrice * 0.97).toFixed(2)}-${(lastPrice * 1.03).toFixed(2)}`,
+      timeframe: '10-15 个交易日',
+      strategy: '高抛低吸',
+    });
+    paths.push({
+      name: '向下突破',
+      probability: 25,
+      condition: '跌破中枢下沿',
+      target: `${(lastPrice * 0.92).toFixed(2)}-${(lastPrice * 0.95).toFixed(2)}`,
+      timeframe: '5-8 个交易日',
+      strategy: '止损离场',
+    });
+  }
+  
+  let advice = '';
+  if (direction === '上升') {
+    advice = buySignals.length > 0 
+      ? `出现${buySignals[buySignals.length - 1].type}类买点，可考虑介入。上升笔延续中，持股为主`
+      : '上升笔延续中，建议持股观察。若出现顶分型应减仓';
+  } else if (direction === '下降') {
+    advice = sellSignals.length > 0
+      ? `出现${sellSignals[sellSignals.length - 1].type}类卖点，建议减仓。下降笔延续中，观望为主`
+      : '下降笔延续中，建议观望。若出现底分型可轻仓试多';
+  } else {
+    advice = '中枢震荡中，建议高抛低吸。突破中枢上沿可跟进，跌破中枢下沿应止损';
+  }
+  
+  const risks: string[] = [];
+  if (strokes.length > 0) {
+    const lastStroke = strokes[strokes.length - 1];
+    const strokeLength = Math.abs(lastStroke.end - lastStroke.start);
+    if (strokeLength >= 8) {
+      risks.push(`${direction}笔已延续${strokeLength}根 K 线，注意${direction === '上升' ? '顶' : '底'}分型出现`);
+    }
+  }
+  if (centers.length > 0) {
+    const lastCenter = centers[centers.length - 1];
+    risks.push(`中枢区间 [${lastCenter.low.toFixed(2)}-${lastCenter.high.toFixed(2)}]，关注突破方向`);
+  }
+  if (buySignals.length === 0 && sellSignals.length === 0) {
+    risks.push('暂无明确买卖信号，等待分型确认');
+  }
+  if (risks.length === 0) {
+    risks.push('数据不足，分析仅供参考');
+  }
+  
+  const signals: ChanlunAnalysis['signals'] = [];
+  if (centers.length > 0) {
+    signals.push({
+      type: 'neutral',
+      name: '中枢震荡',
+      description: '当前处于中枢区间内震荡',
+      basis: `中枢区间 [${centers[centers.length - 1].low.toFixed(2)}-${centers[centers.length - 1].high.toFixed(2)}]`,
+    });
+  }
+  if (strokes.length > 0) {
+    const lastStroke = strokes[strokes.length - 1];
+    signals.push({
+      type: lastStroke.direction === 'up' ? 'buy' : 'sell',
+      name: `${lastStroke.direction === 'up' ? '上升' : '下降'}笔延续`,
+      description: `当前笔方向${lastStroke.direction === 'up' ? '向上' : '向下'}，未出现${lastStroke.direction === 'up' ? '顶' : '底'}分型`,
+      basis: `共识别${strokes.length}笔`,
+    });
+  }
+  buySignals.forEach((signal, idx) => {
+    signals.push({
+      type: 'buy',
+      name: `${signal.type}类买点`,
+      description: `第${idx + 1}个买点信号`,
+      basis: `价格${signal.price.toFixed(2)}`,
+    });
+  });
+  sellSignals.forEach((signal, idx) => {
+    signals.push({
+      type: 'sell',
+      name: `${signal.type}类卖点`,
+      description: `第${idx + 1}个卖点信号`,
+      basis: `价格${signal.price.toFixed(2)}`,
+    });
+  });
+  
+  if (signals.length === 0) {
+    signals.push({
+      type: 'neutral',
+      name: '数据不足',
+      description: 'K 线数据不足以生成缠论分析',
+      basis: '需要至少 10 根 K 线',
+    });
+  }
+  
   return {
-    currentStage: '中枢震荡后向上突破',
-    stageDescription: '当前处于第二个中枢形成后的向上离开阶段，笔的方向为上升笔，尚未形成新的中枢',
-    trendAssessment: {
-      direction: '上升',
-      confidence: '中',
-      basis: '上升笔延续中，未出现顶分型，但接近前高压力位',
-    },
-    paths: [
-      {
-        name: '乐观路径',
-        probability: 40,
-        condition: '突破前高1280并形成第三类买点',
-        target: '1350-1400',
-        timeframe: '5-10个交易日',
-        strategy: '持股待涨，突破后加仓',
-      },
-      {
-        name: '中性路径',
-        probability: 40,
-        condition: '在前高附近震荡，形成新的中枢',
-        target: '1240-1280',
-        timeframe: '10-15个交易日',
-        strategy: '高抛低吸，等待方向选择',
-      },
-      {
-        name: '悲观路径',
-        probability: 20,
-        condition: '无法突破前高，形成顶分型后回落',
-        target: '1180-1200',
-        timeframe: '5-8个交易日',
-        strategy: '减仓或离场，等待新的买点',
-      },
-    ],
-    advice: '当前处于上升笔中，建议持股观察。若突破1280前高并回踩不破，可加仓；若出现顶分型且跌破5日均线，应减仓',
-    risks: [
-      '接近前高压力位1280，突破失败风险较大',
-      '上升笔已延续8根K线，注意顶分型出现',
-      '成交量未明显放大，突破力度存疑',
-    ],
-    signals: [
-      {
-        type: 'neutral',
-        name: '中枢震荡',
-        description: '当前处于中枢区间内震荡',
-        basis: '最近10根K线的高低点重叠区域',
-      },
-      {
-        type: 'buy',
-        name: '上升笔延续',
-        description: '当前笔方向向上，未出现顶分型',
-        basis: '最近3根K线高点逐步抬升',
-      },
-    ],
+    currentStage,
+    stageDescription,
+    trendAssessment: { direction, confidence, basis },
+    paths,
+    advice,
+    risks,
+    signals,
   };
 }
 
 interface ChanlunCardProps {
   visible: boolean;
+  klineData?: KLineData[];
 }
 
-export function ChanlunCard({ visible }: ChanlunCardProps) {
+export function ChanlunCard({ visible, klineData = [] }: ChanlunCardProps) {
   const [expanded, setExpanded] = useState(true);
-  const analysis = generateChanlunAnalysis();
+  const analysis = useMemo(() => generateChanlunAnalysis(klineData), [klineData]);
 
   if (!visible) return null;
 
@@ -108,7 +258,6 @@ export function ChanlunCard({ visible }: ChanlunCardProps) {
 
   return (
     <div className="rounded border border-purple-500/30 bg-[var(--bg-primary)] overflow-hidden">
-      {/* 头部 */}
       <div className="flex items-center justify-between px-3 py-2 bg-purple-500/10 border-b border-purple-500/30">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-purple-500" />
@@ -134,7 +283,6 @@ export function ChanlunCard({ visible }: ChanlunCardProps) {
 
       {expanded && (
         <div className="p-3 space-y-3">
-          {/* 当前结论 */}
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span className="text-xs text-[var(--text-secondary)]">当前阶段</span>
@@ -152,7 +300,6 @@ export function ChanlunCard({ visible }: ChanlunCardProps) {
             <div className="text-sm text-purple-200 font-medium">{analysis.currentStage}</div>
           </div>
 
-          {/* 走势研判 */}
           <div className="p-2 rounded bg-purple-500/5 border border-purple-500/20">
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs text-[var(--text-secondary)]">走势研判</span>
@@ -168,7 +315,6 @@ export function ChanlunCard({ visible }: ChanlunCardProps) {
             <p className="text-xs text-[var(--text-secondary)]">{analysis.trendAssessment.basis}</p>
           </div>
 
-          {/* 信号列表 */}
           <div className="space-y-1">
             <span className="text-xs text-[var(--text-secondary)]">关键信号</span>
             {analysis.signals.map((signal, i) => (
@@ -190,7 +336,7 @@ export function ChanlunCard({ visible }: ChanlunCardProps) {
                       </TooltipTrigger>
                       <TooltipContent side="right" className="max-w-[300px] bg-[var(--bg-primary)] border-purple-500/30">
                         <p className="text-xs text-[var(--text-primary)] mb-1">{signal.description}</p>
-                        <p className="text-xs text-purple-300">依据: {signal.basis}</p>
+                        <p className="text-xs text-purple-300">依据：{signal.basis}</p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
@@ -199,7 +345,6 @@ export function ChanlunCard({ visible }: ChanlunCardProps) {
             ))}
           </div>
 
-          {/* 多路径推演 */}
           <div className="space-y-2">
             <span className="text-xs text-[var(--text-secondary)]">走势推演</span>
             <div className="grid grid-cols-3 gap-1.5">
@@ -213,7 +358,7 @@ export function ChanlunCard({ visible }: ChanlunCardProps) {
                         'bg-green-500/10 border border-green-500/20'
                       }`}>
                         <div className="text-xs font-medium text-[var(--text-primary)]">{path.name}</div>
-                        <div className="text-xs font-medium text-[var(--text-secondary)]">暂无量化评估</div>
+                        <div className="text-xs font-medium text-[var(--text-secondary)]">{path.probability}%</div>
                       </div>
                     </TooltipTrigger>
                     <TooltipContent side="right" className="max-w-[280px] bg-[var(--bg-primary)] border-purple-500/30">
@@ -230,13 +375,11 @@ export function ChanlunCard({ visible }: ChanlunCardProps) {
             </div>
           </div>
 
-          {/* 操作建议 */}
           <div className="p-2 rounded bg-blue-500/5 border border-blue-500/20">
             <span className="text-xs text-[var(--text-secondary)]">操作建议</span>
             <p className="text-xs text-blue-200 mt-1">{analysis.advice}</p>
           </div>
 
-          {/* 风险提示 */}
           <div className="space-y-1">
             <span className="text-xs text-[var(--accent-red)]">风险提示</span>
             {analysis.risks.map((risk, i) => (
