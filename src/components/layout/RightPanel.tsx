@@ -7,7 +7,6 @@ import { ChanlunCard } from '@/components/analysis/ChanlunCard';
 import { WaveCard } from '@/components/analysis/WaveCard';
 import { TechnicalCard } from '@/components/analysis/TechnicalCard';
 import { ComprehensiveAnalysis } from '@/components/analysis/ComprehensiveAnalysis';
-import { AdvicePanel } from '@/components/analysis/AdvicePanel';
 import { MacroEconomyPanel } from '@/components/macro/MacroEconomyPanel';
 
 import { IndustryMappingPanel } from '@/components/industry/IndustryMappingPanel';
@@ -295,16 +294,6 @@ export function RightPanel() {
         >
           <MarketReferenceTabs stockCode={selectedStock?.code} stockName={selectedStock?.name} />
         </AccordionSection>
-
-        {/* 4. 综合建议 - 手风琴模式 */}
-        {selectedStock && (
-        <AccordionSection 
-          title="综合建议" 
-          icon="💡"
-        >
-          <AdvicePanel />
-        </AccordionSection>
-        )}
 
         {/* 5. 模拟回测 - 手风琴模式 */}
         <AccordionSection 
