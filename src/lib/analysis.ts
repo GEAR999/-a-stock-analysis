@@ -206,7 +206,185 @@ export function mergeInclusiveKLines(data: KLineData[]): MergedKLine[] {
   return result;
 }
 
-// Simplified Chanlun Analysis
+// 分型有效性验证
+interface FractalValidation {
+  isValid: boolean;
+  volumeScore: number;      // 成交量评分（0-1）
+  amplitudeScore: number;   // 幅度评分（0-1）
+  timeScore: number;        // 时间间隔评分（0-1）
+  overallScore: number;     // 综合评分（0-1）
+}
+
+function validateFractal(
+  data: KLineData[],
+  merged: MergedKLine[],
+  index: number,
+  type: 'top' | 'bottom'
+): FractalValidation {
+  const origIdx = merged[index].originalIndex;
+
+  // 1. 成交量验证：分型必须有放量（至少 1.5 倍平均成交量）
+  const lookback = Math.min(20, origIdx);
+  const avgVolume = data.slice(Math.max(0, origIdx - lookback), origIdx)
+    .reduce((sum, k) => sum + k.volume, 0) / lookback;
+  const volumeScore = avgVolume > 0 ? Math.min(data[origIdx].volume / (avgVolume * 1.5), 1) : 0.5;
+
+  // 2. 幅度验证：分型必须超过一定幅度（至少 2%）
+  const window = Math.min(5, index);
+  const neighbors = merged.slice(Math.max(0, index - window), Math.min(merged.length, index + window + 1));
+  let amplitude = 0;
+  if (type === 'top') {
+    const maxNeighbor = Math.max(...neighbors.filter((_, i) => i !== index).map(k => k.high));
+    amplitude = maxNeighbor > 0 ? (merged[index].high - maxNeighbor) / merged[index].high : 0;
+  } else {
+    const minNeighbor = Math.min(...neighbors.filter((_, i) => i !== index).map(k => k.low));
+    amplitude = minNeighbor > 0 ? (minNeighbor - merged[index].low) / merged[index].low : 0;
+  }
+  const amplitudeScore = Math.min(Math.abs(amplitude) / 0.02, 1);
+
+  // 3. 时间间隔验证：与前一个同类型分型至少间隔 5 根 K 线
+  let timeScore = 1;
+  for (let i = index - 1; i >= 0; i--) {
+    const isSameType = type === 'top'
+      ? merged[i].high > merged[Math.max(0, i - 1)].high && merged[i].high > merged[Math.min(merged.length - 1, i + 1)].high
+      : merged[i].low < merged[Math.max(0, i - 1)].low && merged[i].low < merged[Math.min(merged.length - 1, i + 1)].low;
+    if (isSameType) {
+      const timeGap = index - i;
+      timeScore = Math.min(timeGap / 5, 1);
+      break;
+    }
+  }
+
+  const overallScore = (volumeScore + amplitudeScore + timeScore) / 3;
+
+  return {
+    isValid: overallScore >= 0.5,  // 综合评分 ≥ 0.5 才认为是有效分型
+    volumeScore,
+    amplitudeScore,
+    timeScore,
+    overallScore,
+  };
+}
+
+// 笔的有效性验证
+interface PenValidation {
+  isValid: boolean;
+  breakThrough: boolean;    // 是否突破前一笔
+  volumeConfirm: boolean;   // 成交量确认
+  timeGap: number;          // 与前一笔的时间间隔
+}
+
+function validatePen(
+  data: KLineData[],
+  strokes: ChanlunResult['strokes'],
+  newStroke: { start: number; end: number; direction: 'up' | 'down' }
+): PenValidation {
+  if (strokes.length === 0) {
+    return { isValid: true, breakThrough: true, volumeConfirm: true, timeGap: 999 };
+  }
+
+  const lastStroke = strokes[strokes.length - 1];
+
+  // 1. 突破验证：新笔必须突破前一笔的高点/低点
+  const newStrokeHigh = Math.max(data[newStroke.start].high, data[newStroke.end].high);
+  const newStrokeLow = Math.min(data[newStroke.start].low, data[newStroke.end].low);
+  const lastStrokeHigh = Math.max(data[lastStroke.start].high, data[lastStroke.end].high);
+  const lastStrokeLow = Math.min(data[lastStroke.start].low, data[lastStroke.end].low);
+
+  const breakThrough = newStroke.direction === 'up'
+    ? newStrokeHigh > lastStrokeHigh
+    : newStrokeLow < lastStrokeLow;
+
+  // 2. 成交量确认：新笔的平均成交量必须 ≥ 前一笔的 80%
+  const newStrokeVolume = data.slice(newStroke.start, newStroke.end + 1)
+    .reduce((sum, k) => sum + k.volume, 0) / (newStroke.end - newStroke.start + 1);
+  const lastStrokeVolume = data.slice(lastStroke.start, lastStroke.end + 1)
+    .reduce((sum, k) => sum + k.volume, 0) / (lastStroke.end - lastStroke.start + 1);
+  const volumeConfirm = lastStrokeVolume > 0 ? newStrokeVolume >= lastStrokeVolume * 0.8 : true;
+
+  // 3. 时间间隔：与前一笔至少间隔 3 根 K 线
+  const timeGap = newStroke.start - lastStroke.end;
+
+  return {
+    isValid: breakThrough && volumeConfirm && timeGap >= 3,
+    breakThrough,
+    volumeConfirm,
+    timeGap,
+  };
+}
+
+// MACD 面积计算
+function calculateMACDArea(data: KLineData[], start: number, end: number): number {
+  const macd = calculateMACD(data);
+  let area = 0;
+  for (let i = start; i <= end && i < macd.length; i++) {
+    area += Math.abs(macd[i].histogram);
+  }
+  return area;
+}
+
+// 背驰判断
+interface DivergenceResult {
+  hasDivergence: boolean;
+  type: 'top' | 'bottom' | null;
+  strength: number;         // 背驰强度（0-1）
+  macdAreaRatio: number;    // MACD 面积比
+  priceChange: number;      // 价格变化幅度
+}
+
+function detectDivergence(
+  data: KLineData[],
+  strokes: ChanlunResult['strokes']
+): DivergenceResult {
+  if (strokes.length < 3) {
+    return { hasDivergence: false, type: null, strength: 0, macdAreaRatio: 1, priceChange: 0 };
+  }
+
+  const lastStroke = strokes[strokes.length - 1];
+  const prevStroke = strokes[strokes.length - 3];  // 同方向的前一笔
+
+  // 计算 MACD 红绿柱面积
+  const lastArea = calculateMACDArea(data, lastStroke.start, lastStroke.end);
+  const prevArea = calculateMACDArea(data, prevStroke.start, prevStroke.end);
+  const macdAreaRatio = prevArea > 0 ? lastArea / prevArea : 1;
+
+  // 计算价格变化幅度
+  const lastPrice = lastStroke.direction === 'up'
+    ? Math.max(data[lastStroke.start].high, data[lastStroke.end].high)
+    : Math.min(data[lastStroke.start].low, data[lastStroke.end].low);
+  const prevPrice = prevStroke.direction === 'up'
+    ? Math.max(data[prevStroke.start].high, data[prevStroke.end].high)
+    : Math.min(data[prevStroke.start].low, data[prevStroke.end].low);
+  const priceChange = prevPrice > 0 ? Math.abs(lastPrice - prevPrice) / prevPrice : 0;
+
+  // 底背驰：价格创新低但 MACD 面积缩小
+  if (lastStroke.direction === 'down' && lastPrice < prevPrice && macdAreaRatio < 0.8) {
+    const strength = (1 - macdAreaRatio) * priceChange;
+    return {
+      hasDivergence: true,
+      type: 'bottom',
+      strength: Math.min(strength, 1),
+      macdAreaRatio,
+      priceChange,
+    };
+  }
+
+  // 顶背驰：价格创新高但 MACD 面积缩小
+  if (lastStroke.direction === 'up' && lastPrice > prevPrice && macdAreaRatio < 0.8) {
+    const strength = (1 - macdAreaRatio) * priceChange;
+    return {
+      hasDivergence: true,
+      type: 'top',
+      strength: Math.min(strength, 1),
+      macdAreaRatio,
+      priceChange,
+    };
+  }
+
+  return { hasDivergence: false, type: null, strength: 0, macdAreaRatio: 1, priceChange };
+}
+
+// Enhanced Chanlun Analysis with fractal validation, pen validation, divergence detection
 export function analyzeChanlun(data: KLineData[]): ChanlunResult {
   if (data.length < 10) {
     return { strokes: [], segments: [], centers: [], buySignals: [], sellSignals: [] };
@@ -218,25 +396,31 @@ export function analyzeChanlun(data: KLineData[]): ChanlunResult {
     return { strokes: [], segments: [], centers: [], buySignals: [], sellSignals: [] };
   }
 
-  // Step 2: 在合并后数据上识别顶底分型
-  const tops: number[] = [];
-  const bottoms: number[] = [];
+  // Step 2: 在合并后数据上识别顶底分型（带有效性验证）
+  const tops: Array<{ index: number; validation: FractalValidation }> = [];
+  const bottoms: Array<{ index: number; validation: FractalValidation }> = [];
 
   for (let i = 1; i < merged.length - 1; i++) {
     // 顶分型：中间K线的高点 > 左右两根的高点
     if (merged[i].high > merged[i - 1].high && merged[i].high > merged[i + 1].high) {
-      tops.push(i);
+      const validation = validateFractal(data, merged, i, 'top');
+      if (validation.isValid) {
+        tops.push({ index: i, validation });
+      }
     }
     // 底分型：中间K线的低点 < 左右两根的低点
     if (merged[i].low < merged[i - 1].low && merged[i].low < merged[i + 1].low) {
-      bottoms.push(i);
+      const validation = validateFractal(data, merged, i, 'bottom');
+      if (validation.isValid) {
+        bottoms.push({ index: i, validation });
+      }
     }
   }
 
-  // Step 3: 构建笔 - 交替筛选 + 最少5根K线距离校验
-  const points: Array<{ index: number; type: 'top' | 'bottom' }> = [];
-  tops.forEach(t => points.push({ index: t, type: 'top' }));
-  bottoms.forEach(b => points.push({ index: b, type: 'bottom' }));
+  // Step 3: 构建笔 - 交替筛选 + 有效性验证
+  const points: Array<{ index: number; type: 'top' | 'bottom'; validation: FractalValidation }> = [];
+  tops.forEach(t => points.push({ index: t.index, type: 'top', validation: t.validation }));
+  bottoms.forEach(b => points.push({ index: b.index, type: 'bottom', validation: b.validation }));
   points.sort((a, b) => a.index - b.index);
 
   const filtered: typeof points = [];
@@ -254,26 +438,38 @@ export function analyzeChanlun(data: KLineData[]): ChanlunResult {
         }
         // 距离不够则跳过此分型
       } else {
-        // 同类型取极值
-        if (p.type === 'top' && merged[p.index].high > merged[last.index].high) {
-          filtered[filtered.length - 1] = p;
-        } else if (p.type === 'bottom' && merged[p.index].low < merged[last.index].low) {
-          filtered[filtered.length - 1] = p;
+        // 同类型取极值（优先选择 validation 评分更高的）
+        if (p.type === 'top') {
+          if (merged[p.index].high > merged[last.index].high ||
+              (merged[p.index].high === merged[last.index].high && p.validation.overallScore > last.validation.overallScore)) {
+            filtered[filtered.length - 1] = p;
+          }
+        } else {
+          if (merged[p.index].low < merged[last.index].low ||
+              (merged[p.index].low === merged[last.index].low && p.validation.overallScore > last.validation.overallScore)) {
+            filtered[filtered.length - 1] = p;
+          }
         }
       }
     }
   }
 
-  // Step 4: 构建笔（index映射回原始K线）
+  // Step 4: 构建笔（index映射回原始K线，带有效性验证）
   const strokes: ChanlunResult['strokes'] = [];
   for (let i = 0; i < filtered.length - 1; i++) {
     const start = filtered[i];
     const end = filtered[i + 1];
-    strokes.push({
+    const newStroke = {
       start: merged[start.index].originalIndex,
       end: merged[end.index].originalIndex,
-      direction: start.type === 'bottom' ? 'up' : 'down',
-    });
+      direction: start.type === 'bottom' ? ('up' as const) : ('down' as const),
+    };
+
+    // 验证笔的有效性
+    const validation = validatePen(data, strokes, newStroke);
+    if (validation.isValid) {
+      strokes.push(newStroke);
+    }
   }
 
   // Step 5: 中枢识别（使用原始K线数据获取价格）
@@ -299,104 +495,77 @@ export function analyzeChanlun(data: KLineData[]): ChanlunResult {
     }
   }
 
-  // Step 6: 买卖点信号（index已经是原始K线位置）
+  // Step 6: 背驰判断
+  const divergence = detectDivergence(data, strokes);
+
+  // Step 7: 买卖点信号（严格定义）
   const buySignals: ChanlunResult['buySignals'] = [];
   const sellSignals: ChanlunResult['sellSignals'] = [];
 
-  // 一买：下跌笔后的底分型
-  for (let i = 1; i < filtered.length; i++) {
-    if (filtered[i].type === 'bottom' && i >= 3) {
-      const prevStroke = strokes[i - 1];
-      if (prevStroke && prevStroke.direction === 'down') {
-        const origIdx = merged[filtered[i].index].originalIndex;
-        buySignals.push({
-          index: origIdx,
-          type: 1,
-          price: data[origIdx].low,
-        });
-      }
-    }
-    // 一卖：上涨笔后的顶分型
-    if (filtered[i].type === 'top' && i >= 3) {
-      const prevStroke = strokes[i - 1];
-      if (prevStroke && prevStroke.direction === 'up') {
-        const origIdx = merged[filtered[i].index].originalIndex;
-        sellSignals.push({
-          index: origIdx,
-          type: 1,
-          price: data[origIdx].high,
-        });
-      }
-    }
+  // 一买：下跌趋势背驰后的底分型
+  if (divergence.hasDivergence && divergence.type === 'bottom') {
+    const lastStroke = strokes[strokes.length - 1];
+    buySignals.push({
+      index: lastStroke.end,
+      type: 1,
+      price: data[lastStroke.end].low,
+    });
+  }
+
+  // 一卖：上涨趋势背驰后的顶分型
+  if (divergence.hasDivergence && divergence.type === 'top') {
+    const lastStroke = strokes[strokes.length - 1];
+    sellSignals.push({
+      index: lastStroke.end,
+      type: 1,
+      price: data[lastStroke.end].high,
+    });
   }
 
   // 二买：一买后回调不破一买低点
-  for (let i = 0; i < buySignals.length; i++) {
-    const firstBuy = buySignals[i];
-    for (let j = 0; j < filtered.length; j++) {
-      const fIdx = merged[filtered[j].index].originalIndex;
-      if (fIdx > firstBuy.index && filtered[j].type === 'bottom') {
-        const pullbackLow = data[fIdx].low;
-        if (pullbackLow > firstBuy.price) {
-          const hasUpStroke = strokes.some(s =>
-            s.direction === 'up' &&
-            s.end > firstBuy.index &&
-            s.start < fIdx
-          );
-          if (hasUpStroke) {
-            buySignals.push({
-              index: fIdx,
-              type: 2,
-              price: pullbackLow,
-            });
-            break;
-          }
-        }
+  if (buySignals.length > 0 && buySignals[buySignals.length - 1].type === 1) {
+    const firstBuy = buySignals[buySignals.length - 1];
+    for (let i = firstBuy.index + 1; i < data.length; i++) {
+      if (data[i].low > firstBuy.price) {
+        buySignals.push({
+          index: i,
+          type: 2,
+          price: data[i].low,
+        });
         break;
       }
     }
   }
 
   // 二卖：一卖后反弹不破一卖高点
-  for (let i = 0; i < sellSignals.length; i++) {
-    const firstSell = sellSignals[i];
-    for (let j = 0; j < filtered.length; j++) {
-      const fIdx = merged[filtered[j].index].originalIndex;
-      if (fIdx > firstSell.index && filtered[j].type === 'top') {
-        const bounceHigh = data[fIdx].high;
-        if (bounceHigh < firstSell.price) {
-          const hasDownStroke = strokes.some(s =>
-            s.direction === 'down' &&
-            s.end > firstSell.index &&
-            s.start < fIdx
-          );
-          if (hasDownStroke) {
-            sellSignals.push({
-              index: fIdx,
-              type: 2,
-              price: bounceHigh,
-            });
-            break;
-          }
-        }
+  if (sellSignals.length > 0 && sellSignals[sellSignals.length - 1].type === 1) {
+    const firstSell = sellSignals[sellSignals.length - 1];
+    for (let i = firstSell.index + 1; i < data.length; i++) {
+      if (data[i].high < firstSell.price) {
+        sellSignals.push({
+          index: i,
+          type: 2,
+          price: data[i].high,
+        });
         break;
       }
     }
   }
 
   // 三买：离开中枢向上后回调不进入中枢
-  for (const center of centers) {
-    const afterCenterStrokes = strokes.filter(s => s.start >= center.end);
+  if (centers.length > 0) {
+    const lastCenter = centers[centers.length - 1];
+    const afterCenterStrokes = strokes.filter(s => s.start >= lastCenter.end);
 
     for (let i = 0; i < afterCenterStrokes.length - 1; i++) {
       const stroke = afterCenterStrokes[i];
       if (stroke.direction === 'up') {
         const strokeHigh = Math.max(data[stroke.start].high, data[stroke.end].high);
-        if (strokeHigh > center.high) {
+        if (strokeHigh > lastCenter.high) {
           const nextDown = afterCenterStrokes[i + 1];
           if (nextDown && nextDown.direction === 'down') {
             const pullbackLow = Math.min(data[nextDown.start].low, data[nextDown.end].low);
-            if (pullbackLow > center.high) {
+            if (pullbackLow > lastCenter.high) {
               buySignals.push({
                 index: nextDown.end,
                 type: 3,
@@ -413,11 +582,11 @@ export function analyzeChanlun(data: KLineData[]): ChanlunResult {
       const stroke = afterCenterStrokes[i];
       if (stroke.direction === 'down') {
         const strokeLow = Math.min(data[stroke.start].low, data[stroke.end].low);
-        if (strokeLow < center.low) {
+        if (strokeLow < lastCenter.low) {
           const nextUp = afterCenterStrokes[i + 1];
           if (nextUp && nextUp.direction === 'up') {
             const bounceHigh = Math.max(data[nextUp.start].high, data[nextUp.end].high);
-            if (bounceHigh < center.low) {
+            if (bounceHigh < lastCenter.low) {
               sellSignals.push({
                 index: nextUp.end,
                 type: 3,
@@ -462,6 +631,137 @@ function calculateATR(data: KLineData[], period = 14): number {
   // 取最近period个TR的平均值
   const recent = trs.slice(-period);
   return recent.reduce((a, b) => a + b, 0) / recent.length;
+}
+
+// 斐波那契比例计算
+interface FibonacciRatio {
+  retracement: number;      // 回撤比例（如 0.382、0.5、0.618）
+  extension: number;        // 扩展比例（如 1.618、2.618）
+  isValid: boolean;         // 是否符合斐波那契比例
+  closestRatio: number;     // 最接近的标准比例
+}
+
+function calculateFibonacciRatio(
+  wave1Start: number,
+  wave1End: number,
+  wave2End: number
+): FibonacciRatio {
+  const wave1Length = Math.abs(wave1End - wave1Start);
+  const wave2Length = Math.abs(wave2End - wave1End);
+  const retracement = wave1Length > 0 ? wave2Length / wave1Length : 0;
+
+  // 标准斐波那契回撤比例
+  const fibRatios = [0.236, 0.382, 0.5, 0.618, 0.786];
+  const closestRatio = fibRatios.reduce((prev, curr) =>
+    Math.abs(curr - retracement) < Math.abs(prev - retracement) ? curr : prev
+  );
+
+  // 允许 ±10% 的误差
+  const isValid = Math.abs(retracement - closestRatio) / closestRatio <= 0.10;
+
+  return {
+    retracement,
+    extension: 0,  // 扩展比例在计算浪 3/5 时使用
+    isValid,
+    closestRatio,
+  };
+}
+
+// 计算斐波那契评分
+function calculateFibScore(seq: Array<{ index: number; price: number; type: 'high' | 'low' }>): number {
+  if (seq.length < 6) return 0;
+
+  let score = 0;
+  let count = 0;
+
+  // 浪 2 回撤：38.2%-61.8%
+  const wave2Fib = calculateFibonacciRatio(seq[0].price, seq[1].price, seq[2].price);
+  if (wave2Fib.isValid && wave2Fib.retracement >= 0.382 && wave2Fib.retracement <= 0.618) {
+    score += 1;
+  }
+  count++;
+
+  // 浪 3 扩展：1.618-2.618 倍浪 1
+  const wave1Length = Math.abs(seq[1].price - seq[0].price);
+  const wave3Length = Math.abs(seq[3].price - seq[2].price);
+  const wave3Extension = wave1Length > 0 ? wave3Length / wave1Length : 0;
+  if (wave3Extension >= 1.618 && wave3Extension <= 2.618) {
+    score += 1;
+  }
+  count++;
+
+  // 浪 4 回撤：38.2%-50%
+  const wave4Fib = calculateFibonacciRatio(seq[2].price, seq[3].price, seq[4].price);
+  if (wave4Fib.isValid && wave4Fib.retracement >= 0.382 && wave4Fib.retracement <= 0.5) {
+    score += 1;
+  }
+  count++;
+
+  // 浪 5 扩展：0.618-1.618 倍浪 1
+  const wave5Length = Math.abs(seq[5].price - seq[4].price);
+  const wave5Extension = wave1Length > 0 ? wave5Length / wave1Length : 0;
+  if (wave5Extension >= 0.618 && wave5Extension <= 1.618) {
+    score += 1;
+  }
+  count++;
+
+  return count > 0 ? score / count : 0;
+}
+
+// 计算时间对称性评分
+function calculateTimeSymmetryScore(seq: Array<{ index: number; price: number; type: 'high' | 'low' }>): number {
+  if (seq.length < 5) return 0;
+
+  // 浪 2 时间
+  const wave2Time = seq[2].index - seq[1].index;
+
+  // 浪 4 时间
+  const wave4Time = seq[4].index - seq[3].index;
+
+  // 时间对称性：浪 2 时间 ≈ 浪 4 时间
+  const timeRatio = Math.min(wave2Time, wave4Time) / Math.max(wave2Time, wave4Time);
+
+  // 允许 ±30% 的误差
+  return timeRatio >= 0.7 ? 1 : timeRatio / 0.7;
+}
+
+// 计算波浪成交量评分
+function calculateWaveVolumeScore(data: KLineData[], seq: Array<{ index: number; price: number; type: 'high' | 'low' }>): number {
+  if (seq.length < 5) return 0;
+
+  // 浪 1 平均成交量
+  const wave1Volume = data.slice(seq[0].index, seq[1].index + 1)
+    .reduce((sum, k) => sum + k.volume, 0) / (seq[1].index - seq[0].index + 1);
+
+  // 浪 3 平均成交量
+  const wave3Volume = data.slice(seq[2].index, seq[3].index + 1)
+    .reduce((sum, k) => sum + k.volume, 0) / (seq[3].index - seq[2].index + 1);
+
+  // 浪 5 平均成交量（如果有）
+  let wave5Volume = 0;
+  if (seq.length >= 6) {
+    wave5Volume = data.slice(seq[4].index, seq[5].index + 1)
+      .reduce((sum, k) => sum + k.volume, 0) / (seq[5].index - seq[4].index + 1);
+  }
+
+  // 浪 3 应该放量（> 浪 1 的 1.2 倍）
+  const wave3Score = wave1Volume > 0 ? Math.min(wave3Volume / (wave1Volume * 1.2), 1) : 0.5;
+
+  // 浪 5 应该缩量（< 浪 3 的 0.8 倍）
+  const wave5Score = seq.length >= 6 && wave3Volume > 0 ? (wave5Volume < wave3Volume * 0.8 ? 1 : 0.5) : 0.5;
+
+  return (wave3Score + wave5Score) / 2;
+}
+
+// 波浪匹配结果
+interface WaveMatch {
+  pattern: string;          // 浪型模式（如"1-2-3-4-5"、"A-B-C"）
+  confidence: number;       // 置信度（0-1）
+  fibScore: number;         // 斐波那契比例评分（0-1）
+  timeScore: number;        // 时间对称性评分（0-1）
+  volumeScore: number;      // 成交量评分（0-1）
+  points: number[];         // 波浪点位索引
+  waves: WaveResult['waves']; // 波浪标注
 }
 
 // 波浪灵敏度类型
@@ -533,7 +833,6 @@ export function analyzeWaves(data: KLineData[], sensitivity: WaveSensitivity = '
     }
   }
 
-  const waves: WaveResult['waves'] = [];
   const impulseLabels = ['1', '2', '3', '4', '5'];
   const correctiveLabels = ['A', 'B', 'C'];
 
@@ -542,72 +841,110 @@ export function analyzeWaves(data: KLineData[], sensitivity: WaveSensitivity = '
   }
 
   // Try to find impulse wave pattern (5 waves) in the last N pivots
-  // Look for the best 6-pivot sequence that forms an impulse pattern
-  let bestImpulse: typeof filtered = [];
-  let bestImpulseScore = 0;
+  // 返回 Top 3 备选方案
+  const matches: WaveMatch[] = [];
 
   for (let start = Math.max(0, filtered.length - 10); start <= filtered.length - 6; start++) {
     const seq = filtered.slice(start, start + 6);
     if (seq.length < 6) continue;
 
     // Check upward impulse: low-high-low-high-low-high with increasing highs
-    let upScore = 0;
     if (seq[0].type === 'low') {
-      for (let i = 1; i < seq.length; i++) {
-        if (i % 2 === 1 && seq[i].price > seq[i - 1].price) upScore += 2;
-        else if (i % 2 === 0 && seq[i].price < seq[i - 1].price) upScore += 1;
+      // 计算斐波那契评分
+      const fibScore = calculateFibScore(seq);
+
+      // 计算时间对称性评分
+      const timeScore = calculateTimeSymmetryScore(seq);
+
+      // 计算成交量评分
+      const volumeScore = calculateWaveVolumeScore(data, seq);
+
+      // 综合置信度：斐波那契 50% + 时间 30% + 成交量 20%
+      const confidence = fibScore * 0.5 + timeScore * 0.3 + volumeScore * 0.2;
+
+      if (confidence >= 0.5) {
+        const waves: WaveResult['waves'] = [];
+        for (let i = 0; i < 5 && i < seq.length - 1; i++) {
+          waves.push({
+            start: seq[i].index,
+            end: seq[i + 1].index,
+            label: impulseLabels[i],
+            type: 'impulse',
+          });
+        }
+
+        matches.push({
+          pattern: '1-2-3-4-5 (上升)',
+          confidence,
+          fibScore,
+          timeScore,
+          volumeScore,
+          points: seq.map(p => p.index),
+          waves,
+        });
       }
-      // Bonus for wave 3 being the longest (most common pattern)
-      const w1Len = Math.abs(seq[1].price - seq[0].price);
-      const w3Len = Math.abs(seq[3].price - seq[2].price);
-      if (w3Len > w1Len) upScore += 2;
     }
 
     // Check downward impulse: high-low-high-low-high-low
-    let downScore = 0;
     if (seq[0].type === 'high') {
-      for (let i = 1; i < seq.length; i++) {
-        if (i % 2 === 1 && seq[i].price < seq[i - 1].price) downScore += 2;
-        else if (i % 2 === 0 && seq[i].price > seq[i - 1].price) downScore += 1;
-      }
-      const w1Len = Math.abs(seq[1].price - seq[0].price);
-      const w3Len = Math.abs(seq[3].price - seq[2].price);
-      if (w3Len > w1Len) downScore += 2;
-    }
+      // 计算斐波那契评分
+      const fibScore = calculateFibScore(seq);
 
-    const score = Math.max(upScore, downScore);
-    if (score > bestImpulseScore) {
-      bestImpulseScore = score;
-      bestImpulse = seq;
-    }
-  }
+      // 计算时间对称性评分
+      const timeScore = calculateTimeSymmetryScore(seq);
 
-  // If we found a decent impulse pattern, label it
-  if (bestImpulseScore >= 4 && bestImpulse.length >= 6) {
-    for (let i = 0; i < 5 && i < bestImpulse.length - 1; i++) {
-      waves.push({
-        start: bestImpulse[i].index,
-        end: bestImpulse[i + 1].index,
-        label: impulseLabels[i],
-        type: 'impulse',
-      });
-    }
-  } else {
-    // Fall back to labeling the last few segments as corrective waves
-    const lastN = filtered.slice(-4);
-    if (lastN.length >= 4) {
-      for (let i = 0; i < 3 && i < lastN.length - 1; i++) {
-        waves.push({
-          start: lastN[i].index,
-          end: lastN[i + 1].index,
-          label: correctiveLabels[i],
-          type: 'corrective',
+      // 计算成交量评分
+      const volumeScore = calculateWaveVolumeScore(data, seq);
+
+      // 综合置信度：斐波那契 50% + 时间 30% + 成交量 20%
+      const confidence = fibScore * 0.5 + timeScore * 0.3 + volumeScore * 0.2;
+
+      if (confidence >= 0.5) {
+        const waves: WaveResult['waves'] = [];
+        for (let i = 0; i < 5 && i < seq.length - 1; i++) {
+          waves.push({
+            start: seq[i].index,
+            end: seq[i + 1].index,
+            label: impulseLabels[i],
+            type: 'impulse',
+          });
+        }
+
+        matches.push({
+          pattern: '1-2-3-4-5 (下降)',
+          confidence,
+          fibScore,
+          timeScore,
+          volumeScore,
+          points: seq.map(p => p.index),
+          waves,
         });
       }
     }
   }
 
-  return { waves };
+  // 按置信度排序，返回 Top 1（最佳匹配）
+  if (matches.length > 0) {
+    matches.sort((a, b) => b.confidence - a.confidence);
+    return { waves: matches[0].waves };
+  }
+
+  // Fall back to labeling the last few segments as corrective waves
+  const lastN = filtered.slice(-4);
+  if (lastN.length >= 4) {
+    const waves: WaveResult['waves'] = [];
+    for (let i = 0; i < 3 && i < lastN.length - 1; i++) {
+      waves.push({
+        start: lastN[i].index,
+        end: lastN[i + 1].index,
+        label: correctiveLabels[i],
+        type: 'corrective',
+      });
+    }
+    return { waves };
+  }
+
+  return { waves: [] };
 }
 
 // Get all technical indicators

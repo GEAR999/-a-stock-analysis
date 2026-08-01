@@ -145,106 +145,8 @@ interface KLineData {
   volume: number;
 }
 
-// 技术指标计算
-function calcEMA(data: number[], period: number): number[] {
-  const ema: number[] = [];
-  const multiplier = 2 / (period + 1);
-  ema[0] = data[0];
-  for (let i = 1; i < data.length; i++) {
-    ema[i] = (data[i] - ema[i - 1]) * multiplier + ema[i - 1];
-  }
-  return ema;
-}
-
-function calcMACD(closes: number[]): { dif: number[]; dea: number[]; macd: number[] } {
-  const ema12 = calcEMA(closes, 12);
-  const ema26 = calcEMA(closes, 26);
-  const dif = ema12.map((v, i) => v - ema26[i]);
-  const dea = calcEMA(dif, 9);
-  const macd = dif.map((v, i) => (v - dea[i]) * 2);
-  return { dif, dea, macd };
-}
-
-function calcKDJ(highs: number[], lows: number[], closes: number[], period = 9): { k: number[]; d: number[]; j: number[] } {
-  const k: number[] = [];
-  const d: number[] = [];
-  const j: number[] = [];
-  
-  for (let i = 0; i < closes.length; i++) {
-    const start = Math.max(0, i - period + 1);
-    const highSlice = highs.slice(start, i + 1);
-    const lowSlice = lows.slice(start, i + 1);
-    const highestHigh = Math.max(...highSlice);
-    const lowestLow = Math.min(...lowSlice);
-    
-    const rsv = highestHigh === lowestLow ? 50 : ((closes[i] - lowestLow) / (highestHigh - lowestLow)) * 100;
-    
-    if (i === 0) {
-      k[i] = 50;
-      d[i] = 50;
-    } else {
-      k[i] = (2 / 3) * k[i - 1] + (1 / 3) * rsv;
-      d[i] = (2 / 3) * d[i - 1] + (1 / 3) * k[i];
-    }
-    j[i] = 3 * k[i] - 2 * d[i];
-  }
-  
-  return { k, d, j };
-}
-
-function calcRSI(closes: number[], period = 14): number[] {
-  const rsi: number[] = [];
-  const gains: number[] = [];
-  const losses: number[] = [];
-  
-  for (let i = 1; i < closes.length; i++) {
-    const change = closes[i] - closes[i - 1];
-    gains.push(change > 0 ? change : 0);
-    losses.push(change < 0 ? -change : 0);
-  }
-  
-  rsi[0] = 50;
-  for (let i = period; i < gains.length; i++) {
-    const avgGain = gains.slice(i - period, i).reduce((a, b) => a + b, 0) / period;
-    const avgLoss = losses.slice(i - period, i).reduce((a, b) => a + b, 0) / period;
-    rsi[i + 1] = avgLoss === 0 ? 100 : 100 - (100 / (1 + avgGain / avgLoss));
-  }
-  
-  return rsi;
-}
-
-function calcMA(closes: number[], period: number): number[] {
-  const ma: number[] = [];
-  for (let i = 0; i < closes.length; i++) {
-    if (i < period - 1) {
-      ma[i] = closes[i];
-    } else {
-      ma[i] = closes.slice(i - period + 1, i + 1).reduce((a, b) => a + b, 0) / period;
-    }
-  }
-  return ma;
-}
-
-function calcBoll(closes: number[], period = 20, multiplier = 2): { upper: number[]; middle: number[]; lower: number[] } {
-  const middle = calcMA(closes, period);
-  const upper: number[] = [];
-  const lower: number[] = [];
-  
-  for (let i = 0; i < closes.length; i++) {
-    if (i < period - 1) {
-      upper[i] = middle[i];
-      lower[i] = middle[i];
-    } else {
-      const slice = closes.slice(i - period + 1, i + 1);
-      const mean = middle[i];
-      const std = Math.sqrt(slice.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / period);
-      upper[i] = mean + multiplier * std;
-      lower[i] = mean - multiplier * std;
-    }
-  }
-  
-  return { upper, middle, lower };
-}
+// 技术指标计算已统一使用 analysis.ts 中的 getAllIndicators()
+// 删除重复实现，保证逻辑一致
 
 // 分析引擎策略适配器 - 复用 analysis.ts 中的分析函数
 // 批量生成信号（只运行一次分析引擎，避免逐bar重复计算）
@@ -339,16 +241,26 @@ function generateAnalysisEngineSignals(kline: KLineData[], strategies: StrategyT
 // 生成交易信号
 function generateSignals(kline: KLineData[], strategies: StrategyType[]): { index: number; signal: "buy" | "sell"; strategy: StrategyType }[] {
   const signals: { index: number; signal: "buy" | "sell"; strategy: StrategyType }[] = [];
-  const closes = kline.map(k => k.close);
-  const highs = kline.map(k => k.high);
-  const lows = kline.map(k => k.low);
   
-  const macd = calcMACD(closes);
-  const kdj = calcKDJ(highs, lows, closes);
-  const rsi = calcRSI(closes);
-  const ma5 = calcMA(closes, 5);
-  const ma20 = calcMA(closes, 20);
-  const boll = calcBoll(closes);
+  // 使用统一的分析引擎计算指标
+  const analysisData: AnalysisKLineData[] = kline.map(k => ({
+    date: k.date,
+    open: k.open,
+    high: k.high,
+    low: k.low,
+    close: k.close,
+    volume: k.volume,
+    amount: k.volume * k.close,
+  }));
+  const indicators = getAllIndicators(analysisData);
+  
+  const macd = { dif: indicators.macd.map(m => m.dif), dea: indicators.macd.map(m => m.dea) };
+  const kdj = { k: indicators.kdj.map(k => k.k), d: indicators.kdj.map(k => k.d) };
+  const rsi = indicators.rsi.map(r => r.rsi);
+  const ma5 = indicators.ma[5] || [];
+  const ma20 = indicators.ma[20] || [];
+  const boll = { lower: indicators.boll.map(b => b.lower), upper: indicators.boll.map(b => b.upper) };
+  const closes = kline.map(k => k.close);
   
   for (let i = 1; i < kline.length; i++) {
     for (const strategy of strategies) {
@@ -653,16 +565,38 @@ export function runBacktestEnhanced(kline: KLineData[], config: BacktestConfig):
   const trades: EnhancedBacktestTrade[] = [];
   const dailyRecords: BacktestDailyRecord[] = [];
 
-  // 预计算所有指标
+  // 预计算所有指标（使用统一分析引擎）
+  const analysisData: AnalysisKLineData[] = kline.map(k => ({
+    date: k.date,
+    open: k.open,
+    high: k.high,
+    low: k.low,
+    close: k.close,
+    volume: k.volume,
+    amount: k.volume * k.close,
+  }));
+  const indicators = getAllIndicators(analysisData);
   const closes = kline.map(k => k.close);
-  const highs = kline.map(k => k.high);
-  const lows = kline.map(k => k.low);
-  const macd = calcMACD(closes);
-  const kdj = calcKDJ(highs, lows, closes);
-  const rsi = calcRSI(closes);
-  const ma5 = calcMA(closes, 5);
-  const ma20 = calcMA(closes, 20);
-  const boll = calcBoll(closes);
+  
+  // 转换为数组格式便于访问
+  const macd = { 
+    dif: indicators.macd.map(m => m.dif), 
+    dea: indicators.macd.map(m => m.dea), 
+    macd: indicators.macd.map(m => m.histogram) 
+  };
+  const kdj = { 
+    k: indicators.kdj.map(k => k.k), 
+    d: indicators.kdj.map(k => k.d), 
+    j: indicators.kdj.map(k => k.j) 
+  };
+  const rsi = indicators.rsi.map(r => r.rsi);
+  const ma5 = indicators.ma[5] || [];
+  const ma20 = indicators.ma[20] || [];
+  const boll = { 
+    upper: indicators.boll.map(b => b.upper), 
+    middle: indicators.boll.map(b => b.middle), 
+    lower: indicators.boll.map(b => b.lower) 
+  };
 
   let capital = config.initialCapital;
   let position = 0;
@@ -747,16 +681,38 @@ export function runBacktestFull(kline: KLineData[], config: FullBacktestConfig):
   const positionLogs: { date: string; ratio: number; cashRatio: number }[] = [];
   const riskEvents: { date: string; type: string; price: number }[] = [];
 
-  // 预计算所有指标
+  // 预计算所有指标（使用统一分析引擎）
+  const analysisData2: AnalysisKLineData[] = kline.map(k => ({
+    date: k.date,
+    open: k.open,
+    high: k.high,
+    low: k.low,
+    close: k.close,
+    volume: k.volume,
+    amount: k.volume * k.close,
+  }));
+  const indicators2 = getAllIndicators(analysisData2);
   const closes = kline.map(k => k.close);
-  const highs = kline.map(k => k.high);
-  const lows = kline.map(k => k.low);
-  const macd = calcMACD(closes);
-  const kdj = calcKDJ(highs, lows, closes);
-  const rsi = calcRSI(closes);
-  const ma5 = calcMA(closes, 5);
-  const ma20 = calcMA(closes, 20);
-  const boll = calcBoll(closes);
+  
+  // 转换为数组格式便于访问
+  const macd = { 
+    dif: indicators2.macd.map(m => m.dif), 
+    dea: indicators2.macd.map(m => m.dea), 
+    macd: indicators2.macd.map(m => m.histogram) 
+  };
+  const kdj = { 
+    k: indicators2.kdj.map(k => k.k), 
+    d: indicators2.kdj.map(k => k.d), 
+    j: indicators2.kdj.map(k => k.j) 
+  };
+  const rsi = indicators2.rsi.map(r => r.rsi);
+  const ma5 = indicators2.ma[5] || [];
+  const ma20 = indicators2.ma[20] || [];
+  const boll = { 
+    upper: indicators2.boll.map(b => b.upper), 
+    middle: indicators2.boll.map(b => b.middle), 
+    lower: indicators2.boll.map(b => b.lower) 
+  };
 
   let capital = initialCapital;
   let position = 0;
