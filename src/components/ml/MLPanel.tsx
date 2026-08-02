@@ -148,10 +148,10 @@ export function MLPanel() {
       const indicators = getAllIndicators(klineData);
       const prediction = await predictNextDay(klineData, indicators, `${MODEL_NAME}-${indexCode}`);
 
-      if (prediction) {
-        setCurrentPrediction(prediction);
+      if (!prediction) {
+        throw new Error('模型版本不兼容，请点击「重新训练」更新模型（旧模型为18维，新模型为24维特征）');
       }
-
+      setCurrentPrediction(prediction);
       setTrainingProgress({ phase: 'done', message: '预测完成！', progress: 100 });
     } catch (err) {
       setTrainingProgress({
