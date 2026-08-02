@@ -35,6 +35,7 @@ export function AIAnalysis({
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AIEmbedResponse | null>(null);
   const [contextHash, setContextHash] = useState('');
+  const [useFallback, setUseFallback] = useState(false);
 
   // 生成上下文数据的hash，用于检测数据变化
   const generateHash = useCallback((data: Record<string, any>) => {
@@ -53,14 +54,25 @@ export function AIAnalysis({
     if (newHash === contextHash && result?.success) return;
 
     setContextHash(newHash);
+    setUseFallback(false); // 重置降级状态
     
     const analyze = async () => {
       setLoading(true);
       setResult(null);
       
-      const response = await callEmbeddedAI({ prompt, context });
+      try {
+        const response = await callEmbeddedAI({ prompt, context });
+        setResult(response);
+        
+        // 如果 API 失败，自动降级为本地规则
+        if (!response.success) {
+          setUseFallback(true);
+        }
+      } catch (error) {
+        // 异常也降级
+        setUseFallback(true);
+      }
       
-      setResult(response);
       setLoading(false);
     };
 
@@ -70,6 +82,20 @@ export function AIAnalysis({
   }, [enabled, visible, prompt, context, generateHash]);
 
   if (!enabled || !visible) return null;
+
+  // API 失败时使用本地降级
+  if (useFallback) {
+    const fallbackContent = generateLocalFallback(type, context);
+    return (
+      <AIEmbedSection title={title} className={className}>
+        <AnalysisContent type={type} content={fallbackContent} />
+        <div className="mt-2 text-[10px] text-[var(--text-muted)] flex items-center gap-1">
+          <span>⚠️</span>
+          <span>AI 服务不可用，已切换为本地规则分析</span>
+        </div>
+      </AIEmbedSection>
+    );
+  }
 
   return (
     <AIEmbedSection title={title} className={className}>
@@ -196,9 +222,50 @@ function AnalysisContent({ type, content }: { type: string; content: string }) {
 }
 
 /**
- * 错误信息
+ * 本地规则生成降级（当API失败时使用）
  */
-function ErrorMessage({ message }: { message: string }) {
+function generateLocalFallback(type: string, context: Record<string, any>): string {
+  const lines: string[] = [];
+  
+  // 根据类型生成不同的本地解读
+  if (type === 'summary' || type === 'review') {
+    // 综合点评/复盘
+    const direction = context.direction || context.overallDirection || '中性';
+    const riskLevel = context.riskLevel || '中';
+    const enabledCount = context.enabledCount || 0;
+    
+    lines.push(`【综合研判】当前市场方向：${direction}，风险等级：${riskLevel}`);
+    lines.push('');
+    
+    if (direction === '看多') {
+      lines.push('【操作建议】市场偏多，可适当参与，但需注意仓位控制');
+      lines.push('【关注重点】量能是否持续放大，板块轮动是否健康');
+    } else if (direction === '看空') {
+      lines.push('【操作建议】市场偏空，建议轻仓或空仓观望');
+      lines.push('【关注重点】等待企稳信号，如底分型、MACD 金叉等');
+    } else {
+      lines.push('【操作建议】市场方向不明，建议观望或轻仓试探');
+      lines.push('【关注重点】等待方向选择，突破后再跟进');
+    }
+    
+    lines.push('');
+    lines.push(`【分析依据】基于${enabledCount}个分析理论综合判断`);
+  }
+  
+  return lines.join('\n');
+}
+
+/**
+ * 错误信息（带降级）
+ */
+function ErrorMessage({ message, onFallback, type, context }: { message: string; onFallback?: () => void; type?: string; context?: Record<string, any> }) {
+  // 如果有降级函数，自动调用
+  useEffect(() => {
+    if (onFallback) {
+      onFallback();
+    }
+  }, [onFallback]);
+  
   return (
     <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
       <span className="text-yellow-500">⚠️</span>

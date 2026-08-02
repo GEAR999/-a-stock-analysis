@@ -15,7 +15,6 @@ import { BacktestPanel } from '@/components/backtest/BacktestPanel';
 import { HistoryBacktestPanel } from '@/components/backtest/HistoryBacktestPanel';
 import { StrategyLibrary } from '@/components/strategy/StrategyLibrary';
 import { SignalSummaryBar } from '@/components/analysis/SignalSummaryBar';
-import { AIInterpretation } from '@/components/analysis/AIInterpretation';
 import { StockComparison } from '@/components/analysis/StockComparison';
 import { HistoricalSignalsPanel } from '@/components/analysis/HistoricalSignalsPanel';
 import MultiFactorPanel from '@/components/multifactor/MultiFactorPanel';
@@ -282,17 +281,7 @@ export function RightPanel() {
         </AccordionSection>
         )}
 
-        {/* 1.5 AI大白话解读 */}
-        {selectedStock && klineData.length > 0 && (
-        <AIInterpretation 
-          klineData={klineData} 
-          chanlunEnabled={analysisSettings.chanlun}
-          waveEnabled={analysisSettings.wave}
-          technicalEnabled={analysisSettings.technical}
-        />
-        )}
-
-        {/* 1.6 概率统计 */}
+        {/* 1.5 概率统计 */}
         {selectedStock && klineData.length > 0 && (
         <AccordionSection
           title="概率统计"
