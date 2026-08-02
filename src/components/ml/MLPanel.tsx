@@ -100,7 +100,7 @@ export function MLPanel() {
         const { predictNextDay } = await import('@/lib/ml/predictor');
         const { getAllIndicators } = await import('@/lib/analysis');
         const indicators = getAllIndicators(klineData);
-        const prediction = await predictNextDay(klineData, indicators);
+        const prediction = await predictNextDay(klineData, indicators, `${MODEL_NAME}-${indexCode}`);
         setCurrentPrediction(prediction);
       } catch {
         // 预测失败不影响训练结果
@@ -278,17 +278,18 @@ export function MLPanel() {
             />
           )}
 
-          {/* 当前预测 */}
-          {currentPrediction && (
-            <MLCurrentPrediction
-              indexName={INDEX_DEFS.find(i => i.code === selectedIndex)?.name || '上证指数'}
-              upProb={currentPrediction.upProb}
-              downProb={currentPrediction.downProb}
-              confidence={currentPrediction.confidence}
-              topFeatures={topFeatures.slice(0, 3).map(f => ({ name: f.name, value: f.importance }))}
-            />
-          )}
-        </>
+          </>
+      )}
+
+      {/* 当前预测（独立于 trainingSummary，训练后和预测后都显示） */}
+      {currentPrediction && (
+        <MLCurrentPrediction
+          indexName={INDEX_DEFS.find(i => i.code === selectedIndex)?.name || '上证指数'}
+          upProb={currentPrediction.upProb}
+          downProb={currentPrediction.downProb}
+          confidence={currentPrediction.confidence}
+          topFeatures={topFeatures.slice(0, 3).map(f => ({ name: f.name, value: f.importance }))}
+        />
       )}
     </div>
   );
