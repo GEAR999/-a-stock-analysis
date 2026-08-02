@@ -284,7 +284,12 @@ export function RightPanel() {
 
         {/* 1.5 AI大白话解读 */}
         {selectedStock && klineData.length > 0 && (
-        <AIInterpretation klineData={klineData} />
+        <AIInterpretation 
+          klineData={klineData} 
+          chanlunEnabled={analysisSettings.chanlun}
+          waveEnabled={analysisSettings.wave}
+          technicalEnabled={analysisSettings.technical}
+        />
         )}
 
         {/* 1.6 概率统计 */}
