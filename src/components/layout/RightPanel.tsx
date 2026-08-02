@@ -19,6 +19,7 @@ import { AIInterpretation } from '@/components/analysis/AIInterpretation';
 import { StockComparison } from '@/components/analysis/StockComparison';
 import { HistoricalSignalsPanel } from '@/components/analysis/HistoricalSignalsPanel';
 import MultiFactorPanel from '@/components/multifactor/MultiFactorPanel';
+import { ProbabilityPanel } from '@/components/probability/ProbabilityPanel';
 
 // 市场参考 Tab（宏观/产业链/海外，聚合成一个手风琴，默认收起）
 type MarketRefTab = 'macro' | 'industry' | 'overseas';
@@ -284,6 +285,17 @@ export function RightPanel() {
         {/* 1.5 AI大白话解读 */}
         {selectedStock && klineData.length > 0 && (
         <AIInterpretation klineData={klineData} />
+        )}
+
+        {/* 1.6 概率统计 */}
+        {selectedStock && klineData.length > 0 && (
+        <AccordionSection
+          title="概率统计"
+          icon="🎲"
+          summary="模式分布/因子评估/条件概率"
+        >
+          <ProbabilityPanel klineData={klineData} />
+        </AccordionSection>
         )}
 
         {/* 2. 市场参考（宏观/实时行情/产业链/海外 聚合，默认收起） */}
