@@ -44,6 +44,8 @@ src/
 │   ├── multifactor/
 │   │   ├── MultiFactorPanel.tsx      # 多因子面板 (策略选择器+情绪模式+因子权重+仓位建议)
 │   │   └── PositionHistoryChart.tsx  # 仓位历史曲线 (SVG, 读 position_log)
+│   ├── probability/
+│   │   └── ProbabilityPanel.tsx      # 概率统计面板 (分布/因子排行/组合TOP10/条件概率测算器)
 │   ├── macro/MacroEconomyPanel.tsx   # 宏观经济分析面板 (中国/美国/欧洲/日本/韩国+经济指标+综合评估)
 │   ├── industry/IndustryMappingPanel.tsx # 产业链映射分析 (美股/日韩产业链映射)
 │   ├── backtest/
@@ -88,6 +90,7 @@ src/
 │   ├── trading-time.ts        # A股交易时间判断
 │   ├── tushare-client.ts      # Tushare 服务端封装 (K线/估值/股票列表/M2换手率/M5融资余额补齐)
 │   ├── multifactor/           # 多因子系统 (M1-M5情绪引擎/S1-S7个股因子/仓位计算器)
+│   ├── probability/           # 概率统计系统 (模式分类/事件检测/条件概率引擎)
 │   ├── slippage.ts            # 滑点模拟
 │   ├── types.ts               # 类型定义
 │   └── utils.ts               # 工具函数
