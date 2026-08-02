@@ -258,7 +258,7 @@ function validateFractal(
   const overallScore = (volumeScore + amplitudeScore + timeScore) / 3;
 
   return {
-    isValid: overallScore >= 0.5,  // 综合评分 ≥ 0.5 才认为是有效分型
+    isValid: overallScore >= 0.3,  // 降低阈值：0.3 更宽松，保留更多有效分型
     volumeScore,
     amplitudeScore,
     timeScore,
@@ -306,7 +306,7 @@ function validatePen(
   const timeGap = newStroke.start - lastStroke.end;
 
   return {
-    isValid: breakThrough && volumeConfirm && timeGap >= 3,
+    isValid: (breakThrough ? 1 : 0) + (volumeConfirm ? 1 : 0) + (timeGap >= 2 ? 1 : 0) >= 2,  // 3 项中至少 2 项满足
     breakThrough,
     volumeConfirm,
     timeGap,
