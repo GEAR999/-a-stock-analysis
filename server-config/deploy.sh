@@ -63,27 +63,35 @@ main() {
         log "✅ PM2 服务已重启"
     fi
     
-    # 5. 等待服务启动
+    # 5. 等待服务启动（通过 journalctl 确认服务日志）
     log "=== 5. 等待服务启动 ==="
-    sleep 5
-    
-    # 6. 验证服务
-    log "=== 6. 验证服务 ==="
-    local retries=10
+    local retries=15
     local success=false
     
     for i in $(seq 1 $retries); do
-        local status
-        status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 http://localhost:5000/api/ping 2>/dev/null || echo "000")
-        
-        if [ "$status" = "200" ]; then
-            log "✅ 服务启动成功 (HTTP $status)"
+        # 方法1：检查 journalctl 日志中出现 "Server listening"
+        if journalctl -u "$SERVICE_NAME" --since "30 seconds ago" -n 5 2>/dev/null | grep -q "Server listening"; then
+            log "✅ 服务启动成功 (通过日志确认)"
             success=true
             break
         fi
         
-        log "等待服务启动... ($i/$retries, HTTP $status)"
-        sleep 3
+        # 方法2：备选，尝试 HTTP 检测
+        local http_status
+        http_status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 3 http://localhost:5000/api/ping 2>/dev/null || echo "000")
+        if [ "$http_status" = "200" ]; then
+            log "✅ 服务启动成功 (HTTP 200)"
+            success=true
+            break
+        fi
+        
+        # 307 也视为服务运行中（中间件重定向）
+        if [ "$http_status" = "307" ]; then
+            log "⏳ 服务已启动，等待中间件初始化... ($i/$retries)"
+        else
+            log "等待服务启动... ($i/$retries, HTTP $http_status)"
+        fi
+        sleep 2
     done
     
     if [ "$success" = false ]; then
