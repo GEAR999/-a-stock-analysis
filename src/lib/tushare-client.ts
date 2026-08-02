@@ -165,6 +165,51 @@ function transformKLineRows(
     .reverse(); // Tushare 返回降序 → 转为升序
 }
 
+// ============ 指数历史K线数据（ML训练用） ============
+
+/**
+ * 获取指数历史K线数据
+ * 用于 ML 模型训练，一次获取全部历史数据
+ */
+export async function getIndexKLineData(
+  tsCode: string,
+  startDate?: string,
+  endDate?: string
+): Promise<KLineData[]> {
+  const params: Record<string, string> = {
+    ts_code: tsCode,
+    limit: '8000',
+  };
+  if (startDate) params.start_date = startDate;
+  if (endDate) params.end_date = endDate;
+
+  const rows = await callTushare(
+    'index_daily',
+    params,
+    'trade_date,open,high,low,close,pre_close,change,pct_chg,vol,amount'
+  );
+
+  return rows
+    .map((row) => {
+      const raw = String(row.trade_date || '');
+      const date =
+        raw.length === 8
+          ? `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`
+          : raw;
+      return {
+        date,
+        open: Number(row.open) || 0,
+        high: Number(row.high) || 0,
+        low: Number(row.low) || 0,
+        close: Number(row.close) || 0,
+        volume: Number(row.vol) || 0,
+        amount: Number(row.amount) || 0,
+      };
+    })
+    .filter((d) => d.date && d.close > 0)
+    .reverse(); // 降序 → 升序
+}
+
 // ============ 估值数据（S1 因子） ============
 
 export interface DailyBasicData {

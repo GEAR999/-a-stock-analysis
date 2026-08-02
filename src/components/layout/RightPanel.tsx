@@ -19,6 +19,7 @@ import { StockComparison } from '@/components/analysis/StockComparison';
 import { HistoricalSignalsPanel } from '@/components/analysis/HistoricalSignalsPanel';
 import MultiFactorPanel from '@/components/multifactor/MultiFactorPanel';
 import { ProbabilityPanel } from '@/components/probability/ProbabilityPanel';
+import { MLPanel } from '@/components/ml/MLPanel';
 
 // 市场参考 Tab（宏观/产业链/海外，聚合成一个手风琴，默认收起）
 type MarketRefTab = 'macro' | 'industry' | 'overseas';
@@ -289,6 +290,17 @@ export function RightPanel() {
           summary="模式分布/因子评估/条件概率"
         >
           <ProbabilityPanel klineData={klineData} />
+        </AccordionSection>
+        )}
+
+        {/* 1.6 AI 模型 */}
+        {selectedStock && klineData.length > 0 && (
+        <AccordionSection
+          title="AI 模型"
+          icon="🤖"
+          summary="ML深度学习/指数预测/因子重要性"
+        >
+          <MLPanel />
         </AccordionSection>
         )}
 
