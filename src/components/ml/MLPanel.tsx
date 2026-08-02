@@ -1,11 +1,13 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { MLTrainingProgress } from './MLTrainingProgress';
 import { MLFeatureImportance } from './MLFeatureImportance';
 import { MLConfusionMatrix } from './MLConfusionMatrix';
 import { MLPredictionHistory } from './MLPredictionHistory';
 import { MLCurrentPrediction } from './MLCurrentPrediction';
+import * as tf from '@tensorflow/tfjs';
+import { MODEL_NAME } from '@/lib/ml/model';
 import type { TrainingProgress, TrainingSummary, IndexDef } from '@/lib/ml/types';
 
 const INDEX_DEFS: IndexDef[] = [
@@ -22,6 +24,34 @@ export function MLPanel() {
   const [selectedIndex, setSelectedIndex] = useState<string>('000001.SH');
   const [currentPrediction, setCurrentPrediction] = useState<{ upProb: number; downProb: number; confidence: '高' | '中' | '低' } | null>(null);
   const [topFeatures, setTopFeatures] = useState<Array<{ name: string; importance: number }>>([]);
+  const [loadingPrediction, setLoadingPrediction] = useState<Record<string, boolean>>({});
+
+  // 页面加载时检查已保存的模型
+  useEffect(() => {
+    (async () => {
+      try {
+        const modelsList = await tf.io.listModels();
+        for (const idx of INDEX_DEFS) {
+          const key = `indexeddb://${MODEL_NAME}-${idx.code}`;
+          if (modelsList[key]) {
+            setModels(prev => ({
+              ...prev,
+              [idx.code]: {
+                trained: true,
+                date: modelsList[key].dateSaved
+                  ? new Date(modelsList[key].dateSaved!).toLocaleDateString('zh-CN')
+                  : '未知',
+                accuracy: 0, // 加载时无法获取准确率，但标记已训练
+                code: idx.code,
+              }
+            }));
+          }
+        }
+      } catch {
+        // 忽略
+      }
+    })();
+  }, []);
 
   const startTraining = useCallback(async (indexCode: string, indexName: string) => {
     try {
@@ -93,6 +123,47 @@ export function MLPanel() {
     }
   }, [startTraining]);
 
+  // 加载已保存模型进行预测（无需重新训练）
+  const loadAndPredict = useCallback(async (indexCode: string, indexName: string) => {
+    if (loadingPrediction[indexCode]) return;
+    try {
+      setLoadingPrediction(prev => ({ ...prev, [indexCode]: true }));
+      setSelectedIndex(indexCode);
+      setTrainingSummary(null);
+      setCurrentPrediction(null);
+      setTopFeatures([]);
+
+      setTrainingProgress({ phase: 'preparing', message: '正在获取指数数据...', progress: 10 });
+
+      // 获取最新数据做预测
+      const res = await fetch(`/api/ml/index-data?code=${indexCode}&limit=120`);
+      const result = await res.json();
+      if (!result.success) throw new Error(result.error || '获取数据失败');
+      const klineData = result.data;
+
+      setTrainingProgress({ phase: 'preparing', message: '正在加载已保存模型...', progress: 50 });
+
+      const { predictNextDay } = await import('@/lib/ml/predictor');
+      const { getAllIndicators } = await import('@/lib/analysis');
+      const indicators = getAllIndicators(klineData);
+      const prediction = await predictNextDay(klineData, indicators, `${MODEL_NAME}-${indexCode}`);
+
+      if (prediction) {
+        setCurrentPrediction(prediction);
+      }
+
+      setTrainingProgress({ phase: 'done', message: '预测完成！', progress: 100 });
+    } catch (err) {
+      setTrainingProgress({
+        phase: 'error',
+        message: `预测失败: ${err instanceof Error ? err.message : '未知错误'}`,
+        progress: 0,
+      });
+    } finally {
+      setLoadingPrediction(prev => ({ ...prev, [indexCode]: false }));
+    }
+  }, [loadingPrediction]);
+
   return (
     <div className="space-y-4">
       {/* 模型列表 */}
@@ -126,13 +197,22 @@ export function MLPanel() {
                   {trainingProgress?.phase === 'training' && selectedIndex === idx.code ? '训练中...' : '开始训练'}
                 </button>
               ) : (
-                <button
-                  onClick={() => { setSelectedIndex(idx.code); startTraining(idx.code, idx.name); }}
-                  disabled={trainingProgress?.phase === 'training'}
-                  className="text-xs px-3 py-1.5 bg-blue-500/20 text-blue-400 rounded hover:bg-blue-500/30 disabled:opacity-50 transition-colors"
-                >
-                  重新训练
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => loadAndPredict(idx.code, idx.name)}
+                    disabled={loadingPrediction[idx.code]}
+                    className="text-xs px-3 py-1.5 bg-green-500/20 text-green-400 rounded hover:bg-green-500/30 disabled:opacity-50 transition-colors"
+                  >
+                    {loadingPrediction[idx.code] ? '预测中...' : '预测'}
+                  </button>
+                  <button
+                    onClick={() => { setSelectedIndex(idx.code); startTraining(idx.code, idx.name); }}
+                    disabled={trainingProgress?.phase === 'training'}
+                    className="text-xs px-3 py-1.5 bg-blue-500/20 text-blue-400 rounded hover:bg-blue-500/30 disabled:opacity-50 transition-colors"
+                  >
+                    重新训练
+                  </button>
+                </div>
               )}
             </div>
           </div>
