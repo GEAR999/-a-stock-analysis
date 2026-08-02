@@ -7,7 +7,8 @@ import { FEATURE_NAMES } from './types';
 export function extractFeatures(
   kline: KLineData,
   prevKlines: KLineData[],
-  indicators: any
+  indicators: any,
+  index: number = 0
 ): number[] {
   const ma5 = indicators.ma[5]?.[indicators.ma[5].length - 1] ?? kline.close;
   const ma20 = indicators.ma[20]?.[indicators.ma[20].length - 1] ?? kline.close;
@@ -32,6 +33,55 @@ export function extractFeatures(
   const bollUpperDev = lastBoll?.upper ? (kline.close - lastBoll.upper) / lastBoll.upper : 0;
   const bollLowerDev = lastBoll?.lower ? (kline.close - lastBoll.lower) / lastBoll.lower : 0;
 
+  // --- 新增特征 ---
+
+  // 1. 星期几 (0=周日, 1=周一...6=周六, 归一化到0-1)
+  const dayOfWeek = kline.date ? new Date(kline.date).getDay() / 6 : 0.5;
+
+  // 2. 连涨/连跌天数 (正=连涨, 负=连跌, 归一化到-1~1)
+  let consecutiveDays = 0;
+  for (let j = prevKlines.length - 1; j >= 0; j--) {
+    const prev = prevKlines[j];
+    if (prev.close > prev.open) {
+      if (consecutiveDays >= 0) consecutiveDays++;
+      else break;
+    } else {
+      if (consecutiveDays <= 0) consecutiveDays--;
+      else break;
+    }
+  }
+  const consecutiveNorm = Math.max(-1, Math.min(1, consecutiveDays / 10));
+
+  // 3. ATR (14日平均真实波幅, 归一化)
+  let atr = 0;
+  if (prevKlines.length >= 14) {
+    const atrValues = [];
+    for (let j = prevKlines.length - 14; j < prevKlines.length; j++) {
+      const prevCandle = prevKlines[j];
+      const prevClose = j > 0 ? prevKlines[j - 1].close : prevCandle.close;
+      const tr = Math.max(
+        prevCandle.high - prevCandle.low,
+        Math.abs(prevCandle.high - prevClose),
+        Math.abs(prevCandle.low - prevClose)
+      );
+      atrValues.push(tr);
+    }
+    atr = atrValues.reduce((s, v) => s + v, 0) / 14;
+  }
+  const atrNorm = kline.close > 0 ? Math.min(atr / kline.close, 0.1) : 0;
+
+  // 4. 近5日涨跌幅
+  const price5dAgo = prevKlines.length >= 5 ? prevKlines[prevKlines.length - 5].close : kline.open;
+  const return5d = (kline.close - price5dAgo) / price5dAgo;
+
+  // 5. 近20日涨跌幅
+  const price20dAgo = prevKlines.length >= 20 ? prevKlines[prevKlines.length - 20].close : kline.open;
+  const return20d = (kline.close - price20dAgo) / price20dAgo;
+
+  // 6. 成交额变化率
+  const prevAmount = prevKlines.length > 0 ? prevKlines[prevKlines.length - 1].amount : kline.amount;
+  const amountChange = prevAmount > 0 ? kline.amount / prevAmount : 1;
+
   return [
     (kline.close - kline.open) / kline.open, // 涨跌幅
     totalRange > 0 ? totalRange / kline.open : 0, // 振幅
@@ -51,29 +101,40 @@ export function extractFeatures(
     bollUpperDev, // BOLL.upper偏离度
     bollLowerDev, // BOLL.lower偏离度
     wr / 100, // WR归一化
+    // 新增特征
+    dayOfWeek, // 星期几
+    consecutiveNorm, // 连涨/连跌天数
+    atrNorm, // ATR波动率
+    return5d, // 近5日涨跌幅
+    return20d, // 近20日涨跌幅
+    Math.min(amountChange, 5), // 成交额变化率(限幅)
   ];
 }
 
-/** 准备训练数据集 */
+/** 准备训练数据集（与prepareLabels的噪音过滤保持一致） */
 export function prepareData(klineData: KLineData[]): tf.Tensor2D {
   if (klineData.length < 61) {
-    return tf.tensor2d([], [0, 18]);
+    return tf.tensor2d([], [0, 24]);
   }
 
   const indicators = getAllIndicators(klineData);
 
   const samples: number[][] = [];
   for (let i = 60; i < klineData.length - 1; i++) {
+    // 与prepareLabels保持一致的过滤条件
+    const changePct = (klineData[i + 1].close - klineData[i].close) / klineData[i].close;
+    if (Math.abs(changePct) < 0.005) continue; // 过滤噪音
+
     const kline = klineData[i];
     const prevKlines = klineData.slice(0, i);
-    const featureVec = extractFeatures(kline, prevKlines, indicators);
+    const featureVec = extractFeatures(kline, prevKlines, indicators, i);
     samples.push(featureVec);
   }
 
   return tf.tensor2d(samples);
 }
 
-/** 准备训练标签 */
+/** 准备训练标签（过滤噪音：±0.5%以内忽略） */
 export function prepareLabels(klineData: KLineData[]): tf.Tensor1D {
   if (klineData.length < 61) {
     return tf.tensor1d([]);
@@ -81,7 +142,9 @@ export function prepareLabels(klineData: KLineData[]): tf.Tensor1D {
 
   const labels: number[] = [];
   for (let i = 60; i < klineData.length - 1; i++) {
-    const label = klineData[i + 1].close > klineData[i].close ? 1 : 0;
+    const changePct = (klineData[i + 1].close - klineData[i].close) / klineData[i].close;
+    if (Math.abs(changePct) < 0.005) continue; // 过滤噪音
+    const label = changePct > 0 ? 1 : 0;
     labels.push(label);
   }
 

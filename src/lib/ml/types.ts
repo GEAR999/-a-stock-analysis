@@ -17,6 +17,8 @@ export const FEATURE_NAMES: string[] = [
   '下影线比例', 'MA5偏离度', 'MA20偏离度', 'MA60偏离度', '成交量变化率',
   'MACD.dif', 'MACD.histogram', 'RSI', 'KDJ.k', 'KDJ.d',
   'BOLL.upper偏离度', 'BOLL.lower偏离度', 'WR',
+  // 新增特征
+  '星期几', '连涨/连跌天数', 'ATR波动率', '近5日涨跌幅', '近20日涨跌幅', '成交额变化率',
 ];
 
 /** 训练进度 */
