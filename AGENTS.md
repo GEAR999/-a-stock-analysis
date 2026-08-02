@@ -744,3 +744,99 @@ AI 推送代码到 GitHub → 飞书通知 → 用户执行 ./deploy.sh
 cd /var/www/a-stock-analysis
 ./deploy.sh
 ```
+
+---
+
+## 最新进展（2026-08-03）
+
+### 已完成功能
+
+#### 缠论买卖点方案C
+- **结构性买卖点生成**：不依赖背驰，基于笔结构生成买卖点
+  - 一买 = 下降笔底分型，一卖 = 上升笔顶分型
+  - 二买 = 一买后回调不创新低，二卖 = 一卖后反弹不创新高
+  - 三买 = 中枢突破后回调不进中枢，三卖 = 中枢跌破后反弹不进中枢
+- **置信度加权**：base 0.5 + 背驰 0.3 + 分型评分 0.1 + 成交量 0.1
+- **K线图标注**：高置信度(≥0.8)显示★标 + 加粗 + 大标记
+- **分析卡片**：显示置信度等级（高/中/低）和评分百分比
+- **文件**：`src/lib/analysis.ts`、`src/lib/types.ts`、`src/components/chart/KLineChart.tsx`、`src/components/analysis/ChanlunCard.tsx`
+
+#### AI解读合并（方案B）
+- **删除底部AI大白话解读手风琴**：和AI综合点评功能重叠
+- **AI综合点评添加API降级**：DeepSeek API失败时自动切换为本地规则生成
+- **本地规则生成**：综合分析判断、操作建议、关注要点
+- **降级提示**：显示"⚠️ AI服务不可用，已切换为本地规则分析"
+- **文件**：`src/components/ai/AIAnalysis.tsx`、`src/components/layout/RightPanel.tsx`
+
+#### 概率统计阶段一
+- **模式分类**：开盘模式（高开/低开/平开）、盘中形态（N型/W型/V型/倒V型/平台）、K线形态（阳线/阴线/十字星/锤子线/倒锤子/长上影/长下影/光头阳线/光脚阴线/反包）
+- **事件检测**：18种单因子事件 + 7种组合事件（MACD金叉/死叉、KDJ超买/超卖、RSI背离、BOLL突破等）
+- **条件概率统计引擎**：P(模式|因子)条件概率计算、因子有效性评估（胜率/平均收益/盈亏比）、最优组合搜索
+- **概率统计面板**：分布图 / 因子排行 / 组合TOP10 / 条件概率测算器
+- **文件**：`src/components/probability/ProbabilityPanel.tsx`、`src/lib/probability/`
+
+#### ML指数模型训练模块（阶段三）
+- **Tushare指数数据扩展**：`getIndexKLineData()` 调用 Tushare index_daily 接口
+- **API路由**：`/api/ml/index-data` 返回指数K线数据
+- **特征工程**（24维）：
+  - 价格形态：涨跌幅、振幅、实体比例、上下影线长度
+  - 成交量：量比、成交额变化率
+  - 均线偏离：偏离5日线/10日线/20日线
+  - 技术指标：MACD、RSI、KDJ、布林带位置、WR威廉指标
+  - 新增：星期几、连涨/连跌天数、ATR波动率、近5日涨跌幅、近20日涨跌幅、成交额变化率
+- **神经网络架构**：24→64(ReLU+Dropout 0.3)→32(ReLU+Dropout 0.2)→1(Sigmoid)，L2正则化
+- **标签优化**：过滤涨跌幅<0.5%的噪音样本
+- **训练管线**：80/10/10 训练/验证/测试集划分，50轮训练，早停防止过拟合
+- **模型持久化**：IndexedDB保存，刷新页面不丢失，自动检测已训练模型
+- **特征重要性**：排列重要性分析，找出对预测贡献最大的因子
+- **评估指标**：混淆矩阵、准确率、精确率、召回率、F1
+- **可视化组件**：MLPanel(主面板)、MLTrainingProgress(进度+曲线图)、MLFeatureImportance(特征排行)、MLConfusionMatrix(混淆矩阵)、MLPredictionHistory(预测历史)、MLCurrentPrediction(当前预测卡片)
+- **支持指数**：上证指数(000001.SH)、深证成指(399001.SZ)、创业板指(399006.SZ)
+- **文件**：`src/lib/ml/`(8个核心文件)、`src/components/ml/`(6个组件)、`src/app/api/ml/index-data/route.ts`
+
+#### 部署脚本修复
+- **健康检查优化**：新增 `journalctl` 日志确认 + 接受 307 为服务运行中 + 重试次数从 10 增加到 15
+- **文件**：`server-config/deploy.sh`
+
+### 目录结构新增
+```
+src/
+├── lib/ml/
+│   ├── types.ts                 # ML类型定义
+│   ├── data-preparation.ts      # 特征提取/标签生成/数据集划分
+│   ├── model.ts                 # 模型构建/保存/加载
+│   ├── trainer.ts               # 训练器（进度回调/自动保存）
+│   ├── predictor.ts             # 预测器（次日涨跌预测）
+│   ├── feature-importance.ts    # 特征重要性排列分析
+│   ├── evaluation.ts            # 评估指标计算
+│   └── index.ts                 # 统一导出
+├── components/ml/
+│   ├── MLPanel.tsx              # 主面板（指数选择/训练/预测）
+│   ├── MLTrainingProgress.tsx   # 训练进度+曲线图
+│   ├── MLFeatureImportance.tsx   # 特征重要性排行
+│   ├── MLConfusionMatrix.tsx     # 混淆矩阵
+│   ├── MLPredictionHistory.tsx   # 预测历史对比
+│   └── MLCurrentPrediction.tsx   # 当前预测结果卡片
+├── app/api/ml/
+│   └── index-data/route.ts      # 指数数据API
+├── lib/probability/
+│   ├── pattern-classifier.ts    # 模式分类器
+│   ├── event-detector.ts        # 事件检测器
+│   └── conditional-probability.ts # 条件概率引擎
+```
+
+### API接口（新增）
+- `GET /api/ml/index-data?code={code}&limit={n}` - 指数历史K线数据（Tushare index_daily）
+
+### 待办事项
+- [ ] 验证 ML 模型在浏览器端的训练效果和准确率
+- [ ] 概率统计阶段二（K线手动标注事件→事件后概率统计）
+- [ ] deploy.sh 健康检查改 `journalctl` 日志确认（当前服务器上deploy.sh为本地文件，不在git中）
+
+### 数据源状态
+| 数据源 | 状态 | 用途 |
+|--------|------|------|
+| Tushare | ✅ 正常 | K 线/估值/M2 换手率/M5 融资余额补齐/指数数据 |
+| 李富贵推送 | ✅ 正常 | 市场情绪/资金流向/板块数据 |
+| mootdx | ❌ 已废弃 | 返回空数据，已确认废弃 |
+| 东方财富 | ❌ 已删除 | 所有相关代码已移除 |
