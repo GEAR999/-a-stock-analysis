@@ -289,33 +289,46 @@ export function KLineChart() {
         } as Record<string, unknown>);
       });
 
-      // Buy/Sell signals
+      // Buy/Sell signals（根据置信度调整样式）
       chanlunData.buySignals.forEach(sig => {
+        // 置信度分级：高(>=0.8) 中(0.6-0.8) 低(<0.6)
+        const isHigh = sig.confidence >= 0.8;
+        const isMid = sig.confidence >= 0.6 && sig.confidence < 0.8;
+        const symbolSize = isHigh ? 14 : isMid ? 12 : 10;
+        const opacity = isHigh ? 1 : isMid ? 0.9 : 0.6;
+        const labelText = isHigh ? `B${sig.type}★` : `B${sig.type}`;
+
         series.push({
           type: 'scatter',
           data: [[dates[sig.index], sig.price * 0.995]],
           xAxisIndex: 0,
           yAxisIndex: 0,
           symbol: 'triangle',
-          symbolSize: 12,
-          itemStyle: { color: '#ef4444' },
+          symbolSize,
+          itemStyle: { color: '#ef4444', opacity },
           z: 10,
-          label: { show: true, formatter: `B${sig.type}`, position: 'bottom', color: '#ef4444', fontSize: 9 },
+          label: { show: true, formatter: labelText, position: 'bottom', color: '#ef4444', fontSize: isHigh ? 10 : 9, fontWeight: isHigh ? 'bold' : 'normal' },
         } as Record<string, unknown>);
       });
 
       chanlunData.sellSignals.forEach(sig => {
+        const isHigh = sig.confidence >= 0.8;
+        const isMid = sig.confidence >= 0.6 && sig.confidence < 0.8;
+        const symbolSize = isHigh ? 14 : isMid ? 12 : 10;
+        const opacity = isHigh ? 1 : isMid ? 0.9 : 0.6;
+        const labelText = isHigh ? `S${sig.type}★` : `S${sig.type}`;
+
         series.push({
           type: 'scatter',
           data: [[dates[sig.index], sig.price * 1.005]],
           xAxisIndex: 0,
           yAxisIndex: 0,
           symbol: 'triangle',
-          symbolSize: 12,
-          itemStyle: { color: '#22c55e' },
+          symbolSize,
+          itemStyle: { color: '#22c55e', opacity },
           symbolRotate: 180,
           z: 10,
-          label: { show: true, formatter: `S${sig.type}`, position: 'top', color: '#22c55e', fontSize: 9 },
+          label: { show: true, formatter: labelText, position: 'top', color: '#22c55e', fontSize: isHigh ? 10 : 9, fontWeight: isHigh ? 'bold' : 'normal' },
         } as Record<string, unknown>);
       });
     }

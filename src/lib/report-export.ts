@@ -14,8 +14,8 @@ export interface ReportData {
   };
   chanlun: {
     currentStage: string;
-    buySignals: Array<{ type: number; index: number; price: number }>;
-    sellSignals: Array<{ type: number; index: number; price: number }>;
+    buySignals: Array<{ type: number; index: number; price: number; confidence?: number }>;
+    sellSignals: Array<{ type: number; index: number; price: number; confidence?: number }>;
   };
   wave: {
     currentWave: string;

@@ -203,19 +203,21 @@ function generateChanlunAnalysis(klineData: KLineData[]): ChanlunAnalysis {
     });
   }
   buySignals.forEach((signal, idx) => {
+    const confidenceLevel = signal.confidence >= 0.8 ? '高' : signal.confidence >= 0.6 ? '中' : '低';
     signals.push({
       type: 'buy',
       name: `${signal.type}类买点`,
-      description: `第${idx + 1}个买点信号`,
-      basis: `价格${signal.price.toFixed(2)}`,
+      description: `第${idx + 1}个买点信号（置信度：${confidenceLevel}）`,
+      basis: `价格${signal.price.toFixed(2)}，评分${(signal.confidence * 100).toFixed(0)}%`,
     });
   });
   sellSignals.forEach((signal, idx) => {
+    const confidenceLevel = signal.confidence >= 0.8 ? '高' : signal.confidence >= 0.6 ? '中' : '低';
     signals.push({
       type: 'sell',
       name: `${signal.type}类卖点`,
-      description: `第${idx + 1}个卖点信号`,
-      basis: `价格${signal.price.toFixed(2)}`,
+      description: `第${idx + 1}个卖点信号（置信度：${confidenceLevel}）`,
+      basis: `价格${signal.price.toFixed(2)}，评分${(signal.confidence * 100).toFixed(0)}%`,
     });
   });
   

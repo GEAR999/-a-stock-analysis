@@ -59,8 +59,8 @@ export interface ChanlunResult {
   strokes: Array<{ start: number; end: number; direction: 'up' | 'down' }>;
   segments: Array<{ start: number; end: number; direction: 'up' | 'down' }>;
   centers: Array<{ start: number; end: number; high: number; low: number }>;
-  buySignals: Array<{ index: number; type: 1 | 2 | 3; price: number }>;
-  sellSignals: Array<{ index: number; type: 1 | 2 | 3; price: number }>;
+  buySignals: Array<{ index: number; type: 1 | 2 | 3; price: number; confidence: number }>;
+  sellSignals: Array<{ index: number; type: 1 | 2 | 3; price: number; confidence: number }>;
 }
 
 export interface WaveResult {

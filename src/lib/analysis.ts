@@ -498,61 +498,134 @@ export function analyzeChanlun(data: KLineData[]): ChanlunResult {
   // Step 6: 背驰判断
   const divergence = detectDivergence(data, strokes);
 
-  // Step 7: 买卖点信号（严格定义）
+  // Step 7: 买卖点信号（方案C：结构性为基础，背驰/分型/成交量作为置信度加权）
   const buySignals: ChanlunResult['buySignals'] = [];
   const sellSignals: ChanlunResult['sellSignals'] = [];
 
-  // 一买：下跌趋势背驰后的底分型
-  if (divergence.hasDivergence && divergence.type === 'bottom') {
+  // 辅助函数：计算分型评分（通过 originalIndex 匹配）
+  const getFractalScore = (originalIndex: number, isBottom: boolean): number => {
+    const targetType = isBottom ? 'bottom' : 'top';
+    const fractal = filtered.find(f =>
+      f.type === targetType && merged[f.index].originalIndex === originalIndex
+    );
+    return fractal?.validation.overallScore ?? 0.5;
+  };
+
+  // 辅助函数：计算成交量评分
+  const getVolumeScore = (index: number): number => {
+    if (index < 5) return 0.5;
+    const avgVolume = data.slice(index - 5, index).reduce((sum, d) => sum + d.volume, 0) / 5;
+    const currentVolume = data[index].volume;
+    return Math.min(currentVolume / avgVolume / 2, 1);
+  };
+
+  // 一买：下降笔末端底分型（结构性）
+  if (strokes.length > 0) {
     const lastStroke = strokes[strokes.length - 1];
-    buySignals.push({
-      index: lastStroke.end,
-      type: 1,
-      price: data[lastStroke.end].low,
-    });
+    if (lastStroke.direction === 'down') {
+      const endIndex = lastStroke.end;
+      const fractalScore = getFractalScore(endIndex, true);
+      const volumeScore = getVolumeScore(endIndex);
+
+      // 基础置信度 0.5，背驰 +0.3，分型评分 +0.1，成交量 +0.1
+      let confidence = 0.5;
+      if (divergence.hasDivergence && divergence.type === 'bottom') confidence += 0.3;
+      confidence += fractalScore * 0.1;
+      confidence += volumeScore * 0.1;
+
+      buySignals.push({
+        index: endIndex,
+        type: 1,
+        price: data[endIndex].low,
+        confidence: Math.min(confidence, 1),
+      });
+    }
   }
 
-  // 一卖：上涨趋势背驰后的顶分型
-  if (divergence.hasDivergence && divergence.type === 'top') {
+  // 一卖：上升笔末端顶分型（结构性）
+  if (strokes.length > 0) {
     const lastStroke = strokes[strokes.length - 1];
-    sellSignals.push({
-      index: lastStroke.end,
-      type: 1,
-      price: data[lastStroke.end].high,
-    });
+    if (lastStroke.direction === 'up') {
+      const endIndex = lastStroke.end;
+      const fractalScore = getFractalScore(endIndex, false);
+      const volumeScore = getVolumeScore(endIndex);
+
+      let confidence = 0.5;
+      if (divergence.hasDivergence && divergence.type === 'top') confidence += 0.3;
+      confidence += fractalScore * 0.1;
+      confidence += volumeScore * 0.1;
+
+      sellSignals.push({
+        index: endIndex,
+        type: 1,
+        price: data[endIndex].high,
+        confidence: Math.min(confidence, 1),
+      });
+    }
   }
 
-  // 二买：一买后回调不破一买低点
+  // 二买：一买后回调（结构性，不破一买低点作为置信度条件）
   if (buySignals.length > 0 && buySignals[buySignals.length - 1].type === 1) {
     const firstBuy = buySignals[buySignals.length - 1];
-    for (let i = firstBuy.index + 1; i < data.length; i++) {
-      if (data[i].low > firstBuy.price) {
+    for (let i = firstBuy.index + 1; i < Math.min(firstBuy.index + 20, data.length); i++) {
+      // 找到回调笔的结束点
+      const isPullbackEnd = i > firstBuy.index + 2 &&
+        data[i].low > data[i - 1].low &&
+        data[i - 1].low < data[i - 2].low;
+
+      if (isPullbackEnd) {
+        const pullbackLow = data[i].low;
+        const notBreakFirstBuy = pullbackLow > firstBuy.price;
+        const fractalScore = getFractalScore(i, true);
+        const volumeScore = getVolumeScore(i);
+
+        let confidence = 0.5;
+        if (notBreakFirstBuy) confidence += 0.3;
+        confidence += fractalScore * 0.1;
+        confidence += volumeScore * 0.1;
+
         buySignals.push({
           index: i,
           type: 2,
-          price: data[i].low,
+          price: pullbackLow,
+          confidence: Math.min(confidence, 1),
         });
         break;
       }
     }
   }
 
-  // 二卖：一卖后反弹不破一卖高点
+  // 二卖：一卖后反弹（结构性，不破一卖高点作为置信度条件）
   if (sellSignals.length > 0 && sellSignals[sellSignals.length - 1].type === 1) {
     const firstSell = sellSignals[sellSignals.length - 1];
-    for (let i = firstSell.index + 1; i < data.length; i++) {
-      if (data[i].high < firstSell.price) {
+    for (let i = firstSell.index + 1; i < Math.min(firstSell.index + 20, data.length); i++) {
+      const isBounceEnd = i > firstSell.index + 2 &&
+        data[i].high < data[i - 1].high &&
+        data[i - 1].high > data[i - 2].high;
+
+      if (isBounceEnd) {
+        const bounceHigh = data[i].high;
+        const notBreakFirstSell = bounceHigh < firstSell.price;
+        const fractalScore = getFractalScore(i, false);
+        const volumeScore = getVolumeScore(i);
+
+        let confidence = 0.5;
+        if (notBreakFirstSell) confidence += 0.3;
+        confidence += fractalScore * 0.1;
+        confidence += volumeScore * 0.1;
+
         sellSignals.push({
           index: i,
           type: 2,
-          price: data[i].high,
+          price: bounceHigh,
+          confidence: Math.min(confidence, 1),
         });
         break;
       }
     }
   }
 
-  // 三买：离开中枢向上后回调不进入中枢
+  // 三买：突破中枢后回调（结构性，不进入中枢作为置信度条件）
   if (centers.length > 0) {
     const lastCenter = centers[centers.length - 1];
     const afterCenterStrokes = strokes.filter(s => s.start >= lastCenter.end);
@@ -565,19 +638,27 @@ export function analyzeChanlun(data: KLineData[]): ChanlunResult {
           const nextDown = afterCenterStrokes[i + 1];
           if (nextDown && nextDown.direction === 'down') {
             const pullbackLow = Math.min(data[nextDown.start].low, data[nextDown.end].low);
-            if (pullbackLow > lastCenter.high) {
-              buySignals.push({
-                index: nextDown.end,
-                type: 3,
-                price: pullbackLow,
-              });
-            }
+            const notEnterCenter = pullbackLow > lastCenter.high;
+            const fractalScore = getFractalScore(nextDown.end, true);
+            const volumeScore = getVolumeScore(nextDown.end);
+
+            let confidence = 0.5;
+            if (notEnterCenter) confidence += 0.3;
+            confidence += fractalScore * 0.1;
+            confidence += volumeScore * 0.1;
+
+            buySignals.push({
+              index: nextDown.end,
+              type: 3,
+              price: pullbackLow,
+              confidence: Math.min(confidence, 1),
+            });
           }
         }
       }
     }
 
-    // 三卖：离开中枢向下后反弹不进入中枢
+    // 三卖：跌破中枢后反弹（结构性，不进入中枢作为置信度条件）
     for (let i = 0; i < afterCenterStrokes.length - 1; i++) {
       const stroke = afterCenterStrokes[i];
       if (stroke.direction === 'down') {
@@ -586,13 +667,21 @@ export function analyzeChanlun(data: KLineData[]): ChanlunResult {
           const nextUp = afterCenterStrokes[i + 1];
           if (nextUp && nextUp.direction === 'up') {
             const bounceHigh = Math.max(data[nextUp.start].high, data[nextUp.end].high);
-            if (bounceHigh < lastCenter.low) {
-              sellSignals.push({
-                index: nextUp.end,
-                type: 3,
-                price: bounceHigh,
-              });
-            }
+            const notEnterCenter = bounceHigh < lastCenter.low;
+            const fractalScore = getFractalScore(nextUp.end, false);
+            const volumeScore = getVolumeScore(nextUp.end);
+
+            let confidence = 0.5;
+            if (notEnterCenter) confidence += 0.3;
+            confidence += fractalScore * 0.1;
+            confidence += volumeScore * 0.1;
+
+            sellSignals.push({
+              index: nextUp.end,
+              type: 3,
+              price: bounceHigh,
+              confidence: Math.min(confidence, 1),
+            });
           }
         }
       }
