@@ -57,7 +57,8 @@ export async function predictNextDay(
     try {
       const pred = model.predict(inputTensor) as tf.Tensor;
       // 模型输出是logits, 用sigmoid转为概率
-      const prob = tf.sigmoid(pred).dataSync()[0];
+      // softmax输出[跌概率, 涨概率]，取第1个作为涨概率
+	      const prob = pred.dataSync()[1];
       pred.dispose();
       probs.push(prob);
       pred.dispose();

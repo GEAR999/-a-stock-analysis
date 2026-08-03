@@ -49,17 +49,18 @@ export function buildModel(
   }));
   model.add(tf.layers.batchNormalization());
 
-  // 输出层: 16→1 (无激活函数, sigmoidCrossEntropy内部处理, 数值更稳定)
+  // 输出层: 16→2 (softmax, 二分类: [跌概率, 涨概率])
+  // softmax + sparseCategoricalCrossentropy 数值上绝对稳定
   model.add(tf.layers.dense({
-    units: 1,
+    units: 2,
+    activation: 'softmax',
     kernelInitializer: 'glorotNormal',
   }));
 
   model.compile({
     optimizer: tf.train.adam(learningRate),
-    loss: (yTrue: tf.Tensor, yPred: tf.Tensor) =>
-      tf.losses.sigmoidCrossEntropy(yTrue, yPred),
-    metrics: ['binaryAccuracy'],
+    loss: 'sparseCategoricalCrossentropy',
+    metrics: ['accuracy'],
   });
 
   return model;

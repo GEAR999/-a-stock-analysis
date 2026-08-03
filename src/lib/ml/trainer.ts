@@ -38,9 +38,10 @@ function calcFeatureImportance(
   featureNames: string[],
 ): Array<{ name: string; importance: number }> {
   const basePred = model.predict(valFeatures) as tf.Tensor;
-  const baseProb = tf.sigmoid(basePred);
-  const baseProbs = Array.from(baseProb.dataSync() as Float32Array);
-  baseProb.dispose();
+  // softmax输出 [batch, 2] = [prob_跌, prob_涨]，取 prob_涨 (列1)
+  const upProb = basePred.slice([0, 1], [-1, 1]) as tf.Tensor;
+  const baseProbs = Array.from(upProb.dataSync() as Float32Array);
+  upProb.dispose();
   const baseLabels = Array.from(valLabels.dataSync() as Float32Array);
   const baseAcc = calcMetrics(baseLabels, baseProbs).accuracy;
   basePred.dispose();
@@ -60,9 +61,9 @@ function calcFeatureImportance(
 
     const shuffledTensor = tf.tensor2d(shuffled, [shuffled.length, featureNames.length]);
     const permPred = model.predict(shuffledTensor) as tf.Tensor;
-    const permProb = tf.sigmoid(permPred);
-    const permProbs = Array.from(permProb.dataSync() as Float32Array);
-    permProb.dispose();
+    const permUp = permPred.slice([0, 1], [-1, 1]) as tf.Tensor;
+    const permProbs = Array.from(permUp.dataSync() as Float32Array);
+    permUp.dispose();
     const permAcc = calcMetrics(baseLabels, permProbs).accuracy;
     permPred.dispose();
     shuffledTensor.dispose();
@@ -361,9 +362,9 @@ export async function quickEvaluate(
 
   for (const model of models) {
     const pred = model.predict(testFeatures) as tf.Tensor;
-    const probs = tf.sigmoid(pred);
-    allProbs.push(Array.from(probs.dataSync() as Float32Array));
-    probs.dispose();
+    const upProbs = pred.slice([0, 1], [-1, 1]) as tf.Tensor;
+    allProbs.push(Array.from(upProbs.dataSync() as Float32Array));
+    upProbs.dispose();
     pred.dispose();
   }
 
@@ -384,9 +385,9 @@ export async function quickEvaluate(
     const idxProbs: number[][] = [];
     for (const model of models) {
       const pred = model.predict(idxFeatures) as tf.Tensor;
-      const probs = tf.sigmoid(pred);
-      idxProbs.push(Array.from(probs.dataSync() as Float32Array));
-      probs.dispose();
+      const upProbs = pred.slice([0, 1], [-1, 1]) as tf.Tensor;
+      idxProbs.push(Array.from(upProbs.dataSync() as Float32Array));
+      upProbs.dispose();
       pred.dispose();
     }
     idxFeatures.dispose();
