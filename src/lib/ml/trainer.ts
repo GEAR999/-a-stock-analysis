@@ -115,6 +115,26 @@ export async function trainSingleModel(
   let bestValAcc = 0;
   let earlyStopCount = 0;
 
+  // 检查输入数据是否包含 NaN
+  const featData = trainFeatures.dataSync();
+  let hasNaN = false;
+  for (let i = 0; i < Math.min(featData.length, 1000); i++) {
+    if (!isFinite(featData[i])) {
+      hasNaN = true;
+      console.log(`[ML Train] NaN/Inf in features at index ${i}: ${featData[i]}`);
+      break;
+    }
+  }
+  const labelData = trainLabels.dataSync();
+  for (let i = 0; i < Math.min(labelData.length, 100); i++) {
+    if (!isFinite(labelData[i])) {
+      hasNaN = true;
+      console.log(`[ML Train] NaN/Inf in labels at index ${i}: ${labelData[i]}`);
+      break;
+    }
+  }
+  console.log(`[ML Train] Data has NaN: ${hasNaN}, featMin=${Math.min(...featData.slice(0, 1000))}, featMax=${Math.max(...featData.slice(0, 1000))}`);
+
   // 模型已编译，不再重复编译（避免 Adam 优化器状态重置）
   // 训练 50 个 epoch，使用固定学习率 + Adam 自适应
   console.log(`[ML Train] Starting model.fit: trainShape=${trainFeatures.shape}, valShape=${valFeatures.shape}, epochs=${epochs}, batchSize=${batchSizeActual}`);
@@ -127,8 +147,8 @@ export async function trainSingleModel(
     initialEpoch: 0,
     callbacks: {
       onEpochEnd: async (epochNum, logs) => {
-          const acc = logs?.acc ?? logs?.accuracy ?? 0;
-          const valAcc = logs?.val_acc ?? logs?.val_accuracy ?? 0;
+          const acc = logs?.binaryAccuracy ?? logs?.acc ?? logs?.accuracy ?? 0;
+          const valAcc = logs?.val_binaryAccuracy ?? logs?.val_acc ?? logs?.val_accuracy ?? 0;
           const loss = logs?.loss ?? 0;
           const valLoss = logs?.val_loss ?? 0;
 
@@ -177,6 +197,10 @@ export async function trainSingleModel(
   // 清理 Tensor
   console.log(`[ML Train] Model.fit completed, result.history.epochs=${result.history?.loss?.length || 0}`);
   console.log(`[ML Train] Training history:`, JSON.stringify(history.slice(0, 3)));
+  console.log(`[ML Train] result.history loss:`, result.history?.loss?.slice(0, 3));
+  console.log(`[ML Train] result.history binaryAccuracy:`, result.history?.binaryAccuracy?.slice(0, 3));
+  console.log(`[ML Train] result.history val_loss:`, result.history?.val_loss?.slice(0, 3));
+  console.log(`[ML Train] result.history val_binaryAccuracy:`, result.history?.val_binaryAccuracy?.slice(0, 3));
 
   trainFeatures.dispose();
   trainLabels.dispose();
