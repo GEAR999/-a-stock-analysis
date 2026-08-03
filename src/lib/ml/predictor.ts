@@ -56,7 +56,9 @@ export async function predictNextDay(
   for (const model of models) {
     try {
       const pred = model.predict(inputTensor) as tf.Tensor;
-      const prob = pred.dataSync()[0];
+      // 模型输出是logits, 用sigmoid转为概率
+      const prob = tf.sigmoid(pred).dataSync()[0];
+      pred.dispose();
       probs.push(prob);
       pred.dispose();
     } catch (err) {

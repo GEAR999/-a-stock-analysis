@@ -49,17 +49,17 @@ export function buildModel(
   }));
   model.add(tf.layers.batchNormalization());
 
-  // 输出层: 16→1
+  // 输出层: 16→1 (无激活函数, sigmoidCrossEntropy内部处理, 数值更稳定)
   model.add(tf.layers.dense({
     units: 1,
-    activation: 'sigmoid',
     kernelInitializer: 'glorotNormal',
   }));
 
   model.compile({
     optimizer: tf.train.adam(learningRate),
-    loss: 'binaryCrossentropy',
-    metrics: ['accuracy'],
+    loss: (yTrue: tf.Tensor, yPred: tf.Tensor) =>
+      tf.losses.sigmoidCrossEntropy(yTrue, yPred),
+    metrics: ['binaryAccuracy'],
   });
 
   return model;

@@ -38,7 +38,9 @@ function calcFeatureImportance(
   featureNames: string[],
 ): Array<{ name: string; importance: number }> {
   const basePred = model.predict(valFeatures) as tf.Tensor;
-  const baseProbs = Array.from(basePred.dataSync() as Float32Array);
+  const baseProb = tf.sigmoid(basePred);
+  const baseProbs = Array.from(baseProb.dataSync() as Float32Array);
+  baseProb.dispose();
   const baseLabels = Array.from(valLabels.dataSync() as Float32Array);
   const baseAcc = calcMetrics(baseLabels, baseProbs).accuracy;
   basePred.dispose();
@@ -58,7 +60,9 @@ function calcFeatureImportance(
 
     const shuffledTensor = tf.tensor2d(shuffled, [shuffled.length, featureNames.length]);
     const permPred = model.predict(shuffledTensor) as tf.Tensor;
-    const permProbs = Array.from(permPred.dataSync() as Float32Array);
+    const permProb = tf.sigmoid(permPred);
+    const permProbs = Array.from(permProb.dataSync() as Float32Array);
+    permProb.dispose();
     const permAcc = calcMetrics(baseLabels, permProbs).accuracy;
     permPred.dispose();
     shuffledTensor.dispose();
@@ -333,7 +337,9 @@ export async function quickEvaluate(
 
   for (const model of models) {
     const pred = model.predict(testFeatures) as tf.Tensor;
-    allProbs.push(Array.from(pred.dataSync() as Float32Array));
+    const probs = tf.sigmoid(pred);
+    allProbs.push(Array.from(probs.dataSync() as Float32Array));
+    probs.dispose();
     pred.dispose();
   }
 
@@ -354,7 +360,9 @@ export async function quickEvaluate(
     const idxProbs: number[][] = [];
     for (const model of models) {
       const pred = model.predict(idxFeatures) as tf.Tensor;
-      idxProbs.push(Array.from(pred.dataSync() as Float32Array));
+      const probs = tf.sigmoid(pred);
+      idxProbs.push(Array.from(probs.dataSync() as Float32Array));
+      probs.dispose();
       pred.dispose();
     }
     idxFeatures.dispose();

@@ -8,8 +8,12 @@ export function evaluateModel(
   testY: tf.Tensor1D
 ): EvaluationMetrics & { confusionMatrix: ConfusionMatrix } {
   const predictions = model.predict(testX) as tf.Tensor;
-  const predValues = predictions.dataSync();
+  // 模型输出是logits, 用sigmoid转为概率
+  const probs = tf.sigmoid(predictions);
+  const predValues = probs.dataSync();
   const trueValues = testY.dataSync();
+  probs.dispose();
+  predictions.dispose();
 
   let tp = 0, fp = 0, tn = 0, fn = 0;
   for (let i = 0; i < predValues.length; i++) {
