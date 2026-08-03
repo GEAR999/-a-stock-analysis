@@ -8,11 +8,11 @@ interface Props {
 }
 
 export function MLConfusionMatrix({ matrix }: Props) {
-  const { truePos, falsePos, falseNeg, trueNeg } = matrix;
-  const total = truePos + falsePos + falseNeg + trueNeg;
-  const accuracy = total > 0 ? ((truePos + trueNeg) / total * 100) : 0;
-  const precision = (truePos + falsePos) > 0 ? (truePos / (truePos + falsePos) * 100) : 0;
-  const recall = (truePos + falseNeg) > 0 ? (truePos / (truePos + falseNeg) * 100) : 0;
+  const { tp, fp, fn, tn } = matrix;
+  const total = tp + fp + fn + tn;
+  const accuracy = total > 0 ? ((tp + tn) / total * 100) : 0;
+  const precision = (tp + fp) > 0 ? (tp / (tp + fp) * 100) : 0;
+  const recall = (tp + fn) > 0 ? (tp / (tp + fn) * 100) : 0;
   const f1 = (precision + recall) > 0 ? 2 * (precision * recall) / (precision + recall) : 0;
 
   return (
@@ -25,20 +25,20 @@ export function MLConfusionMatrix({ matrix }: Props) {
         <div className="text-green-400">实际跌</div>
         <div className="text-gray-500">预测涨</div>
         <div className="bg-green-900/40 rounded p-2">
-          <div className="text-green-400 font-bold text-lg">{truePos}</div>
+          <div className="text-green-400 font-bold text-lg">{tp}</div>
           <div className="text-green-500">正确 ✓</div>
         </div>
         <div className="bg-red-900/40 rounded p-2">
-          <div className="text-red-400 font-bold text-lg">{falsePos}</div>
+          <div className="text-red-400 font-bold text-lg">{fp}</div>
           <div className="text-red-500">误报 ✗</div>
         </div>
         <div className="text-gray-500">预测跌</div>
         <div className="bg-red-900/40 rounded p-2">
-          <div className="text-red-400 font-bold text-lg">{falseNeg}</div>
+          <div className="text-red-400 font-bold text-lg">{fn}</div>
           <div className="text-red-500">漏报 ✗</div>
         </div>
         <div className="bg-green-900/40 rounded p-2">
-          <div className="text-green-400 font-bold text-lg">{trueNeg}</div>
+          <div className="text-green-400 font-bold text-lg">{tn}</div>
           <div className="text-green-500">正确 ✓</div>
         </div>
       </div>

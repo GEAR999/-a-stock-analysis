@@ -15,12 +15,12 @@ export function MLPredictionHistory({ predictions }: Props) {
   }
 
   const recent = predictions.slice(-30);
-  const correct = recent.filter(p => (p.predicted >= 0.5 ? 1 : 0) === p.actual);
+  const correct = recent.filter(p => (p.upProb >= 0.5 ? 1 : 0) === p.actual);
   const accuracy = recent.length > 0 ? (correct.length / recent.length * 100) : 0;
 
   // 高置信度预测准确率
-  const highConf = recent.filter(p => p.confidence > 0.7);
-  const highCorrect = highConf.filter(p => (p.predicted >= 0.5 ? 1 : 0) === p.actual);
+  const highConf = recent.filter(p => Math.abs(p.upProb - 0.5) > 0.2);
+  const highCorrect = highConf.filter(p => (p.upProb >= 0.5 ? 1 : 0) === p.actual);
   const highAcc = highConf.length > 0 ? (highCorrect.length / highConf.length * 100) : 0;
 
   return (
@@ -44,7 +44,7 @@ export function MLPredictionHistory({ predictions }: Props) {
       {/* 预测历史条 */}
       <div className="space-y-1 max-h-60 overflow-y-auto">
         {recent.slice(-20).reverse().map((p, i) => {
-          const isCorrect = (p.predicted >= 0.5 ? 1 : 0) === p.actual;
+          const isCorrect = (p.upProb >= 0.5 ? 1 : 0) === p.actual;
           return (
             <div key={i} className="flex items-center gap-2 text-xs">
               <span className="text-gray-500 w-16 flex-shrink-0">{p.date.slice(5)}</span>
@@ -53,13 +53,13 @@ export function MLPredictionHistory({ predictions }: Props) {
                 <div
                   className="h-3 rounded-full transition-all"
                   style={{
-                    width: `${p.predicted * 100}%`,
-                    backgroundColor: p.predicted >= 0.5 ? '#3B82F6' : '#EF4444',
-                    opacity: p.confidence > 0.7 ? 1 : 0.5,
+                    width: `${p.upProb * 100}%`,
+                    backgroundColor: p.upProb >= 0.5 ? '#3B82F6' : '#EF4444',
+                    opacity: Math.abs(p.upProb - 0.5) > 0.2 ? 1 : 0.5,
                   }}
                 />
                 <span className="absolute inset-0 flex items-center justify-center text-[10px] font-mono text-white">
-                  {(p.predicted * 100).toFixed(0)}%
+                  {(p.upProb * 100).toFixed(0)}%
                 </span>
               </div>
               <span className={`w-3 ${isCorrect ? 'text-green-400' : 'text-red-400'}`}>

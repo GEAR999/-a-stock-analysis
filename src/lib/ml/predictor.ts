@@ -5,8 +5,8 @@ import {
   type PredictionResult, type PredictionHistoryItem, type TrainingSample,
   ENSEMBLE_CONFIG, INDEX_DEFS, FEATURE_DIM,
 } from './types';
-import { loadAllEnsembleModels, MODEL_NAME } from './model';
-import { extractFeatures, computeQuantileThresholds } from './data-preparation';
+import { loadAllEnsembleModels, MODEL_NAME, loadNormalizationStats } from './model';
+import { extractFeatures, computeQuantileThresholds, normalizeFeatures } from './data-preparation';
 
 /** 缓存已加载的模型 */
 let cachedModels: tf.Sequential[] | null = null;
@@ -46,7 +46,11 @@ export async function predictNextDay(
   // 提取特征
   const indicators = getAllIndicators(klineData);
   const lastKline = klineData[klineData.length - 1];
-  const features = extractFeatures(lastKline, klineData.slice(0, -1), indicators, idxDef.group);
+  const rawFeatures = extractFeatures(lastKline, klineData.slice(0, -1), indicators, idxDef.group);
+
+  // ★★★ 加载标准化参数并归一化特征 ★★★
+  const normStats = loadNormalizationStats();
+  const features = normStats ? normalizeFeatures(rawFeatures, normStats) : rawFeatures;
 
   // 转换为 Tensor
   const inputTensor = tf.tensor2d([features], [1, FEATURE_DIM]);
@@ -56,12 +60,10 @@ export async function predictNextDay(
   for (const model of models) {
     try {
       const pred = model.predict(inputTensor) as tf.Tensor;
-      // 模型输出是logits, 用sigmoid转为概率
       // softmax输出[跌概率, 涨概率]，取第1个作为涨概率
-	      const prob = pred.dataSync()[1];
+      const prob = pred.dataSync()[1];
       pred.dispose();
       probs.push(prob);
-      pred.dispose();
     } catch (err) {
       console.warn(`模型预测失败:`, err);
     }
@@ -120,15 +122,22 @@ export function generatePredictionHistory(
   testSamples: TrainingSample[],
   models: tf.Sequential[],
 ): PredictionHistoryItem[] {
+  // ★★★ 加载标准化参数并归一化 ★★★
+  const normStats = loadNormalizationStats();
+  const normalizedSamples = normStats
+    ? testSamples.map(s => ({ ...s, features: normalizeFeatures(s.features, normStats) }))
+    : testSamples;
+
   const history: PredictionHistoryItem[] = [];
 
-  for (const sample of testSamples) {
+  for (const sample of normalizedSamples) {
     const inputTensor = tf.tensor2d([sample.features], [1, FEATURE_DIM]);
 
     const probs: number[] = [];
     for (const model of models) {
       const pred = model.predict(inputTensor) as tf.Tensor;
-      probs.push(pred.dataSync()[0]);
+      // softmax输出[跌概率, 涨概率]，取第1个作为涨概率
+      probs.push(pred.dataSync()[1]);
       pred.dispose();
     }
 

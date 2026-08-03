@@ -23,7 +23,7 @@ export function extractFeatures(
   index: number = -1,
 ): number[] {
   // 使用当前 K 线对应的指标索引，避免数据穿越
-  const idx = index >= 0 ? index : (indicators.ma[5]?.length - 1 ?? 0);
+  const idx = index >= 0 ? index : ((indicators.ma[5]?.length ?? 1) - 1);
   const ma5 = indicators.ma[5]?.[idx] ?? kline.close;
   const ma20 = indicators.ma[20]?.[idx] ?? kline.close;
   const ma60 = indicators.ma[60]?.[idx] ?? kline.close;
@@ -320,6 +320,60 @@ export async function fetchAndPrepareData(
     totalSamples: allSamples.length,
     indexBreakdown,
   };
+}
+
+// ===== 特征标准化 =====
+
+export interface NormalizationStats {
+  mean: number[];
+  std: number[];
+}
+
+/** 计算训练集的特征标准化参数（均值、标准差） */
+export function computeNormalizationStats(samples: TrainingSample[]): NormalizationStats {
+  if (samples.length === 0) {
+    return { mean: new Array(FEATURE_DIM).fill(0), std: new Array(FEATURE_DIM).fill(1) };
+  }
+
+  const dim = samples[0].features.length;
+  const mean = new Array(dim).fill(0);
+  const std = new Array(dim).fill(0);
+
+  // 1. 计算均值
+  for (const s of samples) {
+    for (let i = 0; i < dim; i++) {
+      mean[i] += s.features[i];
+    }
+  }
+  for (let i = 0; i < dim; i++) {
+    mean[i] /= samples.length;
+  }
+
+  // 2. 计算标准差
+  for (const s of samples) {
+    for (let i = 0; i < dim; i++) {
+      std[i] += (s.features[i] - mean[i]) ** 2;
+    }
+  }
+  for (let i = 0; i < dim; i++) {
+    std[i] = Math.sqrt(std[i] / samples.length);
+    if (std[i] < 1e-8) std[i] = 1; // 防止除零
+  }
+
+  return { mean, std };
+}
+
+/** 对单个特征向量应用标准化 */
+export function normalizeFeatures(features: number[], stats: NormalizationStats): number[] {
+  return features.map((f, i) => (f - stats.mean[i]) / stats.std[i]);
+}
+
+/** 批量标准化样本数组 */
+export function normalizeSamples(samples: TrainingSample[], stats: NormalizationStats): TrainingSample[] {
+  return samples.map(s => ({
+    ...s,
+    features: normalizeFeatures(s.features, stats),
+  }));
 }
 
 export { FEATURE_NAMES, FEATURE_DIM, INDEX_DEFS };

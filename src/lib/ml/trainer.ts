@@ -4,8 +4,8 @@ import {
   ENSEMBLE_CONFIG, DEFAULT_TRAINING_CONFIG, INDEX_DEFS, FEATURE_DIM,
   type FeatureImportance, type ConfusionMatrix,
 } from './types';
-import { buildModel, saveModel, clearAllModels } from './model';
-import { samplesToTensor, labelsToTensor } from './data-preparation';
+import { buildModel, saveModel, clearAllModels, saveNormalizationStats, clearNormalizationStats, loadNormalizationStats } from './model';
+import { samplesToTensor, labelsToTensor, computeNormalizationStats, normalizeSamples } from './data-preparation';
 
 /** 计算评估指标 */
 function calcMetrics(
@@ -52,8 +52,8 @@ function calcFeatureImportance(
   for (let f = 0; f < featureNames.length; f++) {
     const shuffled = featureData.map(row => {
       const newRow = [...row];
-      // 随机打乱该特征列
-      const col = row.map(r => r[f]);
+      // 随机打乱该特征列：提取该列所有值
+      const col = featureData.map(r => r[f]);
       const shuffledCol = [...col].sort(() => Math.random() - 0.5);
       newRow.map((_, i) => { newRow[f] = shuffledCol[i]; });
       return newRow;
@@ -223,6 +223,7 @@ export async function trainEnsemble(
 }> {
   // 清理旧模型
   await clearAllModels();
+  clearNormalizationStats();
 
   const config = {
     epochs: DEFAULT_TRAINING_CONFIG.epochs,
@@ -239,12 +240,24 @@ export async function trainEnsemble(
     progress: 0,
   });
 
+  // ★★★ 特征标准化：计算训练集的均值和标准差，归一化所有数据 ★★★
+  console.log(`[ML Train] Computing normalization stats from ${trainSamples.length} training samples...`);
+  const normStats = computeNormalizationStats(trainSamples);
+  console.log(`[ML Train] Norm stats: mean=[${normStats.mean.map(v => v.toFixed(2)).slice(0, 5).join(', ')}...], std=[${normStats.std.map(v => v.toFixed(2)).slice(0, 5).join(', ')}...]`);
+
+  const normalizedTrain = normalizeSamples(trainSamples, normStats);
+  const normalizedVal = normalizeSamples(valSamples, normStats);
+
+  // 验证归一化后的数据范围
+  const allFeats = normalizedTrain.flatMap(s => s.features);
+  console.log(`[ML Train] After normalization: min=${Math.min(...allFeats)}, max=${Math.max(...allFeats)}`);
+
   // 训练每个集成模型
   for (let i = 0; i < ENSEMBLE_CONFIG.numModels; i++) {
     const seed = ENSEMBLE_CONFIG.seeds[i];
 
     const { model, history, valAccuracy } = await trainSingleModel(
-      trainSamples, valSamples, { ...config, seed },
+      normalizedTrain, normalizedVal, { ...config, seed },
       onProgress, i,
     );
 
@@ -304,8 +317,8 @@ export async function trainEnsemble(
   }
 
   // 计算集成验证准确率（所有模型平均）
-  const valFeatures = samplesToTensor(valSamples);
-  const valLabels = labelsToTensor(valSamples);
+  const valFeatures = samplesToTensor(normalizedVal);
+  const valLabels = labelsToTensor(normalizedVal);
   const allProbs: number[][] = [];
 
   for (const model of allModels) {
@@ -322,6 +335,10 @@ export async function trainEnsemble(
   const finalMetrics = calcMetrics(trueLabels, ensembleProbs);
   valFeatures.dispose();
   valLabels.dispose();
+
+  // ★★★ 保存标准化参数（预测时需要使用相同的参数） ★★★
+  saveNormalizationStats(normStats);
+  console.log(`[ML Train] Normalization stats saved to localStorage`);
 
   onProgress({
     phase: 'evaluating',
@@ -356,8 +373,12 @@ export async function quickEvaluate(
     progress: 50,
   });
 
-  const testFeatures = samplesToTensor(testSamples);
-  const testLabels = labelsToTensor(testSamples);
+  // ★★★ 加载标准化参数并归一化测试数据 ★★★
+  const normStats = loadNormalizationStats();
+  const normalizedTest = normStats ? normalizeSamples(testSamples, normStats) : testSamples;
+
+  const testFeatures = samplesToTensor(normalizedTest);
+  const testLabels = labelsToTensor(normalizedTest);
   const allProbs: number[][] = [];
 
   for (const model of models) {

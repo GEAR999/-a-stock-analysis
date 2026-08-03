@@ -152,3 +152,28 @@ export function disposeModel(model: tf.Sequential): void {
   tf.disposeVariables();
   // 不完全清理，保留 Backend
 }
+
+// ===== 特征标准化参数持久化 =====
+
+const NORM_STATS_KEY = `${MODEL_NAME}-norm-stats`;
+
+/** 保存标准化参数 */
+export function saveNormalizationStats(stats: { mean: number[]; std: number[] }): void {
+  localStorage.setItem(NORM_STATS_KEY, JSON.stringify(stats));
+}
+
+/** 加载标准化参数 */
+export function loadNormalizationStats(): { mean: number[]; std: number[] } | null {
+  const raw = localStorage.getItem(NORM_STATS_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+/** 清除标准化参数 */
+export function clearNormalizationStats(): void {
+  localStorage.removeItem(NORM_STATS_KEY);
+}

@@ -8,7 +8,7 @@ interface Props {
 }
 
 export function MLTrainingProgress({ progress }: Props) {
-  const { phase, message, currentEpoch, totalEpochs, modelIndex, totalModels, history } = progress;
+  const { phase, message, epoch: currentEpoch, totalEpochs, modelIndex, currentModel: totalModels, history } = progress;
 
   // 训练阶段：显示集成模型进度
   if (phase === 'preparing') {

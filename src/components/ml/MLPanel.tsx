@@ -108,7 +108,15 @@ export function MLPanel() {
       // 4. 测试集评估
       const testResult = await quickEvaluate(testSamples, models, (p) => setProgress({ ...p }));
 
-      setTestSummary(testResult);
+      setTestSummary({
+        accuracy: testResult.testAccuracy,
+        precision: testResult.testPrecision,
+        recall: testResult.testRecall,
+        f1: testResult.testF1,
+        confusionMatrix: testResult.confusionMatrix,
+        featureImportance: testResult.featureImportance,
+        indexBreakdown: testResult.indexBreakdown,
+      });
 
       // 5. 汇总
       setSummary({

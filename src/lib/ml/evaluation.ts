@@ -36,6 +36,10 @@ export function evaluateModel(
     precision,
     recall,
     f1,
+    specificity: total > 0 ? tn / (tn + fp) : 0,
+    totalSamples: total,
+    correctPredictions: tp + tn,
+    wrongPredictions: fp + fn,
     confusionMatrix: { tp, fp, tn, fn },
   };
 }
