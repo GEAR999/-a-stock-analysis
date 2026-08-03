@@ -95,7 +95,9 @@ export async function trainSingleModel(
   });
 
   // 构建模型
+  console.log(`[ML Train] Building model: inputDim=${FEATURE_DIM}, seed=${seed}, learningRate=${learningRate}`);
   const model = buildModel(FEATURE_DIM, seed, learningRate);
+  console.log(`[ML Train] Model built, inputShape=${JSON.stringify(model.layers[0].batchInputShape)}`);
 
   // 转换为 Tensor
   const trainFeatures = samplesToTensor(trainSamples);
@@ -111,6 +113,8 @@ export async function trainSingleModel(
 
   // 模型已编译，不再重复编译（避免 Adam 优化器状态重置）
   // 训练 50 个 epoch，使用固定学习率 + Adam 自适应
+  console.log(`[ML Train] Starting model.fit: trainShape=${trainFeatures.shape}, valShape=${valFeatures.shape}, epochs=${epochs}, batchSize=${batchSizeActual}`);
+
   const result = await model.fit(trainFeatures, trainLabels, {
     batchSize: batchSizeActual,
     epochs: epochs,
@@ -122,6 +126,11 @@ export async function trainSingleModel(
           const acc = logs?.acc ?? logs?.accuracy ?? 0;
           const valAcc = logs?.val_acc ?? logs?.val_accuracy ?? 0;
           const loss = logs?.loss ?? 0;
+          const valLoss = logs?.val_loss ?? 0;
+
+          // 调试日志
+          console.log(`[ML Train] Epoch ${epochNum + 1}/${epochs} | loss=${loss} acc=${acc} val_loss=${valLoss} val_acc=${valAcc}`);
+          console.log(`[ML Train] logs keys: ${Object.keys(logs || {}).join(', ')}`);
 
           history.push({
             epoch: epochNum + 1,
@@ -162,6 +171,9 @@ export async function trainSingleModel(
     });
 
   // 清理 Tensor
+  console.log(`[ML Train] Model.fit completed, result.history.epochs=${result.history?.loss?.length || 0}`);
+  console.log(`[ML Train] Training history:`, JSON.stringify(history.slice(0, 3)));
+
   trainFeatures.dispose();
   trainLabels.dispose();
   valFeatures.dispose();
