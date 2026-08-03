@@ -1,88 +1,51 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { spawn } from 'child_process';
+import { execSync } from 'child_process';
 import path from 'path';
+import fs from 'fs';
+import os from 'os';
 
 export async function POST(request: NextRequest) {
-  const scriptPath = path.join(process.cwd(), 'src', 'lib', 'ml', 'train.py');
+  try {
+    // 1. 读取完整请求体文本
+    const bodyText = await request.text();
+    if (!bodyText || bodyText.length < 100) {
+      return NextResponse.json(
+        { success: false, error: '请求体为空或数据不足' },
+        { status: 400 },
+      );
+    }
 
-  const python = spawn('python3', [scriptPath]);
+    // 2. 写入临时文件
+    const tmpFile = path.join(os.tmpdir(), `ml_train_${Date.now()}.json`);
+    fs.writeFileSync(tmpFile, bodyText, 'utf-8');
 
-  let stdout = '';
-  let stderr = '';
+    // 3. 验证文件写入完整性
+    const writtenSize = fs.statSync(tmpFile).size;
+    const expectedSize = Buffer.byteLength(bodyText, 'utf-8');
+    if (writtenSize !== expectedSize) {
+      return NextResponse.json(
+        { success: false, error: `文件写入不完整: ${writtenSize}/${expectedSize}` },
+        { status: 500 },
+      );
+    }
 
-  python.stdout.on('data', (data: Buffer) => { stdout += data.toString(); });
-  python.stderr.on('data', (data: Buffer) => { stderr += data.toString(); });
+    // 4. 运行 Python 训练脚本
+    const scriptPath = path.join(process.cwd(), 'src/lib/ml/train.py');
+    const stdout = execSync(`python3 "${scriptPath}" "${tmpFile}"`, {
+      timeout: 180_000,
+      maxBuffer: 100 * 1024 * 1024, // 100MB
+    });
 
-  // 从 request.body 逐块读取并写入 Python stdin
-  const bodyStream = request.body;
-  if (bodyStream) {
-    const reader = bodyStream.getReader();
-    const writer = python.stdin;
+    // 5. 清理临时文件
+    try { fs.unlinkSync(tmpFile); } catch {}
 
-    // 异步管道：读取一个块 → 写入 → 等待 drain（背压控制）
-    (async () => {
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          if (!writer.write(value)) {
-            await new Promise<void>((resolve) => writer.once('drain', resolve));
-          }
-        }
-        writer.end();
-      } catch (err) {
-        console.error('stdin pipe error:', err);
-        python.kill();
-      }
-    })();
-  } else {
-    python.stdin.end();
+    // 6. 解析结果
+    const result = JSON.parse(stdout.toString());
+    return NextResponse.json(result);
+  } catch (error: any) {
+    return NextResponse.json(
+      { success: false, error: `训练失败: ${error.message || '未知错误'}` },
+      { status: 500 },
+    );
   }
-
-  // 等待 Python 进程结束
-  return new Promise<NextResponse>((resolve) => {
-    const timeout = setTimeout(() => {
-      python.kill();
-      resolve(
-        NextResponse.json(
-          { success: false, error: '训练超时' },
-          { status: 500 },
-        ),
-      );
-    }, 120_000);
-
-    python.on('close', (code) => {
-      clearTimeout(timeout);
-      if (code === 0 && stdout) {
-        try {
-          const result = JSON.parse(stdout);
-          resolve(NextResponse.json(result));
-        } catch (e: any) {
-          resolve(
-            NextResponse.json(
-              { success: false, error: `结果解析失败: ${e.message}` },
-              { status: 500 },
-            ),
-          );
-        }
-      } else {
-        resolve(
-          NextResponse.json(
-            { success: false, error: `训练失败: ${stderr || `退出码 ${code}`}` },
-            { status: 500 },
-          ),
-        );
-      }
-    });
-
-    python.on('error', (err) => {
-      clearTimeout(timeout);
-      resolve(
-        NextResponse.json(
-          { success: false, error: `进程错误: ${err.message}` },
-          { status: 500 },
-        ),
-      );
-    });
-  });
 }
