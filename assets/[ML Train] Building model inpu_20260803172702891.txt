@@ -1,0 +1,160 @@
+[ML Train] Building model: inputDim=40, seed=42, learningRate=0.001
+page-2e9bac16c5586bdf.js:1 [ML Train] Model built, inputShape=[null,40]
+page-2e9bac16c5586bdf.js:1 [ML Train] Data has NaN: false, featMin=-37.80780029296875, featMax=79.29000091552734
+page-2e9bac16c5586bdf.js:1 [ML Train] Starting model.fit: trainShape=21149,40, valShape=4532,40, epochs=80, batchSize=64
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 1/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 2/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 3/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 4/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 5/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 6/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 7/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 8/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 9/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 10/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 11/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Model.fit completed, result.history.epochs=11
+page-2e9bac16c5586bdf.js:1 [ML Train] Training history: [{"epoch":1,"loss":null,"accuracy":0.49515342712402344,"valAccuracy":0.4986760914325714},{"epoch":2,"loss":null,"accuracy":0.49515342712402344,"valAccuracy":0.4986760914325714},{"epoch":3,"loss":null,"accuracy":0.49515342712402344,"valAccuracy":0.4986760914325714}]
+page-2e9bac16c5586bdf.js:1 [ML Train] result.history loss: Array(3)
+page-2e9bac16c5586bdf.js:1 [ML Train] result.history binaryAccuracy: undefined
+page-2e9bac16c5586bdf.js:1 [ML Train] result.history val_loss: Array(3)
+page-2e9bac16c5586bdf.js:1 [ML Train] result.history val_binaryAccuracy: undefined
+page-2e9bac16c5586bdf.js:1 [ML Train] Building model: inputDim=40, seed=123, learningRate=0.001
+page-2e9bac16c5586bdf.js:1 [ML Train] Model built, inputShape=[null,40]
+page-2e9bac16c5586bdf.js:1 [ML Train] Data has NaN: false, featMin=-37.80780029296875, featMax=79.29000091552734
+page-2e9bac16c5586bdf.js:1 [ML Train] Starting model.fit: trainShape=21149,40, valShape=4532,40, epochs=80, batchSize=64
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 1/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 2/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 3/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 4/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 5/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 6/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 7/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 8/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 9/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 10/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 11/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Model.fit completed, result.history.epochs=11
+page-2e9bac16c5586bdf.js:1 [ML Train] Training history: [{"epoch":1,"loss":null,"accuracy":0.49515342712402344,"valAccuracy":0.4986760914325714},{"epoch":2,"loss":null,"accuracy":0.49515342712402344,"valAccuracy":0.4986760914325714},{"epoch":3,"loss":null,"accuracy":0.49515342712402344,"valAccuracy":0.4986760914325714}]
+page-2e9bac16c5586bdf.js:1 [ML Train] result.history loss: Array(3)
+page-2e9bac16c5586bdf.js:1 [ML Train] result.history binaryAccuracy: undefined
+page-2e9bac16c5586bdf.js:1 [ML Train] result.history val_loss: Array(3)
+page-2e9bac16c5586bdf.js:1 [ML Train] result.history val_binaryAccuracy: undefined
+page-2e9bac16c5586bdf.js:1 [ML Train] Building model: inputDim=40, seed=256, learningRate=0.001
+page-2e9bac16c5586bdf.js:1 [ML Train] Model built, inputShape=[null,40]
+page-2e9bac16c5586bdf.js:1 [ML Train] Data has NaN: false, featMin=-37.80780029296875, featMax=79.29000091552734
+page-2e9bac16c5586bdf.js:1 [ML Train] Starting model.fit: trainShape=21149,40, valShape=4532,40, epochs=80, batchSize=64
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 1/80 | loss=NaN acc=0.495248019695282 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 2/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 3/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 4/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 5/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 6/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 7/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 8/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 9/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 10/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 11/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Model.fit completed, result.history.epochs=11
+page-2e9bac16c5586bdf.js:1 [ML Train] Training history: [{"epoch":1,"loss":null,"accuracy":0.495248019695282,"valAccuracy":0.4986760914325714},{"epoch":2,"loss":null,"accuracy":0.49515342712402344,"valAccuracy":0.4986760914325714},{"epoch":3,"loss":null,"accuracy":0.49515342712402344,"valAccuracy":0.4986760914325714}]
+page-2e9bac16c5586bdf.js:1 [ML Train] result.history loss: Array(3)
+page-2e9bac16c5586bdf.js:1 [ML Train] result.history binaryAccuracy: undefined
+page-2e9bac16c5586bdf.js:1 [ML Train] result.history val_loss: Array(3)
+page-2e9bac16c5586bdf.js:1 [ML Train] result.history val_binaryAccuracy: undefined
+page-2e9bac16c5586bdf.js:1 [ML Train] Building model: inputDim=40, seed=789, learningRate=0.001
+page-2e9bac16c5586bdf.js:1 [ML Train] Model built, inputShape=[null,40]
+page-2e9bac16c5586bdf.js:1 [ML Train] Data has NaN: false, featMin=-37.80780029296875, featMax=79.29000091552734
+page-2e9bac16c5586bdf.js:1 [ML Train] Starting model.fit: trainShape=21149,40, valShape=4532,40, epochs=80, batchSize=64
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 1/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 2/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 3/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 4/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 5/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 6/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 7/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 8/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 9/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 10/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 11/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Model.fit completed, result.history.epochs=11
+page-2e9bac16c5586bdf.js:1 [ML Train] Training history: [{"epoch":1,"loss":null,"accuracy":0.49515342712402344,"valAccuracy":0.4986760914325714},{"epoch":2,"loss":null,"accuracy":0.49515342712402344,"valAccuracy":0.4986760914325714},{"epoch":3,"loss":null,"accuracy":0.49515342712402344,"valAccuracy":0.4986760914325714}]
+page-2e9bac16c5586bdf.js:1 [ML Train] result.history loss: Array(3)
+page-2e9bac16c5586bdf.js:1 [ML Train] result.history binaryAccuracy: undefined
+page-2e9bac16c5586bdf.js:1 [ML Train] result.history val_loss: Array(3)
+page-2e9bac16c5586bdf.js:1 [ML Train] result.history val_binaryAccuracy: undefined
+page-2e9bac16c5586bdf.js:1 [ML Train] Building model: inputDim=40, seed=1024, learningRate=0.001
+page-2e9bac16c5586bdf.js:1 [ML Train] Model built, inputShape=[null,40]
+page-2e9bac16c5586bdf.js:1 [ML Train] Data has NaN: false, featMin=-37.80780029296875, featMax=79.29000091552734
+page-2e9bac16c5586bdf.js:1 [ML Train] Starting model.fit: trainShape=21149,40, valShape=4532,40, epochs=80, batchSize=64
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 1/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 2/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 3/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 4/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 5/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 6/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 7/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 8/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 9/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 10/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Epoch 11/80 | loss=NaN acc=0.49515342712402344 val_loss=0.6931469440460205 val_acc=0.4986760914325714
+page-2e9bac16c5586bdf.js:1 [ML Train] logs keys: val_loss, val_acc, loss, acc
+page-2e9bac16c5586bdf.js:1 [ML Train] Model.fit completed, result.history.epochs=11
+page-2e9bac16c5586bdf.js:1 [ML Train] Training history: [{"epoch":1,"loss":null,"accuracy":0.49515342712402344,"valAccuracy":0.4986760914325714},{"epoch":2,"loss":null,"accuracy":0.49515342712402344,"valAccuracy":0.4986760914325714},{"epoch":3,"loss":null,"accuracy":0.49515342712402344,"valAccuracy":0.4986760914325714}]
+page-2e9bac16c5586bdf.js:1 [ML Train] result.history loss: Array(3)
+page-2e9bac16c5586bdf.js:1 [ML Train] result.history binaryAccuracy: undefined
+page-2e9bac16c5586bdf.js:1 [ML Train] result.history val_loss: Array(3)
+page-2e9bac16c5586bdf.js:1 [ML Train] result.history val_binaryAccuracy: undefined
