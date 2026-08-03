@@ -6,8 +6,9 @@ export const MODEL_NAME = 'a-stock-index-model';
 
 /** 构建模型（40维输入 → 64→32→16→1） */
 export function buildModel(
-  learningRate: number = 0.001,
+  inputDim: number = FEATURE_DIM,
   seed: number = 42,
+  learningRate: number = 0.001,
 ): tf.Sequential {
   // setRandomSeed 在 tfjs 4.x 中已移除，用 kernelInitializer 保证初始化多样性
   // 5 个模型不同种子天然产生不同初始权重，无需手动设置随机种子
@@ -18,7 +19,7 @@ export function buildModel(
   model.add(tf.layers.dense({
     units: 64,
     activation: 'relu',
-    inputShape: [FEATURE_DIM],
+    inputShape: [inputDim],
     kernelRegularizer: tf.regularizers.l2({ l2: 0.001 }),
     kernelInitializer: 'heNormal',
   }));

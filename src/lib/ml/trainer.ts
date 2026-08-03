@@ -4,7 +4,7 @@ import {
   ENSEMBLE_CONFIG, DEFAULT_TRAINING_CONFIG, INDEX_DEFS, FEATURE_DIM,
   type FeatureImportance, type ConfusionMatrix,
 } from './types';
-import { buildModel, saveModel, cosineAnnealingLR, disposeModel, clearAllModels } from './model';
+import { buildModel, saveModel, clearAllModels } from './model';
 import { samplesToTensor, labelsToTensor } from './data-preparation';
 
 /** 计算评估指标 */
@@ -95,7 +95,7 @@ export async function trainSingleModel(
   });
 
   // 构建模型
-  const model = buildModel(FEATURE_DIM, seed);
+  const model = buildModel(FEATURE_DIM, seed, learningRate);
 
   // 转换为 Tensor
   const trainFeatures = samplesToTensor(trainSamples);
