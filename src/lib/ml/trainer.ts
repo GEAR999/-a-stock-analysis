@@ -95,7 +95,7 @@ export async function trainSingleModel(
   });
 
   // 构建模型
-  const model = buildModel(learningRate, seed);
+  const model = buildModel(FEATURE_DIM, seed);
 
   // 转换为 Tensor
   const trainFeatures = samplesToTensor(trainSamples);
@@ -109,23 +109,16 @@ export async function trainSingleModel(
   let bestValAcc = 0;
   let earlyStopCount = 0;
 
-  for (let epoch = 0; epoch < epochs; epoch++) {
-    // 余弦退火学习率
-    const currentLR = cosineAnnealingLR(learningRate, epochs, epoch);
-    model.compile({
-      optimizer: tf.train.adam(currentLR),
-      loss: 'binaryCrossentropy',
-      metrics: ['accuracy'],
-    });
-
-    // 训练一个 epoch
-    const result = await model.fit(trainFeatures, trainLabels, {
-      batchSize: batchSizeActual,
-      epochs: 1,
-      validationData: [valFeatures, valLabels],
-      shuffle: true,
-      callbacks: {
-        onEpochEnd: (epochNum, logs) => {
+  // 模型已编译，不再重复编译（避免 Adam 优化器状态重置）
+  // 训练 50 个 epoch，使用固定学习率 + Adam 自适应
+  const result = await model.fit(trainFeatures, trainLabels, {
+    batchSize: batchSizeActual,
+    epochs: epochs,
+    validationData: [valFeatures, valLabels],
+    shuffle: true,
+    initialEpoch: 0,
+    callbacks: {
+      onEpochEnd: async (epochNum, logs) => {
           const acc = logs?.acc ?? logs?.accuracy ?? 0;
           const valAcc = logs?.val_acc ?? logs?.val_accuracy ?? 0;
           const loss = logs?.loss ?? 0;
@@ -143,6 +136,11 @@ export async function trainSingleModel(
             earlyStopCount = 0;
           } else {
             earlyStopCount++;
+          }
+
+          // 达到早停条件时停止训练
+          if (earlyStopCount >= 10) {
+            model.stopTraining = true;
           }
 
           const progress = ((epochNum + 1) / epochs) * 100;

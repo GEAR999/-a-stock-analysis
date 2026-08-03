@@ -9,25 +9,35 @@ interface Props {
 }
 
 export function MLCurrentPrediction({ indexName, prediction }: Props) {
-  const getConfidenceColor = (conf: number) => {
-    if (conf >= 0.7) return 'text-green-400';
-    if (conf >= 0.55) return 'text-yellow-400';
-    return 'text-gray-400';
-  };
+  const getConfidenceLabel = (conf: '高' | '中' | '低'): string => conf;
 
-  const getDirectionColor = (direction: 'up' | 'down' | 'neutral') => {
-    switch (direction) {
-      case 'up': return 'text-red-400'; // A股红涨
-      case 'down': return 'text-green-400'; // A股绿跌
+  const getConfidenceColor = (conf: '高' | '中' | '低') => {
+    switch (conf) {
+      case '高': return 'text-green-400';
+      case '中': return 'text-yellow-400';
       default: return 'text-gray-400';
     }
   };
 
-  const getDirectionLabel = (direction: 'up' | 'down' | 'neutral') => {
+  const getConfidencePercent = (conf: '高' | '中' | '低'): number => {
+    switch (conf) {
+      case '高': return 0.85;
+      case '中': return 0.55;
+      default: return 0.3;
+    }
+  };
+
+  const getDirectionColor = (direction: 'up' | 'down') => {
+    switch (direction) {
+      case 'up': return 'text-red-400'; // A股红涨
+      case 'down': return 'text-green-400'; // A股绿跌
+    }
+  };
+
+  const getDirectionLabel = (direction: 'up' | 'down') => {
     switch (direction) {
       case 'up': return '看涨';
       case 'down': return '看跌';
-      default: return '震荡';
     }
   };
 
@@ -40,6 +50,9 @@ export function MLCurrentPrediction({ indexName, prediction }: Props) {
     );
   }
 
+  // 检查概率值是否有效
+  const hasValidProb = isFinite(prediction.upProb) && isFinite(prediction.downProb);
+
   return (
     <div className="p-3 rounded-lg bg-gray-800/50 border border-gray-700/50 hover:border-gray-600/50 transition-colors">
       <div className="text-xs text-gray-500 mb-2">{indexName}</div>
@@ -50,15 +63,21 @@ export function MLCurrentPrediction({ indexName, prediction }: Props) {
           {getDirectionLabel(prediction.direction)}
         </span>
         <div className="flex items-center gap-3 text-xs">
-          <span className="text-red-400">涨 {prediction.upProb.toFixed(1)}%</span>
-          <span className="text-green-400">跌 {prediction.downProb.toFixed(1)}%</span>
+          {hasValidProb ? (
+            <>
+              <span className="text-red-400">涨 {(prediction.upProb * 100).toFixed(1)}%</span>
+              <span className="text-green-400">跌 {(prediction.downProb * 100).toFixed(1)}%</span>
+            </>
+          ) : (
+            <span className="text-gray-500">概率计算中...</span>
+          )}
         </div>
       </div>
 
       {/* 置信度 */}
       <div className="flex items-center justify-between">
         <span className={`text-xs ${getConfidenceColor(prediction.confidence)}`}>
-          置信度 {(prediction.confidence * 100).toFixed(0)}%
+          置信度 {getConfidenceLabel(prediction.confidence)}
         </span>
       </div>
 
@@ -66,10 +85,10 @@ export function MLCurrentPrediction({ indexName, prediction }: Props) {
       <div className="mt-1.5 h-1 rounded-full bg-gray-700 overflow-hidden">
         <div
           className={`h-full rounded-full transition-all duration-300 ${
-            prediction.confidence >= 0.7 ? 'bg-green-500' :
-            prediction.confidence >= 0.55 ? 'bg-yellow-500' : 'bg-gray-600'
+            prediction.confidence === '高' ? 'bg-green-500' :
+            prediction.confidence === '中' ? 'bg-yellow-500' : 'bg-gray-600'
           }`}
-          style={{ width: `${prediction.confidence * 100}%` }}
+          style={{ width: `${getConfidencePercent(prediction.confidence) * 100}%` }}
         />
       </div>
     </div>
