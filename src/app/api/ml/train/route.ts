@@ -1,70 +1,90 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { spawn } from 'child_process';
+import { Readable } from 'stream';
+import { pipeline } from 'stream/promises';
 import path from 'path';
 
 export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
+  const scriptPath = path.join(process.cwd(), 'src/lib/ml/train.py');
 
-    // 验证数据
-    if (!body.train || !body.train.features || body.train.features.length < 10) {
-      return NextResponse.json(
-        { success: false, error: '训练数据不足（至少需要10条样本）' },
-        { status: 400 },
+  // 启动 Python 进程
+  const python = spawn('python3', [scriptPath], {
+    stdio: ['pipe', 'pipe', 'pipe'],
+  });
+
+  let stdout = '';
+  let stderr = '';
+
+  python.stdout.on('data', (data: Buffer) => {
+    stdout += data.toString('utf-8');
+  });
+
+  python.stderr.on('data', (data: Buffer) => {
+    stderr += data.toString('utf-8');
+  });
+
+  // 将请求体直接管道到 Python 进程的 stdin
+  // 避免大 JSON 在内存中二次序列化导致的截断问题
+  const bodyStream = request.body;
+  if (bodyStream) {
+    try {
+      await pipeline(
+        Readable.fromWeb(bodyStream as any),
+        python.stdin,
       );
+    } catch (err: any) {
+      // stdin 管道可能因 Python 进程提前退出而中断，忽略
     }
+  } else {
+    python.stdin.end();
+  }
 
-    const scriptPath = path.join(process.cwd(), 'src/lib/ml/train.py');
+  // 等待 Python 进程完成
+  return new Promise((resolve) => {
+    const timeout = setTimeout(() => {
+      python.kill();
+      resolve(
+        NextResponse.json(
+          { success: false, error: '训练超时（120秒）' },
+          { status: 500 },
+        ),
+      );
+    }, 120_000);
 
-    // 使用 spawn 通过 stdin 传递数据，避免大文件写入截断问题
-    const result = await new Promise<string>((resolve, reject) => {
-      const python = spawn('python3', [scriptPath], {
-        timeout: 120_000,
-        stdio: ['pipe', 'pipe', 'pipe'],
-      });
+    python.on('close', (code) => {
+      clearTimeout(timeout);
 
-      let stdout = '';
-      let stderr = '';
+      if (code !== 0 && !stdout) {
+        resolve(
+          NextResponse.json(
+            { success: false, error: `训练失败: ${stderr || `进程退出码: ${code}`}` },
+            { status: 500 },
+          ),
+        );
+        return;
+      }
 
-      python.stdout.on('data', (data: Buffer) => {
-        stdout += data.toString('utf-8');
-      });
-
-      python.stderr.on('data', (data: Buffer) => {
-        stderr += data.toString('utf-8');
-      });
-
-      python.on('error', (err) => {
-        reject(err);
-      });
-
-      python.on('close', (code) => {
-        if (code === 0 && stdout) {
-          resolve(stdout);
-        } else if (stdout) {
-          // 尝试解析 stdout 看是否有错误信息
-          resolve(stdout);
-        } else {
-          reject(new Error(stderr || `进程退出码: ${code}`));
-        }
-      });
-
-      // 通过 stdin 发送数据（等待 drain 事件确保数据完全写入）
-      const jsonStr = JSON.stringify(body);
-      const canContinue = python.stdin.write(jsonStr, 'utf-8');
-      if (canContinue) {
-        python.stdin.end();
-      } else {
-        python.stdin.once('drain', () => python.stdin.end());
+      try {
+        const result = JSON.parse(stdout);
+        resolve(NextResponse.json(result));
+      } catch (e: any) {
+        resolve(
+          NextResponse.json(
+            { success: false, error: `结果解析失败: ${e.message}. stdout: ${stdout.slice(0, 500)}` },
+            { status: 500 },
+          ),
+        );
       }
     });
 
-    const parsed = JSON.parse(result);
-    return NextResponse.json(parsed);
-  } catch (error: any) {
-    return NextResponse.json(
-      { success: false, error: `训练失败: ${error.message || '未知错误'}` },
-      { status: 500 },
-    );
-  }
+    python.on('error', (err) => {
+      clearTimeout(timeout);
+      resolve(
+        NextResponse.json(
+          { success: false, error: `Python 进程错误: ${err.message}` },
+          { status: 500 },
+        ),
+      );
+    });
+  });
 }
