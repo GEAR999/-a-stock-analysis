@@ -1,7 +1,7 @@
 import * as tf from '@tensorflow/tfjs';
 import {
   type TrainingSample, type TrainingProgress, type TrainingSummary,
-  ENSEMBLE_CONFIG, DEFAULT_TRAINING_CONFIG, INDEX_DEFS,
+  ENSEMBLE_CONFIG, DEFAULT_TRAINING_CONFIG, INDEX_DEFS, FEATURE_DIM,
   type FeatureImportance, type ConfusionMatrix,
 } from './types';
 import { buildModel, saveModel, cosineAnnealingLR, disposeModel, clearAllModels } from './model';
