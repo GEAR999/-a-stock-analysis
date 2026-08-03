@@ -1,17 +1,19 @@
 'use client';
 
 import React from 'react';
+import type { PredictionHistoryItem } from '@/lib/ml/types';
 
-interface PredictionHistoryProps {
-  predictions: {
-    date: string;
-    actual: number;  // 1涨 0跌
-    predicted: number; // 0-1概率
-    confidence: number; // 0-1
-  }[];
+interface Props {
+  predictions: PredictionHistoryItem[];
 }
 
-export function MLPredictionHistory({ predictions }: PredictionHistoryProps) {
+export function MLPredictionHistory({ predictions }: Props) {
+  if (predictions.length === 0) {
+    return (
+      <div className="text-xs text-gray-500 text-center py-3">暂无预测历史</div>
+    );
+  }
+
   const recent = predictions.slice(-30);
   const correct = recent.filter(p => (p.predicted >= 0.5 ? 1 : 0) === p.actual);
   const accuracy = recent.length > 0 ? (correct.length / recent.length * 100) : 0;
@@ -23,6 +25,8 @@ export function MLPredictionHistory({ predictions }: PredictionHistoryProps) {
 
   return (
     <div className="space-y-3">
+      <h4 className="text-sm font-medium text-gray-300">预测历史</h4>
+
       {/* 统计概览 */}
       <div className="grid grid-cols-2 gap-2 text-xs">
         <div className="bg-gray-800 rounded p-2 text-center">
@@ -38,8 +42,8 @@ export function MLPredictionHistory({ predictions }: PredictionHistoryProps) {
       </div>
 
       {/* 预测历史条 */}
-      <div className="space-y-1">
-        {recent.slice(-20).map((p, i) => {
+      <div className="space-y-1 max-h-60 overflow-y-auto">
+        {recent.slice(-20).reverse().map((p, i) => {
           const isCorrect = (p.predicted >= 0.5 ? 1 : 0) === p.actual;
           return (
             <div key={i} className="flex items-center gap-2 text-xs">
@@ -54,8 +58,7 @@ export function MLPredictionHistory({ predictions }: PredictionHistoryProps) {
                     opacity: p.confidence > 0.7 ? 1 : 0.5,
                   }}
                 />
-                <span className="absolute inset-0 flex items-center justify-center text-[10px] font-mono"
-                  style={{ color: p.predicted > 0.5 ? '#fff' : '#fff' }}>
+                <span className="absolute inset-0 flex items-center justify-center text-[10px] font-mono text-white">
                   {(p.predicted * 100).toFixed(0)}%
                 </span>
               </div>
@@ -69,6 +72,10 @@ export function MLPredictionHistory({ predictions }: PredictionHistoryProps) {
           );
         })}
       </div>
+
+      {recent.length === 0 && (
+        <div className="text-xs text-gray-500 text-center py-3">暂无预测历史数据</div>
+      )}
     </div>
   );
 }

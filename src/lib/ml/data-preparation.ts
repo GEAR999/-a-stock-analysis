@@ -1,14 +1,25 @@
 import * as tf from '@tensorflow/tfjs';
 import { getAllIndicators } from '@/lib/analysis';
 import type { KLineData } from '@/lib/types';
-import { FEATURE_NAMES } from './types';
+import {
+  FEATURE_NAMES, FEATURE_DIM, INDEX_DEFS,
+  type TrainingSample, type TimeSeriesSplitConfig,
+  DEFAULT_SPLIT_CONFIG,
+} from './types';
 
-/** 提取特征向量 */
+/** 生成指数 one-hot 编码（7维） */
+function indexToOneHot(group: number): number[] {
+  const oneHot = new Array(INDEX_DEFS.length).fill(0);
+  oneHot[group] = 1;
+  return oneHot;
+}
+
+/** 提取 40 维特征向量 */
 export function extractFeatures(
   kline: KLineData,
   prevKlines: KLineData[],
   indicators: any,
-  index: number = 0
+  indexGroup: number = 0,
 ): number[] {
   const ma5 = indicators.ma[5]?.[indicators.ma[5].length - 1] ?? kline.close;
   const ma20 = indicators.ma[20]?.[indicators.ma[20].length - 1] ?? kline.close;
@@ -27,18 +38,33 @@ export function extractFeatures(
   const upperShadow = kline.high - Math.max(kline.open, kline.close);
   const lowerShadow = Math.min(kline.open, kline.close) - kline.low;
 
-  const wr = lastKdj
-    ? ((kline.high - kline.close) / (kline.high - kline.low)) * 100
-    : 50;
+  const changePct = kline.close > 0 ? (kline.close - kline.open) / kline.open : 0;
+  const amplitude = totalRange > 0 ? totalRange / kline.open : 0;
+  const volumeRatio = avgVolume5 > 0 ? kline.volume / avgVolume5 : 1;
+  const bodyRatio = totalRange > 0 ? bodySize / totalRange : 0;
+  const upperRatio = totalRange > 0 ? upperShadow / totalRange : 0;
+  const lowerRatio = totalRange > 0 ? lowerShadow / totalRange : 0;
+  const ma5Dev = (kline.close - ma5) / ma5;
+  const ma20Dev = (kline.close - ma20) / ma20;
+  const ma60Dev = ma60 > 0 ? (kline.close - ma60) / ma60 : 0;
+  const volumeChange = prevVolume > 0 ? kline.volume / prevVolume : 1;
+  const macdDif = lastMacd?.dif ?? 0;
+  const macdHist = lastMacd?.histogram ?? 0;
+  const rsi = lastRsi / 100;
+  const kdjK = lastKdj?.k ?? 50 / 100;
+  const kdjD = lastKdj?.d ?? 50 / 100;
   const bollUpperDev = lastBoll?.upper ? (kline.close - lastBoll.upper) / lastBoll.upper : 0;
   const bollLowerDev = lastBoll?.lower ? (kline.close - lastBoll.lower) / lastBoll.lower : 0;
+  const wr = lastKdj
+    ? ((kline.high - kline.close) / (kline.high - kline.low)) * 100 / 100
+    : 0.5;
 
-  // --- 新增特征 ---
+  // --- 时间特征 ---
+  const date = kline.date ? new Date(kline.date) : new Date();
+  // 星期几
+  const dayOfWeek = date.getDay() / 6;
 
-  // 1. 星期几 (0=周日, 1=周一...6=周六, 归一化到0-1)
-  const dayOfWeek = kline.date ? new Date(kline.date).getDay() / 6 : 0.5;
-
-  // 2. 连涨/连跌天数 (正=连涨, 负=连跌, 归一化到-1~1)
+  // 连涨/连跌天数
   let consecutiveDays = 0;
   for (let j = prevKlines.length - 1; j >= 0; j--) {
     const prev = prevKlines[j];
@@ -52,7 +78,7 @@ export function extractFeatures(
   }
   const consecutiveNorm = Math.max(-1, Math.min(1, consecutiveDays / 10));
 
-  // 3. ATR (14日平均真实波幅, 归一化)
+  // ATR (14日平均真实波幅)
   let atr = 0;
   if (prevKlines.length >= 14) {
     const atrValues = [];
@@ -70,113 +96,226 @@ export function extractFeatures(
   }
   const atrNorm = kline.close > 0 ? Math.min(atr / kline.close, 0.1) : 0;
 
-  // 4. 近5日涨跌幅
+  // 近5日涨跌幅
   const price5dAgo = prevKlines.length >= 5 ? prevKlines[prevKlines.length - 5].close : kline.open;
   const return5d = (kline.close - price5dAgo) / price5dAgo;
 
-  // 5. 近20日涨跌幅
+  // 近20日涨跌幅
   const price20dAgo = prevKlines.length >= 20 ? prevKlines[prevKlines.length - 20].close : kline.open;
   const return20d = (kline.close - price20dAgo) / price20dAgo;
 
-  // 6. 成交额变化率
+  // 成交额变化率
   const prevAmount = prevKlines.length > 0 ? prevKlines[prevKlines.length - 1].amount : kline.amount;
-  const amountChange = prevAmount > 0 ? kline.amount / prevAmount : 1;
+  const amountChange = prevAmount > 0 ? Math.min(kline.amount / prevAmount, 5) : 1;
 
+  // ===== 交互特征 =====
+  const rsiBoll = rsi * bollLowerDev;                    // RSI×BOLL下轨
+  const macdVol = macdHist * volumeChange;               // MACD×成交量
+  const changeConsecutive = changePct * consecutiveNorm;  // 涨跌幅×连涨天数
+  const bodyVol = bodyRatio * volumeRatio;                // 实体比例×量比
+  const ampAtr = amplitude * atrNorm;                     // 振幅×ATR
+  const rsiWr = rsi * wr;                                 // RSI×WR
+
+  // ===== 时间特征 =====
+  const month = date.getMonth() + 1; // 1-12
+  const monthSin = Math.sin(2 * Math.PI * month / 12);
+  const monthCos = Math.cos(2 * Math.PI * month / 12);
+  const quarterEnd = [3, 6, 9, 12].includes(month) ? 1 : 0;
+
+  // ===== 基础24维特征（保持与原版一致） =====
+  const baseFeatures = [
+    changePct, amplitude, volumeRatio, bodyRatio, upperRatio,
+    lowerRatio, ma5Dev, ma20Dev, ma60Dev, volumeChange,
+    macdDif, macdHist, rsi, kdjK, kdjD,
+    bollUpperDev, bollLowerDev, wr,
+    dayOfWeek, consecutiveNorm, atrNorm, return5d, return20d, amountChange,
+  ];
+
+  // ===== 交互特征 =====
+  const interactionFeatures = [
+    rsiBoll, macdVol, changeConsecutive, bodyVol, ampAtr, rsiWr,
+  ];
+
+  // ===== 时间特征 =====
+  const timeFeatures = [monthSin, monthCos, quarterEnd];
+
+  // ===== 指数 one-hot 编码 =====
+  const indexOneHot = indexToOneHot(indexGroup);
+
+  // 拼接：33维基础 + 7维 one-hot = 40维
   return [
-    (kline.close - kline.open) / kline.open, // 涨跌幅
-    totalRange > 0 ? totalRange / kline.open : 0, // 振幅
-    avgVolume5 > 0 ? kline.volume / avgVolume5 : 1, // 量比
-    totalRange > 0 ? bodySize / totalRange : 0, // 实体比例
-    totalRange > 0 ? upperShadow / totalRange : 0, // 上影线比例
-    totalRange > 0 ? lowerShadow / totalRange : 0, // 下影线比例
-    (kline.close - ma5) / ma5, // MA5偏离度
-    (kline.close - ma20) / ma20, // MA20偏离度
-    ma60 > 0 ? (kline.close - ma60) / ma60 : 0, // MA60偏离度
-    prevVolume > 0 ? kline.volume / prevVolume : 1, // 成交量变化率
-    lastMacd?.dif ?? 0, // MACD.dif
-    lastMacd?.histogram ?? 0, // MACD.histogram
-    lastRsi / 100, // RSI归一化
-    lastKdj?.k ?? 50 / 100, // KDJ.k归一化
-    lastKdj?.d ?? 50 / 100, // KDJ.d归一化
-    bollUpperDev, // BOLL.upper偏离度
-    bollLowerDev, // BOLL.lower偏离度
-    wr / 100, // WR归一化
-    // 新增特征
-    dayOfWeek, // 星期几
-    consecutiveNorm, // 连涨/连跌天数
-    atrNorm, // ATR波动率
-    return5d, // 近5日涨跌幅
-    return20d, // 近20日涨跌幅
-    Math.min(amountChange, 5), // 成交额变化率(限幅)
+    ...baseFeatures,
+    ...interactionFeatures,
+    ...timeFeatures,
+    ...indexOneHot,
   ];
 }
 
-/** 准备训练数据集（与prepareLabels的噪音过滤保持一致） */
-export function prepareData(klineData: KLineData[]): tf.Tensor2D {
-  if (klineData.length < 61) {
-    return tf.tensor2d([], [0, 24]);
+/** 计算分位数标签阈值 */
+export function computeQuantileThresholds(
+  klineData: KLineData[],
+  upPercentile: number = 60,
+  downPercentile: number = 40,
+): { upThreshold: number; downThreshold: number } {
+  const changes: number[] = [];
+  for (let i = 1; i < klineData.length; i++) {
+    const change = (klineData[i].close - klineData[i - 1].close) / klineData[i - 1].close;
+    changes.push(change);
   }
+  changes.sort((a, b) => a - b);
 
-  const indicators = getAllIndicators(klineData);
-
-  const samples: number[][] = [];
-  for (let i = 60; i < klineData.length - 1; i++) {
-    // 与prepareLabels保持一致的过滤条件
-    const changePct = (klineData[i + 1].close - klineData[i].close) / klineData[i].close;
-    if (Math.abs(changePct) < 0.005) continue; // 过滤噪音
-
-    const kline = klineData[i];
-    const prevKlines = klineData.slice(0, i);
-    const featureVec = extractFeatures(kline, prevKlines, indicators, i);
-    samples.push(featureVec);
-  }
-
-  return tf.tensor2d(samples);
-}
-
-/** 准备训练标签（过滤噪音：±0.5%以内忽略） */
-export function prepareLabels(klineData: KLineData[]): tf.Tensor1D {
-  if (klineData.length < 61) {
-    return tf.tensor1d([]);
-  }
-
-  const labels: number[] = [];
-  for (let i = 60; i < klineData.length - 1; i++) {
-    const changePct = (klineData[i + 1].close - klineData[i].close) / klineData[i].close;
-    if (Math.abs(changePct) < 0.005) continue; // 过滤噪音
-    const label = changePct > 0 ? 1 : 0;
-    labels.push(label);
-  }
-
-  return tf.tensor1d(labels);
-}
-
-/** 划分训练集/验证集/测试集 */
-export function splitDataset(
-  features: tf.Tensor2D,
-  labels: tf.Tensor1D,
-  trainRatio: number = 0.8,
-  valRatio: number = 0.1
-): {
-  trainX: tf.Tensor2D;
-  trainY: tf.Tensor1D;
-  valX: tf.Tensor2D;
-  valY: tf.Tensor1D;
-  testX: tf.Tensor2D;
-  testY: tf.Tensor1D;
-} {
-  const total = features.shape[0];
-  const trainEnd = Math.floor(total * trainRatio);
-  const valEnd = trainEnd + Math.floor(total * valRatio);
+  const upIdx = Math.floor(changes.length * (upPercentile / 100));
+  const downIdx = Math.floor(changes.length * (downPercentile / 100));
 
   return {
-    trainX: features.slice([0, 0], [trainEnd, -1]) as tf.Tensor2D,
-    trainY: labels.slice([0], [trainEnd]) as tf.Tensor1D,
-    valX: features.slice([trainEnd, 0], [valEnd - trainEnd, -1]) as tf.Tensor2D,
-    valY: labels.slice([trainEnd], [valEnd - trainEnd]) as tf.Tensor1D,
-    testX: features.slice([valEnd, 0], [total - valEnd, -1]) as tf.Tensor2D,
-    testY: labels.slice([valEnd], [total - valEnd]) as tf.Tensor1D,
+    upThreshold: changes[Math.min(upIdx, changes.length - 1)],
+    downThreshold: changes[Math.max(0, downIdx)],
   };
 }
 
-export { FEATURE_NAMES };
+/** 准备单个指数的训练样本 */
+export function prepareSingleIndex(
+  klineData: KLineData[],
+  indexGroup: number,
+  thresholds?: { upThreshold: number; downThreshold: number },
+): TrainingSample[] {
+  if (klineData.length < 61) return [];
+
+  const indicators = getAllIndicators(klineData);
+  const samples: TrainingSample[] = [];
+
+  // 如果没有提供阈值，自动计算分位数
+  const th = thresholds || computeQuantileThresholds(klineData);
+
+  for (let i = 60; i < klineData.length - 1; i++) {
+    const changePct = (klineData[i + 1].close - klineData[i].close) / klineData[i].close;
+
+    // 分位数标签：top 35% = 涨, bottom 35% = 跌, 中间 30% = 丢弃
+    let label: number | null = null;
+    if (changePct >= th.upThreshold) {
+      label = 1;
+    } else if (changePct <= th.downThreshold) {
+      label = 0;
+    } else {
+      continue; // 中间噪音丢弃
+    }
+
+    const features = extractFeatures(
+      klineData[i],
+      klineData.slice(0, i),
+      indicators,
+      indexGroup,
+    );
+
+    samples.push({
+      features,
+      indexCode: INDEX_DEFS[indexGroup].code,
+      label,
+      date: klineData[i].date || '',
+    });
+  }
+
+  return samples;
+}
+
+/** 合并多个指数的训练样本 */
+export function combineAllIndices(
+  allData: Map<string, KLineData[]>,
+): TrainingSample[] {
+  const allSamples: TrainingSample[] = [];
+
+  for (const idx of INDEX_DEFS) {
+    const klineData = allData.get(idx.code);
+    if (!klineData || klineData.length < 61) continue;
+
+    const samples = prepareSingleIndex(klineData, idx.group);
+    allSamples.push(...samples);
+  }
+
+  return allSamples;
+}
+
+/** 时间序列切分（按日期排序） */
+export function timeSeriesSplit(
+  samples: TrainingSample[],
+  config: TimeSeriesSplitConfig = DEFAULT_SPLIT_CONFIG,
+): {
+  trainSamples: TrainingSample[];
+  valSamples: TrainingSample[];
+  testSamples: TrainingSample[];
+} {
+  // 按日期排序
+  const sorted = [...samples].sort((a, b) => a.date.localeCompare(b.date));
+
+  const total = sorted.length;
+  const trainEnd = Math.floor(total * config.trainRatio);
+  const valEnd = trainEnd + Math.floor(total * config.valRatio);
+
+  return {
+    trainSamples: sorted.slice(0, trainEnd),
+    valSamples: sorted.slice(trainEnd, valEnd),
+    testSamples: sorted.slice(valEnd),
+  };
+}
+
+/** 将样本转换为 Tensor（直接从样本数组提取特征） */
+export function samplesToTensor(samples: TrainingSample[]): tf.Tensor2D {
+  const features = samples.map(s => s.features);
+  if (features.length === 0) return tf.tensor2d([], [0, FEATURE_DIM]);
+  return tf.tensor2d(features);
+}
+
+/** 将标签转换为 Tensor */
+export function labelsToTensor(samples: TrainingSample[]): tf.Tensor1D {
+  const labels = samples.map(s => s.label);
+  if (labels.length === 0) return tf.tensor1d([]);
+  return tf.tensor1d(labels);
+}
+
+/** 完整数据管线：获取所有指数数据 → 合并 → 切分 */
+export async function fetchAndPrepareData(
+  fetchFn: (code: string) => Promise<KLineData[]>,
+): Promise<{
+  trainSamples: TrainingSample[];
+  valSamples: TrainingSample[];
+  testSamples: TrainingSample[];
+  totalSamples: number;
+  indexBreakdown: Array<{ code: string; name: string; sampleCount: number }>;
+}> {
+  const allData = new Map<string, KLineData[]>();
+
+  // 并行获取所有指数数据
+  await Promise.all(
+    INDEX_DEFS.map(async (idx) => {
+      try {
+        const data = await fetchFn(idx.code);
+        if (data && data.length > 60) {
+          allData.set(idx.code, data);
+        }
+      } catch (err) {
+        console.warn(`获取 ${idx.name} 数据失败:`, err);
+      }
+    })
+  );
+
+  // 合并所有样本
+  const allSamples = combineAllIndices(allData);
+
+  // 时间序列切分
+  const { trainSamples, valSamples, testSamples } = timeSeriesSplit(allSamples);
+
+  const indexBreakdown = INDEX_DEFS.map(idx => {
+    const count = allSamples.filter(s => s.indexCode === idx.code).length;
+    return { code: idx.code, name: idx.name, sampleCount: count };
+  }).filter(x => x.sampleCount > 0);
+
+  return {
+    trainSamples,
+    valSamples,
+    testSamples,
+    totalSamples: allSamples.length,
+    indexBreakdown,
+  };
+}
+
+export { FEATURE_NAMES, FEATURE_DIM, INDEX_DEFS };

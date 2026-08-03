@@ -1,19 +1,15 @@
 'use client';
 
 import React from 'react';
+import type { ConfusionMatrix } from '@/lib/ml/types';
 
-interface ConfusionMatrixProps {
-  matrix: {
-    truePos: number;  // 预测涨，实际涨
-    falsePos: number; // 预测涨，实际跌
-    falseNeg: number; // 预测跌，实际涨
-    trueNeg: number;  // 预测跌，实际跌
-  };
-  total: number;
+interface Props {
+  matrix: ConfusionMatrix;
 }
 
-export function MLConfusionMatrix({ matrix, total }: ConfusionMatrixProps) {
+export function MLConfusionMatrix({ matrix }: Props) {
   const { truePos, falsePos, falseNeg, trueNeg } = matrix;
+  const total = truePos + falsePos + falseNeg + trueNeg;
   const accuracy = total > 0 ? ((truePos + trueNeg) / total * 100) : 0;
   const precision = (truePos + falsePos) > 0 ? (truePos / (truePos + falsePos) * 100) : 0;
   const recall = (truePos + falseNeg) > 0 ? (truePos / (truePos + falseNeg) * 100) : 0;
@@ -21,26 +17,29 @@ export function MLConfusionMatrix({ matrix, total }: ConfusionMatrixProps) {
 
   return (
     <div className="space-y-3">
+      <h4 className="text-sm font-medium text-gray-300">混淆矩阵</h4>
       {/* 混淆矩阵 */}
-      <div className="grid grid-cols-2 gap-2 text-center text-xs">
+      <div className="grid grid-cols-[auto_auto_auto] gap-2 text-center text-xs items-center">
         <div className="text-gray-500">预测\实际</div>
-        <div className="text-gray-500">实际涨</div>
-        <div className="text-gray-500">实际跌</div>
+        <div className="text-red-400">实际涨</div>
+        <div className="text-green-400">实际跌</div>
+        <div className="text-gray-500">预测涨</div>
         <div className="bg-green-900/40 rounded p-2">
           <div className="text-green-400 font-bold text-lg">{truePos}</div>
-          <div className="text-green-500">预测涨 ✓</div>
+          <div className="text-green-500">正确 ✓</div>
         </div>
         <div className="bg-red-900/40 rounded p-2">
           <div className="text-red-400 font-bold text-lg">{falsePos}</div>
-          <div className="text-red-500">预测涨 ✗</div>
+          <div className="text-red-500">误报 ✗</div>
         </div>
+        <div className="text-gray-500">预测跌</div>
         <div className="bg-red-900/40 rounded p-2">
           <div className="text-red-400 font-bold text-lg">{falseNeg}</div>
-          <div className="text-red-500">预测跌 ✗</div>
+          <div className="text-red-500">漏报 ✗</div>
         </div>
         <div className="bg-green-900/40 rounded p-2">
           <div className="text-green-400 font-bold text-lg">{trueNeg}</div>
-          <div className="text-green-500">预测跌 ✓</div>
+          <div className="text-green-500">正确 ✓</div>
         </div>
       </div>
 

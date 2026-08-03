@@ -1,295 +1,362 @@
 'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  INDEX_DEFS, FEATURE_NAMES, FEATURE_DIM, ENSEMBLE_CONFIG,
+  type TrainingProgress, type TrainingSummary, type PredictionResult,
+  type FeatureImportance, type ConfusionMatrix,
+} from '@/lib/ml/types';
+import { fetchAndPrepareData, timeSeriesSplit } from '@/lib/ml/data-preparation';
+import { checkSavedModels, clearAllModels, loadAllEnsembleModels } from '@/lib/ml/model';
+import { trainEnsemble, quickEvaluate } from '@/lib/ml/trainer';
+import { predictAllIndices, clearModelCache, getModelMetadata } from '@/lib/ml/predictor';
+import type { KLineData } from '@/lib/types';
 import { MLTrainingProgress } from './MLTrainingProgress';
 import { MLFeatureImportance } from './MLFeatureImportance';
 import { MLConfusionMatrix } from './MLConfusionMatrix';
 import { MLPredictionHistory } from './MLPredictionHistory';
 import { MLCurrentPrediction } from './MLCurrentPrediction';
-import * as tf from '@tensorflow/tfjs';
-import { MODEL_NAME } from '@/lib/ml/model';
-import type { TrainingProgress, TrainingSummary, IndexDef } from '@/lib/ml/types';
-
-const INDEX_DEFS: IndexDef[] = [
-  { code: '000001.SH', name: '上证指数', sampleCount: 0 },
-  { code: '399001.SZ', name: '深证成指', sampleCount: 0 },
-  { code: '399006.SZ', name: '创业板指', sampleCount: 0 },
-];
 
 export function MLPanel() {
-  const [models, setModels] = useState<Record<string, { trained: boolean; date: string; accuracy: number; code: string }>>({});
-  const [trainingProgress, setTrainingProgress] = useState<TrainingProgress | null>(null);
-  const [trainingSummary, setTrainingSummary] = useState<TrainingSummary | null>(null);
-  const [trainingHistory, setTrainingHistory] = useState<Array<{ epoch: number; loss: number; accuracy: number; valAccuracy: number }>>([]);
-  const [selectedIndex, setSelectedIndex] = useState<string>('000001.SH');
-  const [currentPrediction, setCurrentPrediction] = useState<{ upProb: number; downProb: number; confidence: '高' | '中' | '低' } | null>(null);
-  const [topFeatures, setTopFeatures] = useState<Array<{ name: string; importance: number }>>([]);
-  const [loadingPrediction, setLoadingPrediction] = useState<Record<string, boolean>>({});
+  // 模型状态
+  const [isTrained, setIsTrained] = useState(false);
+  const [isTraining, setIsTraining] = useState(false);
+  const [trainedModelCount, setTrainedModelCount] = useState(0);
+  const [modelMetadata, setModelMetadata] = useState<Record<string, any> | null>(null);
 
-  // 页面加载时检查已保存的模型
+  // 训练进度
+  const [progress, setProgress] = useState<TrainingProgress | null>(null);
+
+  // 训练结果
+  const [summary, setSummary] = useState<TrainingSummary | null>(null);
+  const [testSummary, setTestSummary] = useState<{
+    accuracy: number;
+    precision: number;
+    recall: number;
+    f1: number;
+    confusionMatrix: ConfusionMatrix;
+    featureImportance: FeatureImportance[];
+    indexBreakdown: Array<{ code: string; name: string; accuracy: number; sampleCount: number }>;
+  } | null>(null);
+
+  // 预测结果
+  const [predictions, setPredictions] = useState<Array<{
+    code: string;
+    name: string;
+    prediction: PredictionResult | null;
+  }> | null>(null);
+  const [isPredicting, setIsPredicting] = useState(false);
+
+  // 错误信息
+  const [error, setError] = useState<string | null>(null);
+
+  // 初始化时检查模型
   useEffect(() => {
-    (async () => {
-      try {
-        const modelsList = await tf.io.listModels();
-        for (const idx of INDEX_DEFS) {
-          const key = `indexeddb://${MODEL_NAME}-${idx.code}`;
-          if (modelsList[key]) {
-            setModels(prev => ({
-              ...prev,
-              [idx.code]: {
-                trained: true,
-                date: modelsList[key].dateSaved
-                  ? new Date(modelsList[key].dateSaved!).toLocaleDateString('zh-CN')
-                  : '未知',
-                accuracy: 0, // 加载时无法获取准确率，但标记已训练
-                code: idx.code,
-              }
-            }));
-          }
-        }
-      } catch {
-        // 忽略
-      }
-    })();
+    loadModelStatus();
   }, []);
 
-  const startTraining = useCallback(async (indexCode: string, indexName: string) => {
-    try {
-      setTrainingProgress({ phase: 'preparing', message: '正在获取指数数据...', progress: 0 });
-      setTrainingSummary(null);
-      setTrainingHistory([]);
-      setCurrentPrediction(null);
-      setTopFeatures([]);
-
-      // 获取指数历史数据
-      const res = await fetch(`/api/ml/index-data?code=${indexCode}`);
-      const result = await res.json();
-      if (!result.success) throw new Error(result.error || '获取数据失败');
-      const klineData = result.data;
-
-      // 动态导入 ML 模块
-      const { trainModel } = await import('@/lib/ml/trainer');
-
-      const config = { epochs: 50, batchSize: 32, learningRate: 0.001, indexCode, indexName };
-      const summary = await trainModel(
-        klineData,
-        config,
-        (progress: TrainingProgress) => {
-          setTrainingProgress(progress);
-          if (progress.history) {
-            setTrainingHistory(progress.history);
-          }
-        }
-      );
-
-      setTrainingSummary(summary);
-      setModels(prev => ({
-        ...prev,
-        [indexCode]: { trained: true, date: new Date().toLocaleDateString(), accuracy: summary.accuracy, code: indexCode }
-      }));
-
-      // 设置特征重要性
-      const features = summary.featureImportance
-        .sort((a, b) => b.importance - a.importance)
-        .slice(0, 10)
-        .map(f => ({ name: f.name, importance: f.importance }));
-      setTopFeatures(features);
-
-      // 训练完成后自动预测
-      try {
-        const { predictNextDay } = await import('@/lib/ml/predictor');
-        const { getAllIndicators } = await import('@/lib/analysis');
-        const indicators = getAllIndicators(klineData);
-        const prediction = await predictNextDay(klineData, indicators, `${MODEL_NAME}-${indexCode}`);
-        setCurrentPrediction(prediction);
-      } catch {
-        // 预测失败不影响训练结果
-      }
-
-    } catch (err) {
-      console.error('Training failed:', err);
-      setTrainingProgress({
-        phase: 'error',
-        message: `训练失败: ${err instanceof Error ? err.message : '未知错误'}`,
-        progress: 0
-      });
+  const loadModelStatus = async () => {
+    const status = await checkSavedModels();
+    setIsTrained(status.isTrained);
+    setTrainedModelCount(status.trainedModelCount);
+    if (status.metadata) {
+      setModelMetadata(status.metadata);
     }
+  };
+
+  // 训练数据获取函数
+  const fetchIndexData = useCallback(async (code: string): Promise<KLineData[]> => {
+    const res = await fetch(`/api/ml/index-data?code=${code}&limit=1500`);
+    if (!res.ok) throw new Error(`获取 ${code} 数据失败`);
+    const json = await res.json();
+    return json.data || [];
   }, []);
 
-  const handleTrainAll = useCallback(async () => {
-    for (const idx of INDEX_DEFS) {
-      setSelectedIndex(idx.code);
-      await startTraining(idx.code, idx.name);
-    }
-  }, [startTraining]);
+  // 开始训练
+  const handleTrain = async () => {
+    setIsTraining(true);
+    setError(null);
+    setSummary(null);
+    setTestSummary(null);
+    setPredictions(null);
+    clearModelCache();
 
-  // 加载已保存模型进行预测（无需重新训练）
-  const loadAndPredict = useCallback(async (indexCode: string, indexName: string) => {
-    if (loadingPrediction[indexCode]) return;
     try {
-      setLoadingPrediction(prev => ({ ...prev, [indexCode]: true }));
-      setSelectedIndex(indexCode);
-      setTrainingSummary(null);
-      setCurrentPrediction(null);
-      setTopFeatures([]);
-
-      setTrainingProgress({ phase: 'preparing', message: '正在获取指数数据...', progress: 10 });
-
-      // 获取最新数据做预测
-      const res = await fetch(`/api/ml/index-data?code=${indexCode}&limit=120`);
-      const result = await res.json();
-      if (!result.success) throw new Error(result.error || '获取数据失败');
-      const klineData = result.data;
-
-      setTrainingProgress({ phase: 'preparing', message: '正在加载已保存模型...', progress: 50 });
-
-      const { predictNextDay } = await import('@/lib/ml/predictor');
-      const { getAllIndicators } = await import('@/lib/analysis');
-      const indicators = getAllIndicators(klineData);
-      const prediction = await predictNextDay(klineData, indicators, `${MODEL_NAME}-${indexCode}`);
-
-      if (!prediction) {
-        throw new Error('模型版本不兼容，请点击「重新训练」更新模型（旧模型为18维，新模型为24维特征）');
-      }
-      setCurrentPrediction(prediction);
-      setTrainingProgress({ phase: 'done', message: '预测完成！', progress: 100 });
-    } catch (err) {
-      setTrainingProgress({
-        phase: 'error',
-        message: `预测失败: ${err instanceof Error ? err.message : '未知错误'}`,
+      // 1. 获取数据
+      setProgress({
+        phase: 'preparing',
+        message: '正在获取所有指数数据...',
         progress: 0,
       });
-    } finally {
-      setLoadingPrediction(prev => ({ ...prev, [indexCode]: false }));
+
+      const { trainSamples, valSamples, testSamples, totalSamples, indexBreakdown } =
+        await fetchAndPrepareData(fetchIndexData);
+
+      if (totalSamples < 100) {
+        throw new Error(`数据不足（仅 ${totalSamples} 条），至少需要 100 条`);
+      }
+
+      // 2. 训练集成模型
+      const { summaries, finalAccuracy } = await trainEnsemble(
+        trainSamples, valSamples,
+        (p) => setProgress({ ...p }),
+      );
+
+      // 3. 加载已训练的模型
+      const models = await loadAllEnsembleModels();
+
+      // 4. 测试集评估
+      const testResult = await quickEvaluate(testSamples, models, (p) => setProgress({ ...p }));
+
+      setTestSummary(testResult);
+
+      // 5. 汇总
+      setSummary({
+        accuracy: testResult.testAccuracy,
+        precision: testResult.testPrecision,
+        recall: testResult.testRecall,
+        f1: testResult.testF1,
+        sampleCount: totalSamples,
+        totalEpochs: summaries[0]?.totalEpochs || 0,
+        trainedAt: new Date().toISOString(),
+        featureImportance: testResult.featureImportance,
+        confusionMatrix: testResult.confusionMatrix,
+        ensembleAccuracy: testResult.testAccuracy,
+        ensemblePrecision: testResult.testPrecision,
+        ensembleRecall: testResult.testRecall,
+        ensembleF1: testResult.testF1,
+        indexBreakdown: testResult.indexBreakdown,
+      });
+
+      // 6. 更新模型状态
+      await loadModelStatus();
+      setIsTraining(false);
+
+      // 7. 自动预测
+      handlePredict();
+
+    } catch (err: any) {
+      setError(err.message || '训练失败');
+      setIsTraining(false);
+      setProgress({
+        phase: 'error',
+        message: err.message || '训练失败',
+        progress: 0,
+      });
     }
-  }, [loadingPrediction]);
+  };
+
+  // 清除模型
+  const handleClear = async () => {
+    await clearAllModels();
+    clearModelCache();
+    setIsTrained(false);
+    setTrainedModelCount(0);
+    setModelMetadata(null);
+    setSummary(null);
+    setTestSummary(null);
+    setPredictions(null);
+    setError(null);
+  };
+
+  // 预测所有指数
+  const handlePredict = async () => {
+    setIsPredicting(true);
+    setError(null);
+
+    try {
+      const allData = new Map<string, KLineData[]>();
+
+      // 获取所有指数最新数据
+      for (const idx of INDEX_DEFS) {
+        const data = await fetchIndexData(idx.code);
+        if (data && data.length > 60) {
+          allData.set(idx.code, data);
+        }
+      }
+
+      const results = await predictAllIndices(allData);
+      setPredictions(results);
+    } catch (err: any) {
+      setError(err.message || '预测失败');
+    } finally {
+      setIsPredicting(false);
+    }
+  };
 
   return (
     <div className="space-y-4">
-      {/* 模型列表 */}
-      <div className="text-xs text-gray-400 font-medium mb-2">模型列表</div>
-      {INDEX_DEFS.map(idx => {
-        const model = models[idx.code];
-        return (
-          <div key={idx.code} className="bg-gray-800/50 rounded-lg p-3 border border-gray-700/50">
-            <div className="flex items-center justify-between mb-2">
-              <div>
-                <span className="text-sm font-medium text-gray-200">{idx.name}</span>
-                <span className="text-xs text-gray-500 ml-2">{idx.code}</span>
-              </div>
-              <span className={`text-xs px-2 py-0.5 rounded-full ${model ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
-                {model ? '✅ 已训练' : '🟡 待训练'}
+      {/* 标题 */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold text-white">ML 指数预测模型</h3>
+          <p className="text-xs text-gray-500 mt-0.5">
+            多指数合并训练 · {ENSEMBLE_CONFIG.numModels} 模型集成 · {FEATURE_DIM} 维特征
+          </p>
+        </div>
+        <div className="flex gap-2">
+          {isTrained && (
+            <button
+              onClick={handleClear}
+              disabled={isTraining}
+              className="px-3 py-1.5 text-xs rounded-lg border border-gray-700 text-gray-400 hover:border-red-600 hover:text-red-400 transition-colors disabled:opacity-50"
+            >
+              清除模型
+            </button>
+          )}
+          <button
+            onClick={handleTrain}
+            disabled={isTraining}
+            className="px-4 py-1.5 text-xs rounded-lg bg-blue-600 text-white hover:bg-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isTraining ? '训练中...' : isTrained ? '重新训练' : '开始训练'}
+          </button>
+        </div>
+      </div>
+
+      {/* 模型状态 */}
+      {isTrained && !isTraining && (
+        <div className="p-3 rounded-lg bg-green-900/20 border border-green-700/30">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-green-500" />
+              <span className="text-sm text-green-400">
+                已训练（{trainedModelCount}/{ENSEMBLE_CONFIG.numModels} 模型）
               </span>
             </div>
-            {model && (
-              <div className="text-xs text-gray-400 space-y-1">
-                <div>训练日期：{model.date}</div>
-                <div>准确率：<span className="text-green-400 font-mono">{(model.accuracy * 100).toFixed(1)}%</span></div>
-              </div>
+            {modelMetadata && (
+              <span className="text-xs text-gray-500">
+                训练时间：{modelMetadata.trainedAt ? new Date(modelMetadata.trainedAt).toLocaleString('zh-CN') : '未知'}
+              </span>
             )}
-            <div className="flex gap-2 mt-2">
-              {!model ? (
-                <button
-                  onClick={() => { setSelectedIndex(idx.code); startTraining(idx.code, idx.name); }}
-                  disabled={trainingProgress?.phase === 'training'}
-                  className="text-xs px-3 py-1.5 bg-blue-500/20 text-blue-400 rounded hover:bg-blue-500/30 disabled:opacity-50 transition-colors"
-                >
-                  {trainingProgress?.phase === 'training' && selectedIndex === idx.code ? '训练中...' : '开始训练'}
-                </button>
-              ) : (
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => loadAndPredict(idx.code, idx.name)}
-                    disabled={loadingPrediction[idx.code]}
-                    className="text-xs px-3 py-1.5 bg-green-500/20 text-green-400 rounded hover:bg-green-500/30 disabled:opacity-50 transition-colors"
-                  >
-                    {loadingPrediction[idx.code] ? '预测中...' : '预测'}
-                  </button>
-                  <button
-                    onClick={() => { setSelectedIndex(idx.code); startTraining(idx.code, idx.name); }}
-                    disabled={trainingProgress?.phase === 'training'}
-                    className="text-xs px-3 py-1.5 bg-blue-500/20 text-blue-400 rounded hover:bg-blue-500/30 disabled:opacity-50 transition-colors"
-                  >
-                    重新训练
-                  </button>
-                </div>
-              )}
-            </div>
           </div>
-        );
-      })}
-
-      {/* 全部训练按钮 */}
-      <button
-        onClick={handleTrainAll}
-        disabled={trainingProgress?.phase === 'training'}
-        className="w-full text-xs px-3 py-2 bg-indigo-500/20 text-indigo-400 rounded hover:bg-indigo-500/30 disabled:opacity-50 transition-colors"
-      >
-        {trainingProgress?.phase === 'training' ? '训练中...' : '训练全部指数模型'}
-      </button>
-
-      {/* 训练进度 */}
-      {trainingProgress && trainingProgress.phase !== 'done' && trainingProgress.phase !== 'error' && (
-        <MLTrainingProgress
-          currentEpoch={trainingProgress.epoch ?? 0}
-          totalEpochs={trainingProgress.totalEpochs ?? 50}
-          history={trainingHistory}
-        />
+        </div>
       )}
 
-      {/* 错误提示 */}
-      {trainingProgress?.phase === 'error' && (
-        <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-xs text-red-400">
-          {trainingProgress.message}
+      {/* 训练进度 */}
+      {progress && isTraining && (
+        <MLTrainingProgress progress={progress} />
+      )}
+
+      {/* 错误信息 */}
+      {error && !isTraining && (
+        <div className="p-3 rounded-lg bg-red-900/20 border border-red-700/30 text-red-400 text-sm">
+          {error}
         </div>
       )}
 
       {/* 训练完成后的结果 */}
-      {trainingSummary && (
-        <>
-          {/* 特征重要性 */}
-          {topFeatures.length > 0 && (
-            <MLFeatureImportance
-              features={topFeatures}
-              baselineAccuracy={trainingSummary.accuracy}
-            />
+      {summary && !isTraining && (
+        <div className="space-y-4">
+          {/* 整体准确率 */}
+          <div className="grid grid-cols-4 gap-2">
+            <div className="p-3 rounded-lg bg-gray-800/50 border border-gray-700/50 text-center">
+              <div className="text-2xl font-bold text-white">
+                {(summary.ensembleAccuracy * 100).toFixed(1)}%
+              </div>
+              <div className="text-xs text-gray-500 mt-1">集成准确率</div>
+            </div>
+            <div className="p-3 rounded-lg bg-gray-800/50 border border-gray-700/50 text-center">
+              <div className="text-2xl font-bold text-blue-400">
+                {(summary.ensemblePrecision * 100).toFixed(1)}%
+              </div>
+              <div className="text-xs text-gray-500 mt-1">精确率</div>
+            </div>
+            <div className="p-3 rounded-lg bg-gray-800/50 border border-gray-700/50 text-center">
+              <div className="text-2xl font-bold text-green-400">
+                {(summary.ensembleRecall * 100).toFixed(1)}%
+              </div>
+              <div className="text-xs text-gray-500 mt-1">召回率</div>
+            </div>
+            <div className="p-3 rounded-lg bg-gray-800/50 border border-gray-700/50 text-center">
+              <div className="text-2xl font-bold text-purple-400">
+                {(summary.ensembleF1 * 100).toFixed(1)}%
+              </div>
+              <div className="text-xs text-gray-500 mt-1">F1 分数</div>
+            </div>
+          </div>
+
+          {/* 各指数分解 */}
+          {testSummary?.indexBreakdown && testSummary.indexBreakdown.length > 0 && (
+            <div className="p-3 rounded-lg bg-gray-800/50 border border-gray-700/50">
+              <h4 className="text-sm font-medium text-gray-300 mb-3">各指数准确率</h4>
+              <div className="grid grid-cols-2 gap-2">
+                {testSummary.indexBreakdown.map((idx) => (
+                  <div key={idx.code} className="flex items-center justify-between px-2 py-1.5 rounded bg-gray-800/80">
+                    <span className="text-xs text-gray-400">{idx.name}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500">({idx.sampleCount} 样本)</span>
+                      <span className="text-sm font-semibold text-white">
+                        {(idx.accuracy * 100).toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
 
           {/* 混淆矩阵 */}
-          <MLConfusionMatrix
-            matrix={{
-              truePos: trainingSummary.confusionMatrix?.tp ?? 0,
-              falsePos: trainingSummary.confusionMatrix?.fp ?? 0,
-              falseNeg: trainingSummary.confusionMatrix?.fn ?? 0,
-              trueNeg: trainingSummary.confusionMatrix?.tn ?? 0,
-            }}
-            total={trainingSummary.sampleCount}
-          />
-
-          {/* 预测历史 */}
-          {trainingHistory.length > 0 && (
-            <MLPredictionHistory
-              predictions={trainingHistory.map(h => ({
-                date: `第${h.epoch}轮`,
-                actual: h.valAccuracy,
-                predicted: h.accuracy,
-                confidence: 0.7
-              }))}
-            />
+          {summary.confusionMatrix && (
+            <MLConfusionMatrix matrix={summary.confusionMatrix} />
           )}
 
-          </>
+          {/* 特征重要性 */}
+          {summary.featureImportance.length > 0 && (
+            <MLFeatureImportance features={summary.featureImportance} />
+          )}
+
+          {/* 数据量 */}
+          <div className="text-xs text-gray-500 text-center">
+            训练数据：{summary.sampleCount} 条样本 · {summary.totalEpochs} 轮迭代
+          </div>
+        </div>
       )}
 
-      {/* 当前预测（独立于 trainingSummary，训练后和预测后都显示） */}
-      {currentPrediction && (
-        <MLCurrentPrediction
-          indexName={INDEX_DEFS.find(i => i.code === selectedIndex)?.name || '上证指数'}
-          upProb={currentPrediction.upProb}
-          downProb={currentPrediction.downProb}
-          confidence={currentPrediction.confidence}
-          topFeatures={topFeatures.slice(0, 3).map(f => ({ name: f.name, value: f.importance }))}
-        />
+      {/* 预测区域 */}
+      {isTrained && !isTraining && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-medium text-gray-300">指数预测</h4>
+            <button
+              onClick={handlePredict}
+              disabled={isPredicting}
+              className="px-3 py-1 text-xs rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors disabled:opacity-50"
+            >
+              {isPredicting ? '预测中...' : predictions ? '刷新预测' : '预测全部指数'}
+            </button>
+          </div>
+
+          {isPredicting && (
+            <div className="p-3 rounded-lg bg-gray-800/50 border border-gray-700/50 text-center text-sm text-gray-400">
+              正在预测...
+            </div>
+          )}
+
+          {predictions && !isPredicting && (
+            <div className="grid grid-cols-2 gap-2">
+              {predictions.map((p) => (
+                <MLCurrentPrediction
+                  key={p.code}
+                  indexName={p.name}
+                  prediction={p.prediction}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 未训练提示 */}
+      {!isTrained && !isTraining && (
+        <div className="p-6 rounded-lg bg-gray-800/30 border border-dashed border-gray-700/50 text-center">
+          <p className="text-sm text-gray-500 mb-2">
+            点击"开始训练"训练多指数混合模型
+          </p>
+          <p className="text-xs text-gray-600">
+            将自动获取 7 个指数数据，训练 {ENSEMBLE_CONFIG.numModels} 个集成模型，覆盖 {FEATURE_DIM} 维特征
+          </p>
+        </div>
       )}
     </div>
   );
