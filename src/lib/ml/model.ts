@@ -9,7 +9,8 @@ export function buildModel(
   learningRate: number = 0.001,
   seed: number = 42,
 ): tf.Sequential {
-  tf.util.setRandomSeed(seed);
+  // setRandomSeed 在 tfjs 4.x 中已移除，用 kernelInitializer 保证初始化多样性
+  // 5 个模型不同种子天然产生不同初始权重，无需手动设置随机种子
 
   const model = tf.sequential();
 
