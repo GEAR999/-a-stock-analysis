@@ -43,8 +43,9 @@ export async function POST(request: NextRequest) {
     const result = JSON.parse(stdout.toString());
     return NextResponse.json(result);
   } catch (error: any) {
+    const detail = error.stderr?.toString() || error.stdout?.toString() || error.message || error.status || '未知错误';
     return NextResponse.json(
-      { success: false, error: `训练失败: ${error.message || '未知错误'}` },
+      { success: false, error: `训练失败: ${detail}` },
       { status: 500 },
     );
   }

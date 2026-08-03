@@ -3,6 +3,12 @@ import type { NextConfig } from 'next';
 const nextConfig: NextConfig = {
   // outputFileTracingRoot: path.resolve(__dirname, '../../'),  // Uncomment and add 'import path from "path"' if needed
   /* config options here */
+  serverExternalPackages: ['sharp'],
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '100mb',
+    },
+  },
   allowedDevOrigins: ['*.dev.coze.site'],
   eslint: {
     ignoreDuringBuilds: true,
