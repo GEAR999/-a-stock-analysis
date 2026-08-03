@@ -161,17 +161,6 @@ export async function trainSingleModel(
       },
     });
 
-    // 早停检查
-    if (earlyStopCount >= 15) {
-      onProgress({
-        phase: 'training',
-        message: `模型 ${modelIndex + 1} 早停，第 ${epoch + 1} 轮`,
-        progress: 100,
-        modelIndex,
-        currentModel: modelIndex + 1,
-      });
-      break;
-    }
   }
 
   // 清理 Tensor
