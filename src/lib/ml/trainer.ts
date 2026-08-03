@@ -161,8 +161,6 @@ export async function trainSingleModel(
       },
     });
 
-  }
-
   // 清理 Tensor
   trainFeatures.dispose();
   trainLabels.dispose();
