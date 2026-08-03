@@ -49,10 +49,14 @@ export async function POST(request: NextRequest) {
         }
       });
 
-      // 通过 stdin 发送数据
+      // 通过 stdin 发送数据（等待 drain 事件确保数据完全写入）
       const jsonStr = JSON.stringify(body);
-      python.stdin.write(jsonStr, 'utf-8');
-      python.stdin.end();
+      const canContinue = python.stdin.write(jsonStr, 'utf-8');
+      if (canContinue) {
+        python.stdin.end();
+      } else {
+        python.stdin.once('drain', () => python.stdin.end());
+      }
     });
 
     const parsed = JSON.parse(result);
