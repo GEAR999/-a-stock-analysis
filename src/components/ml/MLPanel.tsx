@@ -2,7 +2,6 @@
 
 import { useState, useCallback } from 'react';
 import { INDEX_DEFS, FEATURE_NAMES, type ConfusionMatrix, type FeatureImportance, type TrainingProgress } from '@/lib/ml/types';
-import { fetchAndPrepareData } from '@/lib/ml/data-preparation';
 import { MLFeatureImportance } from './MLFeatureImportance';
 import { MLConfusionMatrix } from './MLConfusionMatrix';
 import { MLPredictionHistory } from './MLPredictionHistory';
@@ -12,6 +11,7 @@ import { Card, CardContent } from '@/components/ui/card';
 
 interface TrainApiResponse {
   success: boolean;
+  error?: string;
   accuracy: number;
   precision: number;
   recall: number;
@@ -83,52 +83,20 @@ export function MLPanel() {
     setPredictionHistory(null);
 
     try {
-      setTrainingProgress({ phase: 'preparing', message: '正在获取数据...', progress: 0 });
+      setTrainingProgress({ phase: 'preparing', message: '正在请求服务器训练（获取数据 → 计算特征 → 训练模型）...', progress: 10 });
 
-      // 1. 准备数据（通过API获取指数K线数据）
-      const fetchIndexData = async (code: string) => {
-        const res = await fetch(`/api/ml/index-data?code=${code}`);
-        const json = await res.json();
-        return json.data ?? [];
-      };
-      const { trainSamples, valSamples, testSamples, latestSamples } = await fetchAndPrepareData(fetchIndexData);
-
-      setTrainingProgress({ phase: 'preparing', message: '正在发送数据到服务器训练...', progress: 10 });
-
-      // 2. 发送数据到服务器训练
+      // 发送训练请求（服务器直接从 Tushare 获取数据并计算特征）
       const response = await fetch('/api/ml/train', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          train: {
-            features: trainSamples.map(s => s.features),
-            labels: trainSamples.map(s => s.label),
-            index_codes: trainSamples.map(s => s.indexCode),
-            dates: trainSamples.map(s => s.date),
-          },
-          val: {
-            features: valSamples.map(s => s.features),
-            labels: valSamples.map(s => s.label),
-            index_codes: valSamples.map(s => s.indexCode),
-            dates: valSamples.map(s => s.date),
-          },
-          test: {
-            features: testSamples.map(s => s.features),
-            labels: testSamples.map(s => s.label),
-            index_codes: testSamples.map(s => s.indexCode),
-            dates: testSamples.map(s => s.date),
-          },
-          latest_features: Object.fromEntries(
-            Array.from(latestSamples.values()).map(s => [s.indexCode, s.features])
-          ),
-          index_defs: INDEX_DEFS,
-          config: {
-            n_estimators: 100,
-            max_depth: null,
-            min_samples_leaf: 5,
-          },
+          n_estimators: 100,
+          max_depth: null,
+          min_samples_leaf: 5,
         }),
       });
+
+      setTrainingProgress({ phase: 'preparing', message: '正在等待服务器训练结果...', progress: 50 });
 
       if (!response.ok) {
         const errText = await response.text();
@@ -140,7 +108,7 @@ export function MLPanel() {
       const result: TrainApiResponse = await response.json();
 
       if (!result.success) {
-        throw new Error('训练失败');
+        throw new Error(`训练失败: ${result.error}`);
       }
 
       // 3. 构建特征重要性（带名称和排序）
