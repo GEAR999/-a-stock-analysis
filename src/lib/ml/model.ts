@@ -15,11 +15,16 @@ export function buildModel(
 
   const model = tf.sequential();
 
+  // ★ 输入归一化层: 防止 sigmoid 饱和导致 loss=NaN
+  model.add(tf.layers.batchNormalization({
+    inputShape: [inputDim],
+    axis: 1,
+  }));
+
   // 共享层 1: 40→64
   model.add(tf.layers.dense({
     units: 64,
     activation: 'relu',
-    inputShape: [inputDim],
     kernelRegularizer: tf.regularizers.l2({ l2: 0.001 }),
     kernelInitializer: 'heNormal',
   }));
