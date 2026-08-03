@@ -24,7 +24,8 @@ export async function POST(request: NextRequest) {
     fs.writeFileSync(tmpFile, JSON.stringify(body), 'utf-8');
 
     // 运行 Python 训练脚本（超时 120 秒）
-    const stdout = execSync(`python3 "${scriptPath}" < "${tmpFile}"`, {
+    // 使用文件路径参数而非 stdin 管道，避免大文件截断
+    const stdout = execSync(`python3 "${scriptPath}" "${tmpFile}"`, {
       timeout: 120_000,
       maxBuffer: 50 * 1024 * 1024, // 50MB
     });

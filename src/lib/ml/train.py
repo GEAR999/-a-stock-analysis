@@ -15,7 +15,18 @@ def compute_confusion_matrix(tn, fp, fn, tp):
 
 
 def main():
-    raw = sys.stdin.read()
+    # 支持从命令行参数读取文件路径，或从 stdin 读取
+    if len(sys.argv) > 1:
+        filepath = sys.argv[1]
+        try:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                raw = f.read()
+        except Exception as e:
+            print(json.dumps({"success": False, "error": f"读取文件失败: {str(e)}"}))
+            return
+    else:
+        raw = sys.stdin.read()
+
     if not raw.strip():
         print(json.dumps({"success": False, "error": "空输入"}))
         return
