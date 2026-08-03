@@ -20,14 +20,17 @@ export function extractFeatures(
   prevKlines: KLineData[],
   indicators: any,
   indexGroup: number = 0,
+  index: number = -1,
 ): number[] {
-  const ma5 = indicators.ma[5]?.[indicators.ma[5].length - 1] ?? kline.close;
-  const ma20 = indicators.ma[20]?.[indicators.ma[20].length - 1] ?? kline.close;
-  const ma60 = indicators.ma[60]?.[indicators.ma[60].length - 1] ?? kline.close;
-  const lastMacd = indicators.macd[indicators.macd.length - 1];
-  const lastRsi = indicators.rsi[indicators.rsi.length - 1]?.rsi ?? 50;
-  const lastKdj = indicators.kdj[indicators.kdj.length - 1];
-  const lastBoll = indicators.boll[indicators.boll.length - 1];
+  // 使用当前 K 线对应的指标索引，避免数据穿越
+  const idx = index >= 0 ? index : (indicators.ma[5]?.length - 1 ?? 0);
+  const ma5 = indicators.ma[5]?.[idx] ?? kline.close;
+  const ma20 = indicators.ma[20]?.[idx] ?? kline.close;
+  const ma60 = indicators.ma[60]?.[idx] ?? kline.close;
+  const lastMacd = indicators.macd[idx];
+  const lastRsi = indicators.rsi[idx]?.rsi ?? 50;
+  const lastKdj = indicators.kdj[idx];
+  const lastBoll = indicators.boll[idx];
   const prevVolume = prevKlines.length > 0 ? prevKlines[prevKlines.length - 1].volume : kline.volume;
   const avgVolume5 = prevKlines.length >= 5
     ? prevKlines.slice(-5).reduce((s, k) => s + k.volume, 0) / 5
@@ -205,6 +208,7 @@ export function prepareSingleIndex(
       klineData.slice(0, i),
       indicators,
       indexGroup,
+      i,
     );
 
     samples.push({
