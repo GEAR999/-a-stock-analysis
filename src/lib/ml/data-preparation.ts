@@ -285,6 +285,7 @@ export async function fetchAndPrepareData(
   testSamples: TrainingSample[];
   totalSamples: number;
   indexBreakdown: Array<{ code: string; name: string; sampleCount: number }>;
+  latestSamples: Map<string, TrainingSample>;
 }> {
   const allData = new Map<string, KLineData[]>();
 
@@ -305,6 +306,15 @@ export async function fetchAndPrepareData(
   // 合并所有样本
   const allSamples = combineAllIndices(allData);
 
+  // 获取每个指数的最新样本（用于当前预测）
+  const latestSamples = new Map<string, TrainingSample>();
+  for (const idx of INDEX_DEFS) {
+    const indexSamples = allSamples.filter(s => s.indexCode === idx.code);
+    if (indexSamples.length > 0) {
+      latestSamples.set(idx.code, indexSamples[indexSamples.length - 1]);
+    }
+  }
+
   // 时间序列切分
   const { trainSamples, valSamples, testSamples } = timeSeriesSplit(allSamples);
 
@@ -319,6 +329,7 @@ export async function fetchAndPrepareData(
     testSamples,
     totalSamples: allSamples.length,
     indexBreakdown,
+    latestSamples,
   };
 }
 

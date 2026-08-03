@@ -45,7 +45,15 @@ main() {
     # 2. 安装依赖
     log "=== 2. 安装依赖 ==="
     pnpm install --frozen-lockfile || error_exit "pnpm install 失败"
-    log "✅ 依赖安装完成"
+    log "✅ Node.js 依赖安装完成"
+    
+    # 安装 Python 依赖（ML 训练）
+    if [ -f "${APP_DIR}/requirements.txt" ]; then
+        log "--- 安装 Python 依赖 ---"
+        pip3 install -r "${APP_DIR}/requirements.txt" 2>&1 | tail -5 || log "⚠️ pip3 install 失败，尝试 pip..."
+        pip install -r "${APP_DIR}/requirements.txt" 2>&1 | tail -5 || log "⚠️ Python 依赖安装失败，训练可能不可用"
+        log "✅ Python 依赖安装完成"
+    fi
     
     # 3. 构建
     log "=== 3. 构建生产版本 ==="
