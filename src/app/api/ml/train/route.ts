@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { execSync } from 'child_process';
+import { spawn } from 'child_process';
 import path from 'path';
-import fs from 'fs';
-import os from 'os';
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,33 +14,50 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 写入临时文件
-    const tmpDir = os.tmpdir();
-    const tmpFile = path.join(tmpDir, `ml_train_${Date.now()}.json`);
     const scriptPath = path.join(process.cwd(), 'src/lib/ml/train.py');
 
-    fs.writeFileSync(tmpFile, JSON.stringify(body), 'utf-8');
+    // 使用 spawn 通过 stdin 传递数据，避免大文件写入截断问题
+    const result = await new Promise<string>((resolve, reject) => {
+      const python = spawn('python3', [scriptPath], {
+        timeout: 120_000,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
 
-    // 运行 Python 训练脚本（超时 120 秒）
-    // 使用文件路径参数而非 stdin 管道，避免大文件截断
-    const stdout = execSync(`python3 "${scriptPath}" "${tmpFile}"`, {
-      timeout: 120_000,
-      maxBuffer: 50 * 1024 * 1024, // 50MB
+      let stdout = '';
+      let stderr = '';
+
+      python.stdout.on('data', (data: Buffer) => {
+        stdout += data.toString('utf-8');
+      });
+
+      python.stderr.on('data', (data: Buffer) => {
+        stderr += data.toString('utf-8');
+      });
+
+      python.on('error', (err) => {
+        reject(err);
+      });
+
+      python.on('close', (code) => {
+        if (code === 0 && stdout) {
+          resolve(stdout);
+        } else if (stdout) {
+          // 尝试解析 stdout 看是否有错误信息
+          resolve(stdout);
+        } else {
+          reject(new Error(stderr || `进程退出码: ${code}`));
+        }
+      });
+
+      // 通过 stdin 发送数据
+      const jsonStr = JSON.stringify(body);
+      python.stdin.write(jsonStr, 'utf-8');
+      python.stdin.end();
     });
 
-    // 清理临时文件
-    try { fs.unlinkSync(tmpFile); } catch {}
-
-    const result = JSON.parse(stdout.toString('utf-8'));
-    return NextResponse.json(result);
+    const parsed = JSON.parse(result);
+    return NextResponse.json(parsed);
   } catch (error: any) {
-    // 清理临时文件
-    try {
-      const tmpDir = os.tmpdir();
-      const tmpFile = path.join(tmpDir, `ml_train_${Date.now()}.json`);
-      fs.unlinkSync(tmpFile);
-    } catch {}
-
     return NextResponse.json(
       { success: false, error: `训练失败: ${error.message || '未知错误'}` },
       { status: 500 },
