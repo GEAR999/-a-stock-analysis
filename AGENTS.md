@@ -73,6 +73,7 @@ src/
 │   ├── sidebar/
 │   │   ├── StockSearch.tsx    # 股票搜索组件
 │   │   └── WatchList.tsx      # 自选股列表 (拖拽排序)
+│   ├── ml/                    # ML指数预测组件 (集成训练/预测/评估)
 │   └── ui/                    # shadcn/ui 组件
 ── hooks/
 │   └── useAppState.tsx        # 全局状态管理 (Context)
@@ -91,6 +92,7 @@ src/
 │   ├── tushare-client.ts      # Tushare 服务端封装 (K线/估值/股票列表/M2换手率/M5融资余额补齐)
 │   ├── multifactor/           # 多因子系统 (M1-M5情绪引擎/S1-S7个股因子/仓位计算器)
 │   ├── probability/           # 概率统计系统 (模式分类/事件检测/条件概率引擎)
+│   ├── ml/                    # ML指数预测系统 (7指数合并训练/40维特征/5模型集成)
 │   ├── slippage.ts            # 滑点模拟
 │   ├── types.ts               # 类型定义
 │   └── utils.ts               # 工具函数
@@ -102,7 +104,7 @@ server-config/
 ├── a-stock-analysis.service    # systemd 服务配置（崩溃后 5 秒自动重启）
 ├── health-check.sh             # 主服务健康检查脚本（每 5 分钟检测 + 飞书告警）
 ├── ecosystem.config.js         # PM2 备选配置（推荐 systemd）
-├── deploy.sh                   # 改进版部署脚本（增加启动验证）
+├── deploy.sh                   # 部署脚本（git pull → pnpm install → build → restart，健康检查 /api/ping）
 └── README.md                   # 主服务配置说明
 ```
 
@@ -138,6 +140,7 @@ sudo journalctl -u a-stock-analysis -f
 - `GET /api/stock?action=quote&code={code}` - 实时行情（李富贵推送 → Tushare 降级）
 - `GET /api/stock?action=kline&code={code}&period={period}&limit={n}` - K 线数据（Tushare，支持 daily/weekly/monthly）
 - `GET /api/stock?action=minute&code={code}` - 分时图数据（已废弃，Tushare 2000 积分不支持分钟数据）
+- `GET /api/ml/index-data?code={code}&limit={n}` - 指数历史K线数据（Tushare index_daily）
 
 ### K 线周期
 - **支持周期**：daily（日 K）、weekly（周 K）、monthly（月 K）
@@ -397,7 +400,7 @@ cd /var/www/a-stock-analysis
 2. `pnpm install --frozen-lockfile` - 安装依赖
 3. `pnpm build` - 构建生产版本
 4. `sudo systemctl restart a-stock-analysis` - 重启服务
-5. `curl -I http://localhost:5000` - 验证服务正常
+5. `curl -I http://localhost:5000/api/ping` - 验证服务正常
 
 ### 部署步骤（手动部署，推荐）
 ```bash
@@ -429,7 +432,7 @@ PORT=5000 pm2 start dist/server.js --name a-stock-analysis
 sleep 5
 
 # 验证
-curl -I http://localhost:5000 | head -1
+curl -I http://localhost:5000/api/ping
 echo "部署完成！$(date)"
 EOF
 chmod +x deploy.sh
@@ -447,7 +450,7 @@ pm2 list
 ss -tulnp | grep 5000
 
 # 测试服务
-curl -I http://localhost:5000
+curl -I http://localhost:5000/api/ping
 
 # 测试 mootdx 服务
 curl -s "http://localhost:8888/api/kline?code=600549&period=day&count=3" | python3 -m json.tool
@@ -476,7 +479,7 @@ pnpm build
 sudo systemctl start a-stock-analysis
 
 # 验证
-curl -I http://localhost:5000
+curl -I http://localhost:5000/api/ping
 ```
 
 **预防**: 
@@ -751,6 +754,21 @@ cd /var/www/a-stock-analysis
 
 ### 已完成功能
 
+#### ML模型全面升级（P0-P2）
+- **多指数合并训练**：7指数数据合并，one-hot指数编码区分，共享市场共性规律
+- **40维特征工程**：24基础 + 6交互特征 + 3时间特征 + 7指数one-hot编码
+- **分位数标签**：top 35%/bottom 35%标记涨跌，中间30%丢弃，大幅减少噪音
+- **时间序列交叉验证**：按时间顺序切分，替代随机80/10/10，避免未来信息泄露
+- **5模型集成**：不同种子初始化，预测时平均5个模型输出，提高稳定性
+- **余弦退火学习率**：从0.001衰减至0.0001，帮助跳出局部最优
+- **7指数支持**：上证、深证成指、创业板指、上证50、沪深300、中证500、科创50
+- **文件**：`src/lib/ml/` 全部重写，`src/components/ml/` 全部更新
+
+#### Bug修复
+- **指标取值数据穿越**：`extractFeatures` 使用 `indicators[last]` 修复为 `indicators[i]`，避免未来数据污染训练
+- **`tf.util.setRandomSeed` 不存在**：tfjs 4.x 已移除该函数，改用 `kernelInitializer` 不同种子实现差异化
+- **部署脚本健康检查**：`deploy.sh` 检测 `http://localhost:5000/` 返回 307（中间件重定向），改为 `http://localhost:5000/api/ping`
+
 #### 缠论买卖点方案C
 - **结构性买卖点生成**：不依赖背驰，基于笔结构生成买卖点
   - 一买 = 下降笔底分型，一卖 = 上升笔顶分型
@@ -775,23 +793,21 @@ cd /var/www/a-stock-analysis
 - **概率统计面板**：分布图 / 因子排行 / 组合TOP10 / 条件概率测算器
 - **文件**：`src/components/probability/ProbabilityPanel.tsx`、`src/lib/probability/`
 
-#### ML指数模型训练模块（阶段三）
-- **Tushare指数数据扩展**：`getIndexKLineData()` 调用 Tushare index_daily 接口
-- **API路由**：`/api/ml/index-data` 返回指数K线数据
-- **特征工程**（24维）：
-  - 价格形态：涨跌幅、振幅、实体比例、上下影线长度
-  - 成交量：量比、成交额变化率
-  - 均线偏离：偏离5日线/10日线/20日线
-  - 技术指标：MACD、RSI、KDJ、布林带位置、WR威廉指标
-  - 新增：星期几、连涨/连跌天数、ATR波动率、近5日涨跌幅、近20日涨跌幅、成交额变化率
-- **神经网络架构**：24→64(ReLU+Dropout 0.3)→32(ReLU+Dropout 0.2)→1(Sigmoid)，L2正则化
-- **标签优化**：过滤涨跌幅<0.5%的噪音样本
-- **训练管线**：80/10/10 训练/验证/测试集划分，50轮训练，早停防止过拟合
-- **模型持久化**：IndexedDB保存，刷新页面不丢失，自动检测已训练模型
-- **特征重要性**：排列重要性分析，找出对预测贡献最大的因子
-- **评估指标**：混淆矩阵、准确率、精确率、召回率、F1
-- **可视化组件**：MLPanel(主面板)、MLTrainingProgress(进度+曲线图)、MLFeatureImportance(特征排行)、MLConfusionMatrix(混淆矩阵)、MLPredictionHistory(预测历史)、MLCurrentPrediction(当前预测卡片)
-- **支持指数**：上证指数(000001.SH)、深证成指(399001.SZ)、创业板指(399006.SZ)
+#### ML指数模型训练模块（P0-P2全面升级，2026-08-03）
+- **多指数合并训练**：从3个独立模型升级为1个综合模型，7指数合并训练
+- **7指数支持**：上证指数(000001.SH, group=0)、深证成指(399001.SZ, group=1)、创业板指(399006.SZ, group=2)、上证50(000016.SH, group=3)、沪深300(000300.SH, group=4)、中证500(000905.SH, group=5)、科创50(000688.SH, group=6)
+- **特征工程**（40维）：
+  - 24基础特征：价格形态、成交量、均线偏离、技术指标(MACD/RSI/KDJ/BOLL/WR)、时间特征
+  - 6交互特征：RSI×BOLL位置、MACD×成交量、涨跌幅×连涨天数、实体比例×量比、振幅×ATR、RSI×WR
+  - 3时间特征：月份sin/cos编码、季度末标志
+  - 7指数one-hot编码：让模型区分不同指数，共享共性规律
+- **分位数标签**：top 35% = 涨(1)，bottom 35% = 跌(0)，中间30%丢弃（减少噪音）
+- **神经网络架构**：40→64(ReLU+L2+Dropout 0.3)→BatchNorm→32(ReLU+L2+Dropout 0.2)→BatchNorm→16(ReLU)→1(Sigmoid)
+- **5模型集成**：不同种子(42/99/7/13/88)初始化，预测时平均5个模型输出
+- **余弦退火学习率**：从0.001衰减至0.0001，50轮训练，早停patience=10
+- **时间序列交叉验证**：按时间顺序切分（非随机），避免未来信息泄露
+- **评估指标**：集成准确率、各指数独立准确率、混淆矩阵、特征重要性排名
+- **可视化**：MLPanel(主面板)、MLTrainingProgress(进度+曲线图)、MLFeatureImportance(特征排行)、MLConfusionMatrix(混淆矩阵)、MLPredictionHistory(预测历史)、MLCurrentPrediction(当前预测卡片，含5模型独立输出)
 - **文件**：`src/lib/ml/`(8个核心文件)、`src/components/ml/`(6个组件)、`src/app/api/ml/index-data/route.ts`
 
 #### 部署脚本修复
@@ -802,21 +818,21 @@ cd /var/www/a-stock-analysis
 ```
 src/
 ├── lib/ml/
-│   ├── types.ts                 # ML类型定义
-│   ├── data-preparation.ts      # 特征提取/标签生成/数据集划分
-│   ├── model.ts                 # 模型构建/保存/加载
-│   ├── trainer.ts               # 训练器（进度回调/自动保存）
-│   ├── predictor.ts             # 预测器（次日涨跌预测）
+│   ├── types.ts                 # ML类型定义（FEATURE_DIM=40, INDEX_DEFS 7指数, 集成模型类型）
+│   ├── data-preparation.ts      # 特征提取/分位数标签/时序切分/多指数并行获取
+│   ├── model.ts                 # 模型构建（40维输入, 余弦退火LR, 不同种子初始化）
+│   ├── trainer.ts               # 训练器（5模型集成训练, 余弦退火调度, 测试评估）
+│   ├── predictor.ts             # 预测器（集成预测, 加载5模型, 各指数独立输出）
 │   ├── feature-importance.ts    # 特征重要性排列分析
 │   ├── evaluation.ts            # 评估指标计算
 │   └── index.ts                 # 统一导出
 ├── components/ml/
-│   ├── MLPanel.tsx              # 主面板（指数选择/训练/预测）
-│   ├── MLTrainingProgress.tsx   # 训练进度+曲线图
+│   ├── MLPanel.tsx              # 主面板（单"开始训练"按钮, 全流程编排, 7指数预测）
+│   ├── MLTrainingProgress.tsx   # 训练进度+曲线图（支持模型索引/轮次/损失曲线）
 │   ├── MLFeatureImportance.tsx   # 特征重要性排行
 │   ├── MLConfusionMatrix.tsx     # 混淆矩阵
 │   ├── MLPredictionHistory.tsx   # 预测历史对比
-│   └── MLCurrentPrediction.tsx   # 当前预测结果卡片
+│   └── MLCurrentPrediction.tsx   # 当前预测结果卡片（含5模型独立输出概率条）
 ├── app/api/ml/
 │   └── index-data/route.ts      # 指数数据API
 ├── lib/probability/
@@ -829,9 +845,9 @@ src/
 - `GET /api/ml/index-data?code={code}&limit={n}` - 指数历史K线数据（Tushare index_daily）
 
 ### 待办事项
-- [ ] 验证 ML 模型在浏览器端的训练效果和准确率
+- [ ] 验证 ML P0-P2 升级后训练效果，确认各指数准确率
 - [ ] 概率统计阶段二（K线手动标注事件→事件后概率统计）
-- [ ] deploy.sh 健康检查改 `journalctl` 日志确认（当前服务器上deploy.sh为本地文件，不在git中）
+- [ ] ML P3 宏观代理特征（国债收益率、CPI等宏观数据作为代理特征）
 
 ### 数据源状态
 | 数据源 | 状态 | 用途 |
