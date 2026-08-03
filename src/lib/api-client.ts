@@ -235,13 +235,8 @@ export async function fetchWithRetry(
         });
         clearTimeout(timeoutId);
 
-        // 4xx 不重试
+        // 4xx 不重试，直接返回 response 让上层处理
         if (response.status >= 400 && response.status < 500) {
-          if (!response.ok) {
-            const err = classifyError(response, url);
-            err.message = getErrorMessage(err.type, err.status);
-            throw err;
-          }
           return response;
         }
 
