@@ -189,8 +189,6 @@ def extract_features(kline, prev_klines, indicators, index_group, idx):
     feat.append(lower_shadow)
 
     # 6. volume_ratio - 量比
-    avg_vol_5 = sum(prev_klines[-5:]['volume'] for _ in [0]) / 5.0 if len(prev_klines) >= 5 else v
-    # Actually let me compute this properly
     avg_vol_5 = v
     if len(prev_klines) >= 5:
         avg_vol_5 = sum(k['volume'] for k in prev_klines[-5:]) / 5.0
