@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { Card, CardContent } from '@/components/ui/card';
 import type { ConfusionMatrix } from '@/lib/ml/types';
 
 interface Props {
@@ -8,60 +9,58 @@ interface Props {
 }
 
 export function MLConfusionMatrix({ matrix }: Props) {
-  const { tp, fp, fn, tn } = matrix;
-  const total = tp + fp + fn + tn;
-  const accuracy = total > 0 ? ((tp + tn) / total * 100) : 0;
-  const precision = (tp + fp) > 0 ? (tp / (tp + fp) * 100) : 0;
-  const recall = (tp + fn) > 0 ? (tp / (tp + fn) * 100) : 0;
-  const f1 = (precision + recall) > 0 ? 2 * (precision * recall) / (precision + recall) : 0;
+  const { tp, fp, tn, fn } = matrix;
+  const total = tp + fp + tn + fn;
+  const accuracy = total > 0 ? ((tp + tn) / total * 100).toFixed(1) : '0.0';
+  const precision = (tp + fp) > 0 ? (tp / (tp + fp) * 100).toFixed(1) : '0.0';
+  const recall = (tp + fn) > 0 ? (tp / (tp + fn) * 100).toFixed(1) : '0.0';
+  const specificity = (tn + fp) > 0 ? (tn / (tn + fp) * 100).toFixed(1) : '0.0';
 
   return (
-    <div className="space-y-3">
-      <h4 className="text-sm font-medium text-gray-300">混淆矩阵</h4>
-      {/* 混淆矩阵 */}
-      <div className="grid grid-cols-[auto_auto_auto] gap-2 text-center text-xs items-center">
-        <div className="text-gray-500">预测\实际</div>
-        <div className="text-red-400">实际涨</div>
-        <div className="text-green-400">实际跌</div>
-        <div className="text-gray-500">预测涨</div>
-        <div className="bg-green-900/40 rounded p-2">
-          <div className="text-green-400 font-bold text-lg">{tp}</div>
-          <div className="text-green-500">正确 ✓</div>
-        </div>
-        <div className="bg-red-900/40 rounded p-2">
-          <div className="text-red-400 font-bold text-lg">{fp}</div>
-          <div className="text-red-500">误报 ✗</div>
-        </div>
-        <div className="text-gray-500">预测跌</div>
-        <div className="bg-red-900/40 rounded p-2">
-          <div className="text-red-400 font-bold text-lg">{fn}</div>
-          <div className="text-red-500">漏报 ✗</div>
-        </div>
-        <div className="bg-green-900/40 rounded p-2">
-          <div className="text-green-400 font-bold text-lg">{tn}</div>
-          <div className="text-green-500">正确 ✓</div>
-        </div>
-      </div>
+    <Card>
+      <CardContent className="pt-6">
+        <h4 className="text-sm font-medium mb-4">混淆矩阵</h4>
 
-      {/* 指标 */}
-      <div className="grid grid-cols-4 gap-2 text-xs">
-        <div className="bg-gray-800 rounded p-2 text-center">
-          <div className="text-gray-400">准确率</div>
-          <div className="text-blue-400 font-bold">{accuracy.toFixed(1)}%</div>
+        {/* 2x2 矩阵 */}
+        <div className="grid grid-cols-2 gap-2 max-w-[300px] mx-auto mb-4">
+          <div className="text-center p-2 rounded bg-emerald-900/30 border border-emerald-700/30">
+            <div className="text-2xl font-bold text-emerald-400">{tn}</div>
+            <div className="text-[11px] text-gray-400">实际跌<br/>预测跌</div>
+          </div>
+          <div className="text-center p-2 rounded bg-rose-900/30 border border-rose-700/30">
+            <div className="text-2xl font-bold text-rose-400">{fp}</div>
+            <div className="text-[11px] text-gray-400">实际跌<br/>预测涨</div>
+          </div>
+          <div className="text-center p-2 rounded bg-rose-900/30 border border-rose-700/30">
+            <div className="text-2xl font-bold text-rose-400">{fn}</div>
+            <div className="text-[11px] text-gray-400">实际涨<br/>预测跌</div>
+          </div>
+          <div className="text-center p-2 rounded bg-emerald-900/30 border border-emerald-700/30">
+            <div className="text-2xl font-bold text-emerald-400">{tp}</div>
+            <div className="text-[11px] text-gray-400">实际涨<br/>预测涨</div>
+          </div>
         </div>
-        <div className="bg-gray-800 rounded p-2 text-center">
-          <div className="text-gray-400">精确率</div>
-          <div className="text-green-400 font-bold">{precision.toFixed(1)}%</div>
+
+        {/* 指标行 */}
+        <div className="grid grid-cols-4 gap-2 text-center text-xs">
+          <div>
+            <div className="text-gray-400">准确率</div>
+            <div className="text-sm font-semibold text-blue-400">{accuracy}%</div>
+          </div>
+          <div>
+            <div className="text-gray-400">精确率</div>
+            <div className="text-sm font-semibold text-blue-400">{precision}%</div>
+          </div>
+          <div>
+            <div className="text-gray-400">召回率</div>
+            <div className="text-sm font-semibold text-blue-400">{recall}%</div>
+          </div>
+          <div>
+            <div className="text-gray-400">特异度</div>
+            <div className="text-sm font-semibold text-blue-400">{specificity}%</div>
+          </div>
         </div>
-        <div className="bg-gray-800 rounded p-2 text-center">
-          <div className="text-gray-400">召回率</div>
-          <div className="text-yellow-400 font-bold">{recall.toFixed(1)}%</div>
-        </div>
-        <div className="bg-gray-800 rounded p-2 text-center">
-          <div className="text-gray-400">F1分数</div>
-          <div className="text-purple-400 font-bold">{f1.toFixed(1)}%</div>
-        </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
