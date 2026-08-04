@@ -223,26 +223,26 @@ export function MLPanel() {
           {/* 综合准确率 */}
           <Card>
             <CardContent className="pt-6">
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                <div className="text-center">
-                  <p className="text-2xl font-bold">{(summary.accuracy * 100).toFixed(1)}%</p>
-                  <p className="text-xs text-muted-foreground">综合准确率</p>
+              <div className="flex flex-wrap justify-center gap-x-8 gap-y-3">
+                <div className="text-center min-w-[80px]">
+                  <p className="text-xl font-bold">{(summary.accuracy * 100).toFixed(1)}%</p>
+                  <p className="text-xs text-muted-foreground whitespace-nowrap">综合准确率</p>
                 </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold">{(summary.ensemblePrecision * 100).toFixed(1)}%</p>
-                  <p className="text-xs text-muted-foreground">精确率</p>
+                <div className="text-center min-w-[80px]">
+                  <p className="text-xl font-bold">{(summary.ensemblePrecision * 100).toFixed(1)}%</p>
+                  <p className="text-xs text-muted-foreground whitespace-nowrap">精确率</p>
                 </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold">{(summary.ensembleRecall * 100).toFixed(1)}%</p>
-                  <p className="text-xs text-muted-foreground">召回率</p>
+                <div className="text-center min-w-[80px]">
+                  <p className="text-xl font-bold">{(summary.ensembleRecall * 100).toFixed(1)}%</p>
+                  <p className="text-xs text-muted-foreground whitespace-nowrap">召回率</p>
                 </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold">{(summary.ensembleF1 * 100).toFixed(1)}%</p>
-                  <p className="text-xs text-muted-foreground">F1 分数</p>
+                <div className="text-center min-w-[80px]">
+                  <p className="text-xl font-bold">{(summary.ensembleF1 * 100).toFixed(1)}%</p>
+                  <p className="text-xs text-muted-foreground whitespace-nowrap">F1 分数</p>
                 </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold">{summary.sampleCount}</p>
-                  <p className="text-xs text-muted-foreground">训练样本</p>
+                <div className="text-center min-w-[80px]">
+                  <p className="text-xl font-bold">{summary.sampleCount.toLocaleString()}</p>
+                  <p className="text-xs text-muted-foreground whitespace-nowrap">训练样本</p>
                 </div>
               </div>
             </CardContent>

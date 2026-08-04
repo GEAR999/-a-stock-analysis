@@ -49,20 +49,18 @@ export function MLCurrentPrediction({ indexName, upProb, confidence }: Props) {
       <div className="text-xs text-gray-500 mb-2">{indexName}</div>
 
       {/* 方向 + 概率 */}
-      <div className="flex items-center justify-between mb-2">
-        <span className={`text-lg font-bold ${getDirectionColor(direction)}`}>
+      <div className="mb-2">
+        <div className={`text-base font-bold text-center ${getDirectionColor(direction)}`}>
           {getDirectionLabel(direction)}
-        </span>
-        <div className="flex items-center gap-3 text-xs">
-          {hasValidProb ? (
-            <>
-              <span className="text-red-400">涨 {(upProb * 100).toFixed(1)}%</span>
-              <span className="text-green-400">跌 {(downProb * 100).toFixed(1)}%</span>
-            </>
-          ) : (
-            <span className="text-gray-500">概率计算中...</span>
-          )}
         </div>
+        {hasValidProb ? (
+          <div className="flex justify-center gap-3 text-xs mt-1">
+            <span className="text-red-400">涨 {(upProb * 100).toFixed(1)}%</span>
+            <span className="text-green-400">跌 {(downProb * 100).toFixed(1)}%</span>
+          </div>
+        ) : (
+          <div className="text-center text-xs text-gray-500 mt-1">概率计算中...</div>
+        )}
       </div>
 
       {/* 置信度 */}
