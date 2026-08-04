@@ -39,7 +39,15 @@ export async function POST(request: NextRequest) {
     }
 
     // 3. 合并样本并切分
-    const allSamples = combineAllIndices(allData);
+    let allSamples: TrainingSample[];
+    try {
+      allSamples = combineAllIndices(allData);
+    } catch (e: any) {
+      return NextResponse.json(
+        { success: false, error: `合并样本失败: ${e.message || e}`, stack: e.stack?.split('\n').slice(0, 5).join('\n') || '' },
+        { status: 500 },
+      );
+    }
     if (allSamples.length < 100) {
       return NextResponse.json(
         { success: false, error: `样本数不足: ${allSamples.length}（需要至少 100 个）` },
@@ -122,8 +130,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(result);
   } catch (error: any) {
     const detail = error.stderr?.toString() || error.stdout?.toString() || error.message || error.status || '未知错误';
+    const stack = error.stack?.split('\n').slice(0, 5).join('\n') || '';
     return NextResponse.json(
-      { success: false, error: `训练失败: ${detail}` },
+      { success: false, error: `训练失败: ${detail}`, stack },
       { status: 500 },
     );
   }
