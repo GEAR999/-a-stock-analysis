@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
     if (isRealtime) {
       expiresAt.setMinutes(expiresAt.getMinutes() + 5); // 实时数据 5 分钟
     } else {
-      expiresAt.setDate(expiresAt.getDate() + 7); // 历史数据 7 天
+      expiresAt.setDate(expiresAt.getDate() + 1); // 历史数据 1 天（避免 stale 数据堆积）
     }
 
     await query`

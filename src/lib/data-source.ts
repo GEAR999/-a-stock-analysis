@@ -119,7 +119,7 @@ const DEFAULT_CONFIG: DataSourceConfig = {
   tushareTimeout: 10000,
   backupTimeout: 10000,
   enableCache: true,
-  historicalCacheTTL: 7 * 24 * 60 * 60 * 1000, // 7 天
+  historicalCacheTTL: 24 * 60 * 60 * 1000, // 1 天（避免 stale 数据堆积，以前是 7 天）
   realtimeCacheTTL: 5 * 60 * 1000, // 5 分钟
   enabled: {
     tushare: true,
