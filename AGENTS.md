@@ -74,7 +74,9 @@ src/
 │   │   ├── StockSearch.tsx    # 股票搜索组件
 │   │   └── WatchList.tsx      # 自选股列表 (拖拽排序)
 │   ├── ml/                    # ML指数预测组件 (集成训练/预测/评估)
-│   └── ui/                    # shadcn/ui 组件
+│   ├── cache/
+    │   │   └── CacheClearButton.tsx # 一键清空 K 线缓存按钮（顶部工具栏）
+    │   └── ui/                    # shadcn/ui 组件
 ── hooks/
 │   └── useAppState.tsx        # 全局状态管理 (Context)
 ├── lib/
@@ -93,6 +95,15 @@ src/
 │   ├── multifactor/           # 多因子系统 (M1-M5情绪引擎/S1-S7个股因子/仓位计算器)
 │   ├── probability/           # 概率统计系统 (模式分类/事件检测/条件概率引擎)
 │   ├── ml/                    # ML指数预测系统 (7指数合并训练/40维特征/5模型集成)
+│   │   ├── types.ts           # ML类型定义 (FEATURE_DIM=40, INDEX_DEFS 7指数)
+│   │   ├── train.py           # Python RandomForest 训练脚本 (40维特征计算)
+│   │   ├── data-preparation.ts # 特征提取/分位数标签/时序切分/多指数并行获取
+│   │   ├── model.ts           # 模型构建（退役，已改用 Python 训练）
+│   │   ├── trainer.ts         # 训练器（退役，已改用 Python 训练）
+│   │   ├── predictor.ts       # 预测器（退役，已改用 Python 训练）
+│   │   ├── feature-importance.ts # 特征重要性排列分析
+│   │   ├── evaluation.ts      # 评估指标计算
+│   │   └── index.ts           # 统一导出
 │   ├── slippage.ts            # 滑点模拟
 │   ├── types.ts               # 类型定义
 │   └── utils.ts               # 工具函数
@@ -141,6 +152,9 @@ sudo journalctl -u a-stock-analysis -f
 - `GET /api/stock?action=kline&code={code}&period={period}&limit={n}` - K 线数据（Tushare，支持 daily/weekly/monthly）
 - `GET /api/stock?action=minute&code={code}` - 分时图数据（已废弃，Tushare 2000 积分不支持分钟数据）
 - `GET /api/ml/index-data?code={code}&limit={n}` - 指数历史K线数据（Tushare index_daily）
+- `GET /api/cache/kline?code={code}&period={period}` - 查询 K 线缓存状态
+- `DELETE /api/cache/kline?code={code}&period={period}` - 清除指定缓存（code=all 清所有）
+- `POST /api/ml/train` - 启动 ML 模型训练（Python RandomForest，服务器端执行）
 
 ### K 线周期
 - **支持周期**：daily（日 K）、weekly（周 K）、monthly（月 K）
@@ -360,6 +374,52 @@ sudo journalctl -u a-stock-analysis -f
 
 ---
 
+## 最新项目状态（2026-08-05）
+
+### 已完成功能
+
+#### ML模型后端化（Python RandomForest）
+- **从浏览器 TF.js 迁移到服务器端 Python 训练**——彻底解决 loss=NaN 问题
+- **训练脚本**：`src/lib/ml/train.py`（Python），使用 scikit-learn RandomForestClassifier
+- **训练 API**：`POST /api/ml/train`，浏览器只发配置，服务器从 Tushare 获取数据并计算特征
+- **40维特征完全在 Python 中计算**：24基础 + 6交互 + 3时间 + 7指数one-hot编码
+- **分位数标签**：top 35% = 涨(1)，bottom 35% = 跌(0)，中间30%丢弃
+- **7指数合并训练**：上证、深证成指、创业板指、上证50、沪深300、中证500、科创50
+- **当前准确率**：~54.9%（略高于随机，季度末/KDJ/涨跌幅动量等特征最有效）
+- **当前预测置信度**：全部为"低"，说明特征区分度不够，需要加入外部因子
+- **依赖**：`requirements.txt`（scikit-learn, numpy），deploy.sh 自动 pip install
+- **退役文件**：model.ts、trainer.ts、predictor.ts（原 TF.js 代码保留但不再使用）
+
+#### K线缓存系统优化
+- **数据库缓存 TTL**：历史数据缓存从 **7天 → 1天**，避免数据长时间停更
+- **一键清缓存 API**：`DELETE /api/cache/kline?code=all` 清空所有数据库缓存
+- **前端清缓存按钮**：`CacheClearButton.tsx`，工具栏显示，点击后自动清空并刷新页面
+- **文件**：`src/app/api/cache/kline/route.ts`、`src/components/cache/CacheClearButton.tsx`
+
+#### ML面板UI美化
+- **统计栏**：flex-wrap 布局，响应式适配，最小宽度 80px
+- **预测卡片**：2×4 网格，渐变边框（上涨/下跌），置信度等级着色（高/中/低）
+- **混淆矩阵**：2×2 网格，TP/TN 绿色渐变，FP/FN 红色渐变
+- **特征重要性**：水平条形图，红绿双色，特征名左对齐，数值右对齐
+- **预测历史**：紧凑列表，双向概率条，方向箭头，实际结果标记
+
+### 已知问题
+
+1. **K 线图交互冲突**：ECharts 组件层的任何事件（click/mouseover/mouseout）都可能与 dataZoom 冲突
+   - 当前方案：使用悬停保留（离开标记后内容不消失），完全移除图表事件
+
+2. **ML模型预测置信度偏低**：全部为"低"（概率偏离50%不够大）
+   - 原因：纯技术指标特征区分度有限
+   - 改进方向：加入宏观数据（国债收益率、CPI等）、资金流向等外部特征
+
+### 技术债务
+
+- `BacktestChart.tsx` 中仍有部分 `any` 类型标注（ECharts 相关）
+- 旧版 `IndependentBacktest.tsx` 已被 `HistoryBacktestPanel.tsx` 替代，但未删除
+- 原 TF.js 训练代码（model.ts / trainer.ts / predictor.ts）保留但已退役
+
+---
+
 ## 部署手册
 
 ### 服务器信息
@@ -397,10 +457,11 @@ cd /var/www/a-stock-analysis
 
 **部署脚本功能**（`./deploy.sh`）：
 1. `git pull origin main` - 拉取最新代码
-2. `pnpm install --frozen-lockfile` - 安装依赖
-3. `pnpm build` - 构建生产版本
-4. `sudo systemctl restart a-stock-analysis` - 重启服务
-5. `curl -I http://localhost:5000/api/ping` - 验证服务正常
+2. `pnpm install --frozen-lockfile` - 安装 Node.js 依赖
+3. `pip3 install -r requirements.txt` - 安装 Python 依赖（ML 训练用）
+4. `pnpm build` - 构建生产版本
+5. `sudo systemctl restart a-stock-analysis` - 重启服务
+6. `curl -I http://localhost:5000/api/ping` - 验证服务正常
 
 ### 部署步骤（手动部署，推荐）
 ```bash
@@ -602,257 +663,3 @@ pm2 restart a-stock-analysis
 
 **解决**: 改用手动部署（服务器有 39GB 内存），执行 `./deploy.sh`
 
----
-
-## 最新进展（2026-07-30）
-
-### 已完成功能
-
-#### 多因子系统阶段二（全部完成）
-- ✅ **M2/M5 缺失字段兼容**：李富贵推送缺换手率/融资余额时，服务端从 Tushare 自动补齐（10 分钟缓存）
-- ✅ **策略绑定情绪模式**：`strategy_sentiment_config` 表，策略编辑器新增"情绪"Tab（三模式卡片）
-- ✅ **仓位日志可视化**：`PositionHistoryChart.tsx`（SVG 折线，20/50/80% 参考线，区间配色）
-- ✅ **底部栏整合**：`MarketReferenceTabs` 组件（宏观/实时/产业链/海外四 Tab 聚合）
-- ✅ **登录验证**：`middleware.ts` + JWT cookie + 白名单 + Bearer Token 放行
-
-#### 登录问题修复
-- ✅ **HttpOnly cookie 问题**：移除 `checkAuth` 中的 cookie 读取，直接调用 `/api/auth/me`（HttpOnly cookie 无法被 JS 读取）
-- ✅ **cookie secure 修复**：`secure: process.env.COOKIE_SECURE === 'true'`（HTTP 下不设置 Secure 标志）
-- ✅ **服务绑定修复**：`HOSTNAME=0.0.0.0`，服务可从外部访问
-- ✅ **安全组开放**：阿里云安全组已开放 5000 端口
-
-#### 服务部署
-- ✅ **账号创建**：`1119220189@qq.com` / `123456`
-- ✅ **服务正常运行**：`http://47.122.115.203:5000`
-- ✅ **登录功能正常**：已验证
-
-### 待办事项
-- [ ] 验证 K 线图所有周期显示效果
-- [ ] 配置飞书 webhook 告警（health-check.sh）
-- [ ] DNS 恢复解析后，配置 Nginx 反向代理（`a-stock.xyz` → `localhost:5000`）
-- [ ] 配置 HTTPS（Let's Encrypt 证书）
-- [ ] 设置 `COOKIE_SECURE=true`（HTTPS 启用后）
-- [ ] deploy.sh 验证逻辑优化（接受 307 为成功，或改用 /api/ping）
-
-### 数据源状态
-| 数据源 | 状态 | 用途 |
-|--------|------|------|
-| Tushare | ✅ 正常 | K 线/估值/M2 换手率/M5 融资余额补齐 |
-| 李富贵推送 | ✅ 正常 | 市场情绪/资金流向/板块数据 |
-| mootdx | ❌ 已废弃 | 返回空数据，已确认废弃 |
-| 东方财富 | ❌ 已删除 | 所有相关代码已移除 |
-
-## 最新进展（2026-07-30）
-
-### 已完成功能
-
-#### 多因子系统阶段二（全部完成）
-- ✅ **M2/M5 缺失字段兼容**：李富贵推送缺换手率/融资余额时，服务端从 Tushare 自动补齐（10 分钟缓存）
-- ✅ **策略绑定情绪模式**：`strategy_sentiment_config` 表，策略编辑器新增"情绪"Tab（三模式卡片）
-- ✅ **仓位日志可视化**：`PositionHistoryChart.tsx`（SVG 折线，20/50/80% 参考线，区间配色）
-- ✅ **底部栏整合**：`MarketReferenceTabs` 组件（宏观/实时/产业链/海外四 Tab 聚合）
-- ✅ **登录验证**：`middleware.ts` + JWT cookie + 白名单 + Bearer Token 放行
-
-#### 登录问题修复
-- ✅ **HttpOnly cookie 问题**：移除 `checkAuth` 中的 cookie 读取，直接调用 `/api/auth/me`（HttpOnly cookie 无法被 JS 读取）
-- ✅ **cookie secure 修复**：`secure: process.env.COOKIE_SECURE === 'true'`（HTTP 下不设置 Secure 标志）
-- ✅ **服务绑定修复**：`HOSTNAME=0.0.0.0`，服务可从外部访问
-- ✅ **安全组开放**：阿里云安全组已开放 5000 端口
-
-#### 量化功能清理
-- ✅ **删除 QuantLivePanel**：量化实时账户监控组件（依赖 mootdx，已废弃）
-- ✅ **删除 QuantAutoTradePanel**：量化自动交易组件（未被引用）
-- ✅ **删除 /api/quant-live 路由**：API 代理已移除
-- ✅ **停止 8889 端口服务**：PM2 进程已停止，端口已释放
-- ✅ **清理代码**：共删除约 1700 行孤立代码
-
-#### 废弃数据源代码清理（2026-08）
-- ✅ **删除 mootdx 服务器配置**：mootdx.service / mootdx-health-check.sh / MOOTDX-README.md
-- ✅ **删除 RealtimeMarketPanel**：实时行情面板（数据源已废弃）
-- ✅ **删除数据源监控系统**：src/lib/monitor/ / src/app/monitor/ / src/app/api/monitor/ / src/app/api/health/
-- ✅ **删除 SystemStatusIndicator 组件**：数据源状态指示器
-- ✅ **清理引用**：从 RightPanel/Sidebar/page.tsx/api/stock 移除相关引用
-- ✅ **共删除约 3600 行代码**
-
-#### 废弃功能深度清理（2026-08）
-- ✅ **删除 DataSourceToggle 组件**：数据源切换已无意义（主备都是 Tushare）
-- ✅ **删除实时监控开关**：Sidebar 和 QuoteHeader 中的"实时监控"开关（名称易误解）
-- ✅ **删除 isMonitoring 状态**：useAppState 中的状态和 5 秒自动刷新逻辑
-- ✅ **保留功能**：SyncStatusIndicator（云端同步）、AutoRefreshIndicator（交易时段刷新）、useAutoRefresh hook
-- ✅ **共删除约 225 行代码**
-
-#### 东方财富全部删除（2026-08）
-- ✅ **删除情绪分析服务**：`src/services/sentiment/` (8 个文件)
-- ✅ **删除情绪分析组件**：`src/components/sentiment/` (3 个文件)
-- ✅ **删除财务数据/资金流向**：financial-data.ts、money-flow.ts、对应 API 路由
-- ✅ **删除数据校验模块**：data-validator.ts、data-validator-xref.ts
-- ✅ **删除孤立组件**：FundamentalCard.tsx、MoneyFlowCard.tsx、SentimentTooltip.tsx
-- ✅ **修改 API 路由**：删除 5 个 sentiment action
-- ✅ **修改数据源**：删除东方财富相关函数，更新注释
-- ✅ **共删除约 3000+ 行代码**
-
-#### 交叉验证函数清理（2026-08）
-- ✅ **删除 crossValidateQuote 调用**：quote API 不再依赖东方财富交叉验证
-- ✅ **删除 crossValidateKline 调用**：kline API 不再依赖东方财富交叉验证
-- ✅ **清理未使用导入**：getKLineData、calculateStockSentiment、StockQuote
-- ✅ **修复 API 返回格式**：简化 quote 和 kline 响应结构
-
-#### 代码清理汇总（2026-08）
-- ✅ **累计删除**：约 12,000+ 行代码
-- ✅ **当前规模**：203 个文件，39,478 行代码
-- ✅ **数据源**：Tushare（主力）+ 李富贵推送（情绪/资金/板块）
-- ✅ **核心功能**：K 线图/分析引擎/多因子/回测/策略库
-
-#### 服务部署
-- ✅ **账号创建**：`1119220189@qq.com` / `123456`
-- ✅ **服务正常运行**：`http://47.122.115.203:5000`
-- ✅ **登录功能正常**：已验证
-- ⚠️ **deploy.sh 验证逻辑**：返回 307（重定向到登录页）被误判为失败，实际服务正常
-
-### 待办事项
-- [ ] 验证 K 线图所有周期显示效果
-- [ ] 考虑将财务数据切换到 Tushare（减少东方财富依赖）
-- [ ] 配置飞书 webhook 告警（health-check.sh）
-- [ ] DNS 恢复解析后，配置 Nginx 反向代理（`a-stock.xyz` → `localhost:5000`）
-- [ ] 配置 HTTPS（Let's Encrypt 证书）
-- [ ] 设置 `COOKIE_SECURE=true`（HTTPS 启用后）
-- [ ] deploy.sh 验证逻辑优化（接受 307 为成功，或改用 /api/ping）
-
-### 数据源状态
-| 数据源 | 状态 | 用途 |
-|--------|------|------|
-| Tushare | ✅ 正常 | K 线/估值/M2 换手率/M5 融资余额补齐 |
-| 李富贵推送 | ✅ 正常 | 市场情绪/资金流向/板块数据 |
-| mootdx | ❌ 已废弃 | 返回空数据，已确认废弃 |
-| 东方财富 | ❌ 已删除 | 所有相关代码已移除 |
-
-## 工作流程（2026-07 更新）
-
-### 代码推送与部署职责
-
-**AI 负责**：
-- ✅ 推送代码到 GitHub（`git push origin main`）
-- ✅ 告知用户需要执行的部署命令
-
-**用户负责**：
-- ⚠️ 在服务器上执行 `./deploy.sh`
-
-### 部署流程
-```
-AI 推送代码到 GitHub → 飞书通知 → 用户执行 ./deploy.sh
-```
-
-### 服务器部署命令
-```bash
-cd /var/www/a-stock-analysis
-./deploy.sh
-```
-
----
-
-## 最新进展（2026-08-03）
-
-### 已完成功能
-
-#### ML模型全面升级（P0-P2）
-- **多指数合并训练**：7指数数据合并，one-hot指数编码区分，共享市场共性规律
-- **40维特征工程**：24基础 + 6交互特征 + 3时间特征 + 7指数one-hot编码
-- **分位数标签**：top 35%/bottom 35%标记涨跌，中间30%丢弃，大幅减少噪音
-- **时间序列交叉验证**：按时间顺序切分，替代随机80/10/10，避免未来信息泄露
-- **5模型集成**：不同种子初始化，预测时平均5个模型输出，提高稳定性
-- **余弦退火学习率**：从0.001衰减至0.0001，帮助跳出局部最优
-- **7指数支持**：上证、深证成指、创业板指、上证50、沪深300、中证500、科创50
-- **文件**：`src/lib/ml/` 全部重写，`src/components/ml/` 全部更新
-
-#### Bug修复
-- **指标取值数据穿越**：`extractFeatures` 使用 `indicators[last]` 修复为 `indicators[i]`，避免未来数据污染训练
-- **`tf.util.setRandomSeed` 不存在**：tfjs 4.x 已移除该函数，改用 `kernelInitializer` 不同种子实现差异化
-- **部署脚本健康检查**：`deploy.sh` 检测 `http://localhost:5000/` 返回 307（中间件重定向），改为 `http://localhost:5000/api/ping`
-
-#### 缠论买卖点方案C
-- **结构性买卖点生成**：不依赖背驰，基于笔结构生成买卖点
-  - 一买 = 下降笔底分型，一卖 = 上升笔顶分型
-  - 二买 = 一买后回调不创新低，二卖 = 一卖后反弹不创新高
-  - 三买 = 中枢突破后回调不进中枢，三卖 = 中枢跌破后反弹不进中枢
-- **置信度加权**：base 0.5 + 背驰 0.3 + 分型评分 0.1 + 成交量 0.1
-- **K线图标注**：高置信度(≥0.8)显示★标 + 加粗 + 大标记
-- **分析卡片**：显示置信度等级（高/中/低）和评分百分比
-- **文件**：`src/lib/analysis.ts`、`src/lib/types.ts`、`src/components/chart/KLineChart.tsx`、`src/components/analysis/ChanlunCard.tsx`
-
-#### AI解读合并（方案B）
-- **删除底部AI大白话解读手风琴**：和AI综合点评功能重叠
-- **AI综合点评添加API降级**：DeepSeek API失败时自动切换为本地规则生成
-- **本地规则生成**：综合分析判断、操作建议、关注要点
-- **降级提示**：显示"⚠️ AI服务不可用，已切换为本地规则分析"
-- **文件**：`src/components/ai/AIAnalysis.tsx`、`src/components/layout/RightPanel.tsx`
-
-#### 概率统计阶段一
-- **模式分类**：开盘模式（高开/低开/平开）、盘中形态（N型/W型/V型/倒V型/平台）、K线形态（阳线/阴线/十字星/锤子线/倒锤子/长上影/长下影/光头阳线/光脚阴线/反包）
-- **事件检测**：18种单因子事件 + 7种组合事件（MACD金叉/死叉、KDJ超买/超卖、RSI背离、BOLL突破等）
-- **条件概率统计引擎**：P(模式|因子)条件概率计算、因子有效性评估（胜率/平均收益/盈亏比）、最优组合搜索
-- **概率统计面板**：分布图 / 因子排行 / 组合TOP10 / 条件概率测算器
-- **文件**：`src/components/probability/ProbabilityPanel.tsx`、`src/lib/probability/`
-
-#### ML指数模型训练模块（P0-P2全面升级，2026-08-03）
-- **多指数合并训练**：从3个独立模型升级为1个综合模型，7指数合并训练
-- **7指数支持**：上证指数(000001.SH, group=0)、深证成指(399001.SZ, group=1)、创业板指(399006.SZ, group=2)、上证50(000016.SH, group=3)、沪深300(000300.SH, group=4)、中证500(000905.SH, group=5)、科创50(000688.SH, group=6)
-- **特征工程**（40维）：
-  - 24基础特征：价格形态、成交量、均线偏离、技术指标(MACD/RSI/KDJ/BOLL/WR)、时间特征
-  - 6交互特征：RSI×BOLL位置、MACD×成交量、涨跌幅×连涨天数、实体比例×量比、振幅×ATR、RSI×WR
-  - 3时间特征：月份sin/cos编码、季度末标志
-  - 7指数one-hot编码：让模型区分不同指数，共享共性规律
-- **分位数标签**：top 35% = 涨(1)，bottom 35% = 跌(0)，中间30%丢弃（减少噪音）
-- **神经网络架构**：40→64(ReLU+L2+Dropout 0.3)→BatchNorm→32(ReLU+L2+Dropout 0.2)→BatchNorm→16(ReLU)→1(Sigmoid)
-- **5模型集成**：不同种子(42/99/7/13/88)初始化，预测时平均5个模型输出
-- **余弦退火学习率**：从0.001衰减至0.0001，50轮训练，早停patience=10
-- **时间序列交叉验证**：按时间顺序切分（非随机），避免未来信息泄露
-- **评估指标**：集成准确率、各指数独立准确率、混淆矩阵、特征重要性排名
-- **可视化**：MLPanel(主面板)、MLTrainingProgress(进度+曲线图)、MLFeatureImportance(特征排行)、MLConfusionMatrix(混淆矩阵)、MLPredictionHistory(预测历史)、MLCurrentPrediction(当前预测卡片，含5模型独立输出)
-- **文件**：`src/lib/ml/`(8个核心文件)、`src/components/ml/`(6个组件)、`src/app/api/ml/index-data/route.ts`
-
-#### 部署脚本修复
-- **健康检查优化**：新增 `journalctl` 日志确认 + 接受 307 为服务运行中 + 重试次数从 10 增加到 15
-- **文件**：`server-config/deploy.sh`
-
-### 目录结构新增
-```
-src/
-├── lib/ml/
-│   ├── types.ts                 # ML类型定义（FEATURE_DIM=40, INDEX_DEFS 7指数, 集成模型类型）
-│   ├── data-preparation.ts      # 特征提取/分位数标签/时序切分/多指数并行获取
-│   ├── model.ts                 # 模型构建（40维输入, 余弦退火LR, 不同种子初始化）
-│   ├── trainer.ts               # 训练器（5模型集成训练, 余弦退火调度, 测试评估）
-│   ├── predictor.ts             # 预测器（集成预测, 加载5模型, 各指数独立输出）
-│   ├── feature-importance.ts    # 特征重要性排列分析
-│   ├── evaluation.ts            # 评估指标计算
-│   └── index.ts                 # 统一导出
-├── components/ml/
-│   ├── MLPanel.tsx              # 主面板（单"开始训练"按钮, 全流程编排, 7指数预测）
-│   ├── MLTrainingProgress.tsx   # 训练进度+曲线图（支持模型索引/轮次/损失曲线）
-│   ├── MLFeatureImportance.tsx   # 特征重要性排行
-│   ├── MLConfusionMatrix.tsx     # 混淆矩阵
-│   ├── MLPredictionHistory.tsx   # 预测历史对比
-│   └── MLCurrentPrediction.tsx   # 当前预测结果卡片（含5模型独立输出概率条）
-├── app/api/ml/
-│   └── index-data/route.ts      # 指数数据API
-├── lib/probability/
-│   ├── pattern-classifier.ts    # 模式分类器
-│   ├── event-detector.ts        # 事件检测器
-│   └── conditional-probability.ts # 条件概率引擎
-```
-
-### API接口（新增）
-- `GET /api/ml/index-data?code={code}&limit={n}` - 指数历史K线数据（Tushare index_daily）
-
-### 待办事项
-- [ ] 验证 ML P0-P2 升级后训练效果，确认各指数准确率
-- [ ] 概率统计阶段二（K线手动标注事件→事件后概率统计）
-- [ ] ML P3 宏观代理特征（国债收益率、CPI等宏观数据作为代理特征）
-
-### 数据源状态
-| 数据源 | 状态 | 用途 |
-|--------|------|------|
-| Tushare | ✅ 正常 | K 线/估值/M2 换手率/M5 融资余额补齐/指数数据 |
-| 李富贵推送 | ✅ 正常 | 市场情绪/资金流向/板块数据 |
-| mootdx | ❌ 已废弃 | 返回空数据，已确认废弃 |
-| 东方财富 | ❌ 已删除 | 所有相关代码已移除 |
