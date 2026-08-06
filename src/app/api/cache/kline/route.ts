@@ -111,12 +111,18 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// 删除 K 线缓存
+// 删除 K 线缓存（支持 code=all 清空全部）
 export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const code = searchParams.get('code');
     const period = searchParams.get('period');
+
+    if (code === 'all') {
+      // 清空所有缓存
+      await query`DELETE FROM kline_cache`;
+      return NextResponse.json({ success: true, message: '所有缓存已清空' });
+    }
 
     if (!code || !period) {
       return NextResponse.json(
